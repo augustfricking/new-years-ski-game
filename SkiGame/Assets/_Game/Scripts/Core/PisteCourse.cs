@@ -281,6 +281,17 @@ namespace Ski.Core
             return h;
         }
 
+        bool _snowOnly;
+
+        /// <summary>Height of the snow itself, without features that have their own model (jib boxes).</summary>
+        public float SnowHeight(float x, float z)
+        {
+            _snowOnly = true;
+            float h = Height(x, z);
+            _snowOnly = false;
+            return h;
+        }
+
         void BuildFeatureBuckets()
         {
             int n = Mathf.CeilToInt((MaxZ - MinZ) / FeatureBucket) + 1;
@@ -310,6 +321,7 @@ namespace Ski.Core
             {
                 var f = list[i];
                 if (z < f.Z0 || z > f.Z1 || Mathf.Abs(x - f.X) > f.HalfW) continue;
+                if (_snowOnly && f is BoxFeature) continue;
                 a += f.Add(x, z);
             }
             return a;
