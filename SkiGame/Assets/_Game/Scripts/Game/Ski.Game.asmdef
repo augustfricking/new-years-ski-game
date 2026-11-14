@@ -1,0 +1,6 @@
+{
+    "name": "Ski.Game",
+    "rootNamespace": "Ski.Game",
+    "references": ["Ski.Core", "Unity.InputSystem", "Unity.RenderPipelines.Universal.Runtime", "Unity.RenderPipelines.Core.Runtime"],
+    "autoReferenced": true
+}

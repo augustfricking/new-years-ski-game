@@ -1,0 +1,6 @@
+{
+    "name": "Ski.Core",
+    "rootNamespace": "Ski.Core",
+    "references": [],
+    "autoReferenced": true
+}
