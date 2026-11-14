@@ -141,8 +141,11 @@ Shader "Ski/Toon"
                 for (uint i = 0u; i < count; ++i)
                 {
                     Light l = GetAdditionalLight(i, IN.positionWS);
-                    half a = smoothstep(0.02, 0.1, dot(n, l.direction) * l.distanceAttenuation);
-                    col += albedo * l.color * a * 0.8;
+                    // Lamps: two soft bands, with the light colour compressed so bright lamps tint instead of bleaching.
+                    half reach = saturate(dot(n, l.direction) * 0.6 + 0.4) * l.distanceAttenuation;
+                    half a = smoothstep(0.015, 0.06, reach) * 0.4 + smoothstep(0.18, 0.3, reach) * 0.6;
+                    half3 lc = l.color / (1.0 + dot(l.color, half3(0.3, 0.5, 0.2))) * 1.5;
+                    col += albedo * lc * a;
                 }
                 #endif
 

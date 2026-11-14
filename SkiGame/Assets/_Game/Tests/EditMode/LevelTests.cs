@@ -182,6 +182,32 @@ namespace Ski.Tests
         }
 
         [Test]
+        public void ChugGameRewardsTimingAndPunishesSpills()
+        {
+            var g = new ChugGame(3);
+            g.Start();
+            // Press only inside the zone: finishes without spills.
+            for (int i = 0; i < 120 * 60 && !g.Finished; i++)
+            {
+                g.Step(SkiSim.FixedDt);
+                if (g.Marker > g.ZoneMin + 0.02f && g.Marker < g.ZoneMax - 0.02f) Assert.IsTrue(g.Press());
+            }
+            Assert.IsTrue(g.Finished);
+            Assert.AreEqual(0, g.Spills);
+            Assert.AreEqual(ChugGame.GulpsToFinish, g.Gulps);
+            Assert.That(g.Time, Is.InRange(3f, 25f));
+
+            var bad = new ChugGame(3);
+            bad.Start();
+            bad.Step(0.01f);
+            float before = bad.Time;
+            // The marker starts at the left edge, outside any zone.
+            Assert.IsFalse(bad.Press());
+            Assert.AreEqual(1, bad.Spills);
+            Assert.That(bad.Time - before, Is.EqualTo(ChugGame.SpillPenalty).Within(1e-4f));
+        }
+
+        [Test]
         public void LeaderboardRanksAndRemembersBest()
         {
             var store = new MemoryStore();

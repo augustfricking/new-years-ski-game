@@ -79,6 +79,28 @@ namespace Ski.EditorTools
                 QualitySettings.antiAliasing = 4;
             }
 
+            // --- UI Toolkit: a theme and panel settings the game loads from Resources.
+            Directory.CreateDirectory("Assets/_Game/Resources/UI");
+            const string themePath = "Assets/_Game/Resources/UI/GameTheme.tss", panelPath = "Assets/_Game/Resources/UI/Panel.asset";
+            if (!File.Exists(themePath))
+            {
+                File.WriteAllText(themePath, "@import url(\"unity-theme://default\");\n");
+                AssetDatabase.ImportAsset(themePath);
+            }
+            var panel = AssetDatabase.LoadAssetAtPath<UnityEngine.UIElements.PanelSettings>(panelPath);
+            if (panel == null)
+            {
+                panel = ScriptableObject.CreateInstance<UnityEngine.UIElements.PanelSettings>();
+                AssetDatabase.CreateAsset(panel, panelPath);
+                log.AppendLine("created " + panelPath);
+            }
+            panel.themeStyleSheet = AssetDatabase.LoadAssetAtPath<UnityEngine.UIElements.ThemeStyleSheet>(themePath);
+            panel.scaleMode = UnityEngine.UIElements.PanelScaleMode.ScaleWithScreenSize;
+            panel.referenceResolution = new Vector2Int(1920, 1080);
+            panel.screenMatchMode = UnityEngine.UIElements.PanelScreenMatchMode.MatchWidthOrHeight;
+            panel.match = 0.5f;
+            EditorUtility.SetDirty(panel);
+
             // --- Player.
             PlayerSettings.companyName = "Last Run";
             PlayerSettings.productName = "Last Run";
@@ -103,6 +125,8 @@ namespace Ski.EditorTools
         /// <summary>Opens the Main scene in the Editor (batch mode starts with an empty one).</summary>
         public static string OpenMain()
         {
+            PlayModeWindow.SetViewType(PlayModeWindow.PlayModeViewTypes.GameView);
+            PlayModeWindow.SetCustomRenderingResolution(1280, 720, "HD 720");
             if (SceneManager.GetActiveScene().path != ScenePath) EditorSceneManager.OpenScene(ScenePath);
             return SceneManager.GetActiveScene().path;
         }

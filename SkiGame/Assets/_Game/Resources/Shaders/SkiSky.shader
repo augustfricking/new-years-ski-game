@@ -75,14 +75,16 @@ Shader "Ski/Sky"
 
                 // Stars high up.
                 float2 sp = d.xz / (abs(d.y) + 0.35) * 42.0;
-                float star = step(0.992, Hash(floor(sp))) * smoothstep(0.25, 0.6, t);
+                float2 cell = floor(sp), inCell = frac(sp) - 0.5;
+                float starSize = 0.05 + 0.07 * Hash(cell + 3.7);
+                float star = step(0.985, Hash(cell)) * step(length(inCell), starSize) * smoothstep(0.2, 0.55, t);
                 col += star * _Stars;
 
                 // Sun: hard disc with two halo bands.
                 float3 sun = normalize(_SunDir.xyz);
                 float sd = dot(d, sun);
-                col += _SunColor.rgb * (step(0.9965, sd) * 0.16 + step(0.989, sd) * 0.07);
-                col = lerp(col, _SunColor.rgb, step(0.9990, sd));
+                col += _SunColor.rgb * (step(0.9984, sd) * 0.16 + step(0.9955, sd) * 0.07);
+                col = lerp(col, _SunColor.rgb, step(0.9995, sd));
 
                 // Mountain ridges with snow caps.
                 float az = atan2(d.x, d.z);

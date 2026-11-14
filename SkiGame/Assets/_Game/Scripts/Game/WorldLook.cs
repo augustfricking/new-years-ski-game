@@ -18,6 +18,8 @@ namespace Ski.Game
         public float Storm;
         /// <summary>0 = late afternoon, 1 = night (the tavern, fireworks).</summary>
         public float Night;
+        /// <summary>Inside the tavern: no sun, warm dim ambient, no snowfall.</summary>
+        public bool Indoors;
         /// <summary>The camera the snow should fall around.</summary>
         public Transform Follow;
         public float FogStart = 140f, FogEnd = 1100f;
@@ -125,9 +127,9 @@ namespace Ski.Game
             float s = Mathf.Clamp01(Storm), n = Mathf.Clamp01(Night);
             Color fog = Color.Lerp(Color.Lerp(Palette.Fog, Palette.SkyTop, n * 0.8f), Palette.Storm, s);
             RenderSettings.fogColor = fog;
-            RenderSettings.fogStartDistance = Mathf.Lerp(FogStart, 1.5f, s);
-            RenderSettings.fogEndDistance = Mathf.Lerp(FogEnd, 26f, s * s);
-            Sun.intensity = Mathf.Lerp(1.2f, 0.25f, n) * Mathf.Lerp(1f, 0.45f, s);
+            RenderSettings.fogStartDistance = FogStart * Mathf.Pow(1.5f / FogStart, s);
+            RenderSettings.fogEndDistance = FogEnd * Mathf.Pow(22f / FogEnd, s); // exponential: thickens steadily
+            Sun.intensity = Mathf.Lerp(1.02f, 0.25f, n) * Mathf.Lerp(1f, 0.45f, s);
             Sun.color = Color.Lerp(Color.Lerp(Palette.Sun, Palette.AmbientSky, n * 0.7f), Palette.Storm, s * 0.8f);
             RenderSettings.ambientSkyColor = Color.Lerp(Color.Lerp(Palette.AmbientSky, Palette.Mul(Palette.SkyTop, 1.2f), n), Palette.Storm, s * 0.7f);
             RenderSettings.ambientEquatorColor = Color.Lerp(Color.Lerp(Palette.AmbientEquator, Palette.SkyTop, n * 0.7f), Palette.Storm, s * 0.6f);
@@ -143,6 +145,17 @@ namespace Ski.Game
             vel.x = new ParticleSystem.MinMaxCurve(Mathf.Lerp(-1.2f, -11f, s), Mathf.Lerp(0.4f, -5f, s));
             _vignette.intensity.Override(Mathf.Lerp(0.22f, 0.36f, s));
             _colour.saturation.Override(Mathf.Lerp(10f, -25f, s));
+            if (Indoors)
+            {
+                Sun.intensity = 0f;
+                RenderSettings.ambientSkyColor = Palette.Mul(Palette.TimberLight, 0.62f);
+                RenderSettings.ambientEquatorColor = Palette.Mul(Palette.Timber, 0.6f);
+                RenderSettings.ambientGroundColor = Palette.Mul(Palette.TimberDark, 0.6f);
+                RenderSettings.fogColor = Palette.TimberDark;
+                RenderSettings.fogStartDistance = 30f;
+                RenderSettings.fogEndDistance = 120f;
+                emission.rateOverTime = 0f;
+            }
         }
 
         void OnDestroy() { if (Instance == this) Instance = null; }

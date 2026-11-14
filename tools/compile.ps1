@@ -17,4 +17,5 @@ if ($cs -match "compilationFailed.{0,4}true") {
     $entries | Where-Object { $_.message -match "error CS" } | ForEach-Object { $_.message } | Sort-Object -Unique
     exit 1
 }
+& $u status --until-ready --timeout 180 | Out-Null
 "COMPILE OK"

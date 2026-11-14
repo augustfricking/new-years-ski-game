@@ -2,6 +2,8 @@
 # Usage: tools\play.ps1 -Slope Green -Who Erik -Seconds 6 -Shot green1 [-Eval "<C# to run before the shot>"] [-Keep]
 param([string]$Slope = "Green", [string]$Who = "Erik", [double]$Seconds = 5, [string]$Shot = "shot", [string]$Eval = "", [switch]$Keep, [switch]$NoBot)
 $u = "$PSScriptRoot\u.ps1"
+& $u status --until-ready --timeout 180 | Out-Null
+Start-Sleep -Milliseconds 500
 $st = (& $u command editor status) -join " "
 if ($st -notmatch "playMode:\s*playing|isPlaying:\s*true") {
     & $u command script eval 'return Ski.EditorTools.ProjectSetup.OpenMain();' | Out-Null
@@ -11,7 +13,9 @@ if ($st -notmatch "playMode:\s*playing|isPlaying:\s*true") {
     & $u status --until-ready --timeout 120 | Out-Null
 }
 $bot = if ($NoBot) { "" } else { "app.Run.Autopilot = new Ski.Core.Bot(app.Run.Session);" }
-& $u command script eval "var app = Ski.Game.GameApp.Instance; app.StartRun(Ski.Core.SlopeId.$Slope, Ski.Core.CharacterId.$Who); $bot return app.Run.Session.Course.Name;"
+if ($Slope -ne "None") {
+    & $u command script eval "var app = Ski.Game.GameApp.Instance; app.StartRun(Ski.Core.SlopeId.$Slope, Ski.Core.CharacterId.$Who); $bot return app.Run.Session.Course.Name;"
+}
 Start-Sleep -Milliseconds ([int]($Seconds * 1000))
 if ($Eval) { & $u command script eval $Eval }
 & $u command capture game_view -- --source camera --output-path "Screenshots/$Shot.png" | Select-String savedPath

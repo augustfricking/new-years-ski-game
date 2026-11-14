@@ -67,6 +67,9 @@ namespace Ski.Game
         public float MouthOpen;        // 0..1 base openness (shouting kids)
         public Vector2 LookOffset;     // extra head yaw / pitch in degrees
         public bool Alive = true;      // breathing, blinking, small head movement
+        /// <summary>Poles point at the ground whatever the arms do (sitting on the lift, standing about).</summary>
+        public bool PolesHang;
+        readonly System.Collections.Generic.List<Transform> _poles = new System.Collections.Generic.List<Transform>();
         public Transform HandL => _handL;
         public Transform HandR => _handR;
         public Transform Head => _head;
@@ -116,7 +119,7 @@ namespace Ski.Game
             float s = _s = look.Height / 1.75f;
             _ankle = 0.1f * s; _shin = 0.41f * s; _thigh = 0.42f * s; _torsoLen = 0.5f * s;
             _upperArm = 0.28f * s; _forearm = 0.26f * s;
-            _hr = look.Kid ? Mathf.Lerp(0.118f * s, 0.125f, 0.75f) : 0.118f * s;
+            _hr = look.Kid ? Mathf.Lerp(0.118f * s, 0.125f, 0.75f) : 0.118f * s * (look.Hero ? 1.2f : 1f);
             _seed = (++_count & 1023) * 0.37f;
             var b = new MeshBuilder();
             int sides = look.Hero ? 12 : 7;
@@ -153,7 +156,7 @@ namespace Ski.Game
             b.Col = look.Skin;
             b.Sphere(new Vector3(0, hr * 0.92f, 0), new Vector3(hr * 0.9f, hr, hr * 0.94f), look.Hero ? 14 : 8, look.Hero ? 10 : 6);
             b.Cylinder(new Vector3(0, -0.04f * s, 0), 0.05f * s, 0.05f * s, 0.07f * s, 6, true, false); // neck
-            b.TaperedBox(new Vector3(0, hr * 0.74f, hr * 0.88f), new Vector3(hr * 0.17f, 0, hr * 0.2f), new Vector2(0.5f, 0.4f), hr * 0.28f); // nose
+            b.TaperedBox(new Vector3(0, hr * 0.56f, hr * 0.88f), new Vector3(hr * 0.17f, 0, hr * 0.2f), new Vector2(0.5f, 0.4f), hr * 0.26f); // nose
             if (!look.Hero) Face(b, hr, Vector3.zero, true, true, true);
             if (look.HasHelmet)
             {
@@ -161,7 +164,7 @@ namespace Ski.Game
                 var prof = new Vector2[7];
                 for (int i = 0; i < 7; i++)
                 {
-                    float a = Mathf.Lerp(-0.12f, Mathf.PI * 0.5f, i / 6f);
+                    float a = Mathf.Lerp(0.14f, Mathf.PI * 0.5f, i / 6f);
                     prof[i] = new Vector2(Mathf.Cos(a) * hr * 1.12f, hr * 1.02f + Mathf.Sin(a) * hr * 1.08f);
                 }
                 b.Lathe(Vector3.zero, prof, look.Hero ? 14 : 8, false, true);
@@ -196,16 +199,16 @@ namespace Ski.Game
 
             if (look.Hero)
             {
-                _eyeL = Node("EyeL", _head, new Vector3(-hr * 0.36f, hr * 0.98f, hr * 0.8f));
+                _eyeL = Node("EyeL", _head, new Vector3(-hr * 0.36f, hr * 0.84f, hr * 0.8f));
                 Eye(b, hr); Skin(b, _eyeL, "Eye");
-                _eyeR = Node("EyeR", _head, new Vector3(hr * 0.36f, hr * 0.98f, hr * 0.8f));
+                _eyeR = Node("EyeR", _head, new Vector3(hr * 0.36f, hr * 0.84f, hr * 0.8f));
                 Eye(b, hr); Skin(b, _eyeR, "Eye");
-                _browL = Node("BrowL", _head, new Vector3(-hr * 0.38f, hr * 1.27f, hr * 0.86f));
-                b.Col = look.Hair; b.Box(Vector3.zero, new Vector3(hr * 0.36f, hr * 0.07f, hr * 0.06f)); Skin(b, _browL, "Brow");
-                _browR = Node("BrowR", _head, new Vector3(hr * 0.38f, hr * 1.27f, hr * 0.86f));
-                b.Col = look.Hair; b.Box(Vector3.zero, new Vector3(hr * 0.36f, hr * 0.07f, hr * 0.06f)); Skin(b, _browR, "Brow");
-                _mouth = Node("Mouth", _head, new Vector3(0, hr * 0.46f, hr * 0.86f));
-                b.Col = Palette.Ink; b.Sphere(Vector3.zero, new Vector3(hr * 0.2f, hr * 0.12f, hr * 0.08f), 8, 5); Skin(b, _mouth, "Mouth");
+                _browL = Node("BrowL", _head, new Vector3(-hr * 0.38f, hr * 1.16f, hr * 0.88f));
+                b.Col = Palette.Ink; b.Box(Vector3.zero, new Vector3(hr * 0.4f, hr * 0.09f, hr * 0.06f)); Skin(b, _browL, "Brow");
+                _browR = Node("BrowR", _head, new Vector3(hr * 0.38f, hr * 1.16f, hr * 0.88f));
+                b.Col = Palette.Ink; b.Box(Vector3.zero, new Vector3(hr * 0.4f, hr * 0.09f, hr * 0.06f)); Skin(b, _browR, "Brow");
+                _mouth = Node("Mouth", _head, new Vector3(0, hr * 0.34f, hr * 0.84f));
+                b.Col = Palette.Ink; b.Sphere(Vector3.zero, new Vector3(hr * 0.26f, hr * 0.13f, hr * 0.08f), 8, 5); Skin(b, _mouth, "Mouth");
             }
 
             // Goggles: a lens and a strap that can sit over the eyes or up on the helmet.
@@ -247,6 +250,7 @@ namespace Ski.Game
                     GearModels.Pole(b, 1.12f * s, look.GearAccent);
                     b.Pop();
                     Skin(b, pole, "Pole");
+                    _poles.Add(pole);
                 }
             }
 
@@ -288,9 +292,11 @@ namespace Ski.Game
         void Eye(MeshBuilder b, float hr)
         {
             b.Col = Palette.White;
-            b.Sphere(Vector3.zero, new Vector3(hr * 0.21f, hr * 0.25f, hr * 0.1f), 8, 5);
+            b.Sphere(Vector3.zero, new Vector3(hr * 0.25f, hr * 0.29f, hr * 0.1f), 8, 5);
             b.Col = Palette.Ink;
-            b.Sphere(new Vector3(0, 0, hr * 0.07f), new Vector3(hr * 0.1f, hr * 0.13f, hr * 0.06f), 6, 4);
+            b.Sphere(new Vector3(0, -hr * 0.02f, hr * 0.07f), new Vector3(hr * 0.13f, hr * 0.17f, hr * 0.06f), 6, 4);
+            b.Col = Palette.White;
+            b.Sphere(new Vector3(hr * 0.05f, hr * 0.06f, hr * 0.11f), hr * 0.04f, 4, 3);
         }
 
         /// <summary>A simple face baked straight into the head mesh, for people seen from a distance.</summary>
@@ -299,16 +305,16 @@ namespace Ski.Game
             b.Col = Palette.Ink;
             if (eyes)
             {
-                b.Sphere(o + new Vector3(-hr * 0.36f, hr * 0.98f, hr * 0.84f), new Vector3(hr * 0.1f, hr * 0.14f, hr * 0.07f), 5, 3);
-                b.Sphere(o + new Vector3(hr * 0.36f, hr * 0.98f, hr * 0.84f), new Vector3(hr * 0.1f, hr * 0.14f, hr * 0.07f), 5, 3);
+                b.Sphere(o + new Vector3(-hr * 0.36f, hr * 0.84f, hr * 0.84f), new Vector3(hr * 0.1f, hr * 0.14f, hr * 0.07f), 5, 3);
+                b.Sphere(o + new Vector3(hr * 0.36f, hr * 0.84f, hr * 0.84f), new Vector3(hr * 0.1f, hr * 0.14f, hr * 0.07f), 5, 3);
             }
-            if (mouth) b.Sphere(o + new Vector3(0, hr * 0.46f, hr * 0.86f), new Vector3(hr * 0.18f, hr * 0.1f, hr * 0.07f), 5, 3);
+            if (mouth) b.Sphere(o + new Vector3(0, hr * 0.34f, hr * 0.84f), new Vector3(hr * 0.18f, hr * 0.1f, hr * 0.07f), 5, 3);
         }
 
         void PlaceGoggles()
         {
             float hr = _hr, k = _goggleUp;
-            _goggles.localPosition = Vector3.Lerp(new Vector3(0, hr * 0.98f, hr * 0.9f), new Vector3(0, hr * 1.62f, hr * 0.72f), k);
+            _goggles.localPosition = Vector3.Lerp(new Vector3(0, hr * 0.86f, hr * 0.9f), new Vector3(0, hr * 1.66f, hr * 0.7f), k);
             _goggles.localRotation = Quaternion.Euler(Mathf.Lerp(0f, -32f, k), 0f, 0f);
         }
 
@@ -344,8 +350,8 @@ namespace Ski.Game
             _eyeL.localScale = _eyeR.localScale = new Vector3(1f, open, 1f);
             // Brows: raised and arched when surprised, pulled together when angry.
             float hr = _hr;
-            _browL.localPosition = new Vector3(-hr * 0.38f, hr * (1.27f + BrowRaise * 0.1f), hr * 0.86f);
-            _browR.localPosition = new Vector3(hr * 0.38f, hr * (1.27f + BrowRaise * 0.1f), hr * 0.86f);
+            _browL.localPosition = new Vector3(-hr * 0.38f, hr * (1.16f + BrowRaise * 0.1f), hr * 0.88f);
+            _browR.localPosition = new Vector3(hr * 0.38f, hr * (1.16f + BrowRaise * 0.1f), hr * 0.88f);
             _browL.localRotation = Quaternion.Euler(0, 0, -BrowRaise * 14f + (BrowRaise < 0f ? BrowRaise * 10f : 0f));
             _browR.localRotation = Quaternion.Euler(0, 0, BrowRaise * 14f - (BrowRaise < 0f ? BrowRaise * 10f : 0f));
             // Mouth: flaps while talking.
@@ -381,6 +387,9 @@ namespace Ski.Game
             float hang = p.Seated * 12f;
             _footL.localRotation = Quaternion.Euler(p.ThighL - p.KneeL + hang, 0, 0) * Quaternion.AngleAxis(p.LegOut * (1f - p.Seated), Vector3.forward);
             _footR.localRotation = Quaternion.Euler(p.ThighR - p.KneeR + hang, 0, 0) * Quaternion.AngleAxis(-p.LegOut * (1f - p.Seated), Vector3.forward);
+            if (PolesHang)
+                for (int i = 0; i < _poles.Count; i++)
+                    _poles[i].rotation = transform.rotation * Quaternion.Euler(-14f, 0f, i == 0 ? 5f : -5f);
         }
     }
 }

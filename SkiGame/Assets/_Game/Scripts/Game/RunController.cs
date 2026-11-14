@@ -14,15 +14,22 @@ namespace Ski.Game
         public RunSession Session { get; private set; }
         public PlayerRig Rig { get; private set; }
         public KidView Kids { get; private set; }
+        public Hud Hud { get; private set; }
         /// <summary>When set, the bot plays instead of the keyboard (used for tests and attract mode).</summary>
         public Bot Autopilot;
         public bool Paused;
         public bool InputEnabled = true;
-        public float MouseSensitivity = 0.12f;
+        /// <summary>Set once the finish line is crossed and the result is on the board.</summary>
+        public SubmitResult? Result { get; private set; }
+        public Action OnLiftReached, OnTavernReached;
+
+        ResultsPanel _results;
+        bool _left;
         public event Action<RunEvent> OnEvent;
 
         float _acc;
         bool _jump, _pole;
+        readonly System.Collections.Generic.HashSet<int> _screamed = new System.Collections.Generic.HashSet<int>();
 
         public static RunController Create(Transform parent, SlopeId slope, CharacterId who)
         {
@@ -43,6 +50,79 @@ namespace Ski.Game
             Rig = PlayerRig.Create(who, transform);
             Rig.Sync(Session.Sim, 0.016f);
             if (WorldLook.Instance != null) WorldLook.Instance.Follow = Rig.Cam.transform;
+            if (Ui.Instance != null)
+            {
+                Hud = new Hud(this);
+                Ui.Instance.ShowGoggles(true);
+            }
+        }
+
+        void Finish()
+        {
+            if (Result.HasValue) return;
+            var r = SaveData.Boards.Submit(Session.Slope, Session.Character, Session.ResultValue);
+            Result = r;
+            if (Ui.Instance != null) _results = new ResultsPanel(Session, r);
+            // New Year's fireworks for a new best.
+            bool improved = r.PersonalBest && !float.IsNaN(r.PreviousBest);
+            if (r.TopOfBoard || improved)
+            {
+                var c = Session.Course;
+                Vector3 origin = c.PointOnSurface(c.VillageX, c.FinishZ + Course.PlazaLength + 16f);
+                Fireworks.Launch(transform, origin, 36f, r.TopOfBoard ? 20f : 10f);
+                AudioDirector.Sfx("cheer", 0.8f);
+            }
+        }
+
+        /// <summary>Removes the run's UI and sound, then destroys the run. Call instead of Destroy.</summary>
+        public void Close()
+        {
+            _results?.Dispose();
+            Hud?.Dispose();
+            Hud = null;
+            if (Ui.Instance != null) Ui.Instance.ShowGoggles(false);
+            if (AudioDirector.I != null) AudioDirector.I.Silence();
+            Session = null;
+            Destroy(gameObject);
+        }
+
+        void Sound(RunEvent e)
+        {
+            switch (e.Type)
+            {
+                case RunEventType.PolePush: AudioDirector.Sfx((PoleQuality)(int)e.Value == PoleQuality.Perfect ? "pole_perfect" : "pole", 0.7f); break;
+                case RunEventType.Jump: AudioDirector.Sfx("jump", 0.6f); break;
+                case RunEventType.Landed: AudioDirector.Sfx("land", 0.8f); break;
+                case RunEventType.HeavyLanding: AudioDirector.Sfx("land_heavy", 0.9f); break;
+                case RunEventType.Crash: AudioDirector.Sfx("crash"); break;
+                case RunEventType.GatePassed: AudioDirector.Sfx("gate", 0.5f, 1f + (e.Value % 2) * 0.12f); break;
+                case RunEventType.GateMissed: AudioDirector.Sfx("gate_miss", 0.8f); break;
+                case RunEventType.TrickScored: AudioDirector.Sfx(e.Trick.Points >= 600 ? "trick_big" : "trick", 0.8f); break;
+                case RunEventType.PersonHit: AudioDirector.Sfx("penalty", 0.7f); AudioDirector.Sfx("scream", 0.8f, 1.15f); break;
+                case RunEventType.DeadEnd: AudioDirector.Sfx("penalty", 0.7f); break;
+                case RunEventType.Finished: AudioDirector.Sfx("finish", 0.9f); break;
+                case RunEventType.Started: AudioDirector.Sfx("gate", 0.6f, 1.5f); break;
+            }
+        }
+
+        void AmbientSounds()
+        {
+            var a = AudioDirector.I;
+            if (a == null) return;
+            var sim = Session.Sim;
+            a.SkiState(sim.Speed, Mathf.Max(sim.SkidAmount, sim.OverLean, sim.Plough), sim.CarveQuality, sim.Contact && !sim.Crashed, WorldLook.Instance != null ? WorldLook.Instance.Storm : 0f);
+            // Bombers scream as they come past.
+            if (Session.Crowd != null)
+                foreach (var k in Session.Crowd.Kids)
+                {
+                    if (k.Kind != KidKind.Bomber || !k.Active || _screamed.Contains(k.Id)) continue;
+                    float dz = k.Z - sim.Pos.z, dx = k.X - sim.Pos.x;
+                    if (dz > -16f && dz < 10f && Mathf.Abs(dx) < 18f)
+                    {
+                        _screamed.Add(k.Id);
+                        a.Play("scream", 0.75f, 0.9f + (k.Id % 5) * 0.06f, Mathf.Clamp(dx / 10f, -1f, 1f));
+                    }
+                }
         }
 
         SkiInput ReadInput()
@@ -76,9 +156,9 @@ namespace Ski.Game
                 var mouse = Mouse.current;
                 if (mouse != null && Cursor.lockState == CursorLockMode.Locked)
                 {
-                    Vector2 d = mouse.delta.ReadValue() * MouseSensitivity;
+                    Vector2 d = mouse.delta.ReadValue() * SaveData.MouseSensitivity;
                     Rig.Look.x = Mathf.Clamp(Rig.Look.x + d.x, -120f, 120f);
-                    Rig.Look.y = Mathf.Clamp(Rig.Look.y + d.y, -78f, 55f);
+                    Rig.Look.y = Mathf.Clamp(Rig.Look.y + (SaveData.InvertLook ? -d.y : d.y), -78f, 55f);
                 }
             }
 
@@ -106,12 +186,23 @@ namespace Ski.Game
                     case RunEventType.Landed: Rig.Kick(0.05f); break;
                     case RunEventType.Crash: Rig.Kick(0.3f); break;
                 }
+                Sound(e);
+                if (e.Type == RunEventType.Finished) Finish();
                 OnEvent?.Invoke(e);
             }
             Session.Events.Clear();
 
             Rig.Sync(Session.Sim, dt);
             if (Kids != null) Kids.Sync(dt);
+            AmbientSounds();
+
+            // After the finish: ski to the lift for another run, or to the tavern door.
+            if (Result.HasValue && !_left && !Paused)
+            {
+                var c = Session.Course; var p = Session.Sim.Pos;
+                if (c.LiftZone.Contains(p.x, p.z)) { _left = true; OnLiftReached?.Invoke(); }
+                else if (c.TavernZone.Contains(p.x, p.z)) { _left = true; OnTavernReached?.Invoke(); }
+            }
         }
     }
 }
