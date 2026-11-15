@@ -1,5 +1,7 @@
-// The one lit shader of the game: two-band cel shading with palette-tinted shadows,
-// an inked inverted-hull outline, rim light, fog, vertex colours and optional snow sparkle.
+// The one lit shader of the game, in a graphic-novel style: hard cel bands whose edges wobble
+// like brush strokes, palette-tinted shadows, pools of ink in the deepest shade, a coloured rim
+// from behind, a painted variation over flat colour, and an inverted-hull ink outline.
+// A separate full-screen pass (Ski/InkEdges) draws the inner contour lines from depth and normals.
 Shader "Ski/Toon"
 {
     Properties
@@ -13,11 +15,17 @@ Shader "Ski/Toon"
         _RimColor ("Rim colour", Color) = (1,0.93,0.8,1)
         _RimPower ("Rim power", Range(0.5,8)) = 3
         _RimStrength ("Rim strength", Range(0,1)) = 0.25
+        _BackRimColor ("Back rim colour", Color) = (0.45,0.75,1,1)
+        _BackRim ("Back rim strength", Range(0,1)) = 0
+        _InkShadow ("Ink in deep shadow", Range(0,1)) = 0
+        _Paint ("Painted variation", Range(0,1)) = 0.25
+        _Wobble ("Brush wobble of band edges", Range(0,1)) = 0.3
         _Emission ("Emission", Color) = (0,0,0,1)
         _OutlineColor ("Outline colour", Color) = (0.106,0.078,0.188,1)
         _OutlineWidth ("Outline width (px)", Range(0,8)) = 2
         _Snow ("Snow detail", Range(0,1)) = 0
         _Wind ("Wind sway", Range(0,1)) = 0
+        _FlatPrepass ("Flat normals for ink edges", Range(0,1)) = 0
     }
 
     HLSLINCLUDE
@@ -36,11 +44,17 @@ Shader "Ski/Toon"
         half4 _RimColor;
         half _RimPower;
         half _RimStrength;
+        half4 _BackRimColor;
+        half _BackRim;
+        half _InkShadow;
+        half _Paint;
+        half _Wobble;
         half4 _Emission;
         half4 _OutlineColor;
         half _OutlineWidth;
         half _Snow;
         half _Wind;
+        half _FlatPrepass;
     CBUFFER_END
 
     // Trees sway a little: displacement grows with height above the object's origin.
@@ -53,6 +67,25 @@ Shader "Ski/Toon"
         positionOS.x += sway;
         positionOS.z += sway * 0.6;
         return positionOS;
+    }
+
+    half Hash21(float2 p)
+    {
+        p = frac(p * float2(123.34, 456.21));
+        p += dot(p, p + 45.32);
+        return frac(p.x * p.y);
+    }
+
+    // Smooth 3D value noise, 0..1. Sampled in object space so it sticks to moving characters.
+    half Noise3(float3 p)
+    {
+        float3 i = floor(p), f = frac(p);
+        f = f * f * (3.0 - 2.0 * f);
+        float n = i.x + i.y * 57.0 + i.z * 113.0;
+        float4 a = frac(sin(float4(n, n + 1.0, n + 57.0, n + 58.0)) * 43758.5453);
+        float4 b = frac(sin(float4(n + 113.0, n + 114.0, n + 170.0, n + 171.0)) * 43758.5453);
+        float2 x0 = lerp(a.xz, a.yw, f.x), x1 = lerp(b.xz, b.yw, f.x);
+        return lerp(lerp(x0.x, x0.y, f.y), lerp(x1.x, x1.y, f.y), f.z);
     }
     ENDHLSL
 
@@ -92,6 +125,7 @@ Shader "Ski/Toon"
                 float2 uv : TEXCOORD2;
                 half4 color : COLOR;
                 half fogFactor : TEXCOORD3;
+                float3 positionOS : TEXCOORD4;
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -101,6 +135,7 @@ Shader "Ski/Toon"
                 UNITY_SETUP_INSTANCE_ID(IN);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(OUT);
                 float3 pos = ApplyWind(IN.positionOS.xyz);
+                OUT.positionOS = IN.positionOS.xyz;
                 OUT.positionWS = TransformObjectToWorld(pos);
                 OUT.positionCS = TransformWorldToHClip(OUT.positionWS);
                 OUT.normalWS = TransformObjectToWorldNormal(IN.normalOS);
@@ -110,13 +145,6 @@ Shader "Ski/Toon"
                 return OUT;
             }
 
-            half Hash21(float2 p)
-            {
-                p = frac(p * float2(123.34, 456.21));
-                p += dot(p, p + 45.32);
-                return frac(p.x * p.y);
-            }
-
             half4 frag(Varyings IN) : SV_Target
             {
                 half3 n = normalize(IN.normalWS);
@@ -124,9 +152,15 @@ Shader "Ski/Toon"
                 half4 tex = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv);
                 half3 albedo = tex.rgb * _BaseColor.rgb * IN.color.rgb;
 
+                // Painted look: broad, soft patches of slightly different value over the flat colour.
+                half patch = Noise3(IN.positionOS * 3.1) * 0.6 + Noise3(IN.positionOS * 11.0) * 0.4;
+                albedo *= 1.0 + (patch - 0.5) * 0.22 * _Paint;
+
                 float4 shadowCoord = TransformWorldToShadowCoord(IN.positionWS);
                 Light mainLight = GetMainLight(shadowCoord);
-                half ndl = dot(n, mainLight.direction);
+                // Band edges wander a little, as if laid in with a brush.
+                half wobble = (Noise3(IN.positionOS * 9.0 + 3.7) - 0.5) * 0.3 * _Wobble;
+                half ndl = dot(n, mainLight.direction) + wobble;
                 half shade = mainLight.shadowAttenuation * mainLight.distanceAttenuation;
                 half lit = smoothstep(_BandEdge - _BandSoft, _BandEdge + _BandSoft, ndl) * smoothstep(0.35, 0.55, shade);
                 half bright = smoothstep(0.62 - _BandSoft, 0.62 + _BandSoft, ndl) * lit;
@@ -135,6 +169,10 @@ Shader "Ski/Toon"
                 half3 lightCol = mainLight.color;
                 half3 shadowCol = albedo * _ShadowTint.rgb;
                 half3 col = lerp(shadowCol, albedo * lightCol, band);
+
+                // The deepest shade fills in with ink, as on a comic page.
+                half deep = (1.0 - smoothstep(-0.62, -0.5, ndl)) * _InkShadow;
+                col = lerp(col, shadowCol * 0.42 + _OutlineColor.rgb * 0.5, deep);
 
                 #if defined(_ADDITIONAL_LIGHTS)
                 uint count = GetAdditionalLightsCount();
@@ -149,9 +187,12 @@ Shader "Ski/Toon"
                 }
                 #endif
 
-                // Rim on the lit side.
-                half rim = pow(saturate(1.0 - dot(n, v)), _RimPower);
+                // Rim on the lit side, and a coloured rim from behind on the shadow side.
+                half fres = saturate(1.0 - dot(n, v));
+                half rim = pow(fres, _RimPower);
                 col += _RimColor.rgb * smoothstep(0.45, 0.55, rim) * _RimStrength * lit;
+                half back = smoothstep(0.5, 0.62, pow(fres, 2.2)) * (1.0 - lit) * saturate(0.4 - ndl);
+                col += _BackRimColor.rgb * back * _BackRim;
 
                 // Snow: groomed corduroy lines near the camera and a few sparkles.
                 if (_Snow > 0.0)
@@ -209,9 +250,9 @@ Shader "Ski/Toon"
                 float2 nCS = mul((float3x3)UNITY_MATRIX_VP, nWS).xy;
                 float len = max(length(nCS), 1e-5);
                 // Constant width on screen, thinning far away so distant objects do not turn to blobs.
-                float px = _OutlineWidth * saturate(22.0 / max(cs.w, 0.01)) ;
+                float px = _OutlineWidth * saturate(22.0 / max(cs.w, 0.01));
                 px = max(px, _OutlineWidth * 0.35);
-                cs.xy += (nCS / len) * px * 2.0 / _ScreenParams.xy * cs.w;
+                cs.xy += (nCS / len) * px * 2.0 / _ScreenParams.xy * cs.w * (_ScreenParams.y / 720.0);
                 OUT.positionCS = cs;
                 OUT.fogFactor = ComputeFogFactor(cs.z);
                 return OUT;
@@ -294,6 +335,39 @@ Shader "Ski/Toon"
             }
 
             half4 frag(Varyings IN) : SV_Target { return 0; }
+            ENDHLSL
+        }
+
+        // Depth and normals for the ink-edge pass. Materials with _FlatPrepass (snow, trees)
+        // write a constant normal, so they only get silhouette lines, not a line on every facet.
+        Pass
+        {
+            Name "DepthNormals"
+            Tags { "LightMode" = "DepthNormals" }
+            ZWrite On
+
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma multi_compile_instancing
+
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct Varyings { float4 positionCS : SV_POSITION; float3 normalWS : TEXCOORD0; };
+
+            Varyings vert(Attributes IN)
+            {
+                Varyings OUT;
+                UNITY_SETUP_INSTANCE_ID(IN);
+                OUT.positionCS = TransformObjectToHClip(ApplyWind(IN.positionOS.xyz));
+                OUT.normalWS = TransformObjectToWorldNormal(IN.normalOS);
+                return OUT;
+            }
+
+            half4 frag(Varyings IN) : SV_Target
+            {
+                float3 n = lerp(normalize(IN.normalWS), float3(0.0, 1.0, 0.0), step(0.5, _FlatPrepass));
+                return half4(n, 0.0);
+            }
             ENDHLSL
         }
     }

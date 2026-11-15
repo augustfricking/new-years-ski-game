@@ -29,7 +29,36 @@ namespace Ski.Game
         /// <summary>Vertex-coloured toon material with an ink outline. Most props share this one.</summary>
         public static Material Props => Toon("props", Color.white, 2f);
         public static Material PropsNoOutline => Toon("props_flat", Color.white, 0f);
-        public static Material Trees => Toon("trees", Color.white, 1.6f, wind: 1f);
+        public static Material Trees
+        {
+            get
+            {
+                var m = Toon("trees", Color.white, 1.6f, wind: 1f);
+                m.SetFloat("_FlatPrepass", 1f); // silhouette lines only, not one per facet
+                return m;
+            }
+        }
+
+        /// <summary>People: deeper inked shadows and a cool rim from behind, as on a comic page.</summary>
+        public static Material Character
+        {
+            get
+            {
+                if (Cache.TryGetValue("character", out var m) && m != null) return m;
+                m = NewToon(Color.white, 2.1f);
+                m.name = "Character";
+                m.SetFloat("_InkShadow", 0.38f);
+                m.SetFloat("_BackRim", 0.55f);
+                m.SetColor("_BackRimColor", new Color(0.5f, 0.78f, 1f));
+                m.SetFloat("_RimStrength", 0.3f);
+                m.SetFloat("_Paint", 0.35f);
+                m.SetFloat("_Wobble", 0.45f);
+                m.SetFloat("_MidBand", 0.3f);
+                m.SetColor("_ShadowTint", new Color(0.6f, 0.54f, 0.76f));
+                Cache["character"] = m;
+                return m;
+            }
+        }
 
         public static Material Snow
         {
@@ -40,6 +69,9 @@ namespace Ski.Game
                 m.name = "Snow";
                 m.SetColor("_ShadowTint", Palette.SnowShadow);
                 m.SetFloat("_Snow", 1f);
+                m.SetFloat("_FlatPrepass", 1f);
+                m.SetFloat("_Paint", 0f);
+                m.SetFloat("_Wobble", 0f);
                 m.SetFloat("_MidBand", 0f);
                 m.SetFloat("_RimStrength", 0f);
                 m.SetFloat("_BandEdge", -0.05f);

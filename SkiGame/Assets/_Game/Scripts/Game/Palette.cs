@@ -64,6 +64,7 @@ namespace Ski.Game
         // People.
         public static readonly Color Skin = Hex("#F1C6A7");
         public static readonly Color SkinDark = Hex("#C98F6B");
+        public static readonly Color[] Hairs = { Hex("#5A3B33"), Hex("#2E2230"), Hex("#E0B050"), Hex("#8A5A34"), Hex("#C0392B"), Hex("#B9B2B8") };
         public static readonly Color[] Jackets =
         {
             Hex("#18A6A6"), Hex("#D8437F"), Hex("#E8A93B"), Hex("#6C58C9"),

@@ -82,12 +82,34 @@ namespace Ski.Game
         /// <summary>A ski boot standing on the origin, toe toward +Z.</summary>
         public static void Boot(MeshBuilder b, Color colour)
         {
-            b.Col = colour;
-            b.Box(new Vector3(0, 0.055f, 0.02f), new Vector3(0.105f, 0.11f, 0.3f));
-            b.TaperedBox(new Vector3(0, 0.11f, -0.04f), new Vector3(0.105f, 0, 0.17f), new Vector2(0.95f, 0.8f), 0.24f, new Vector3(0, 0, 0.03f));
+            // Sole.
             b.Col = Palette.Ink;
-            b.Box(new Vector3(0, 0.2f, 0.045f), new Vector3(0.112f, 0.025f, 0.03f));
-            b.Box(new Vector3(0, 0.29f, 0.05f), new Vector3(0.112f, 0.025f, 0.03f));
+            b.Box(new Vector3(0, 0.012f, 0.02f), new Vector3(0.104f, 0.024f, 0.31f));
+            // Foot shell: a rounded shape from heel to toe (the loft runs along +Z).
+            b.Col = colour;
+            b.Push(new Vector3(0, 0.02f, 0), Quaternion.Euler(90f, 0f, 0f));
+            b.Loft(new[]
+            {
+                new MeshBuilder.Ring(-0.13f, 0.044f, 0.04f, -0.045f),
+                new MeshBuilder.Ring(-0.09f, 0.052f, 0.056f, -0.058f),
+                new MeshBuilder.Ring(0.0f, 0.054f, 0.06f, -0.06f),
+                new MeshBuilder.Ring(0.08f, 0.053f, 0.046f, -0.048f),
+                new MeshBuilder.Ring(0.145f, 0.047f, 0.034f, -0.036f),
+                new MeshBuilder.Ring(0.172f, 0.03f, 0.022f, -0.026f),
+            }, 8, true, true);
+            b.Pop();
+            // Cuff, leaning forward.
+            b.Loft(new[]
+            {
+                new MeshBuilder.Ring(0.09f, 0.052f, 0.064f, -0.03f),
+                new MeshBuilder.Ring(0.2f, 0.05f, 0.058f, -0.018f),
+                new MeshBuilder.Ring(0.32f, 0.054f, 0.06f, -0.004f),
+            }, 8, false, true);
+            // Buckles.
+            b.Col = Palette.Ink;
+            b.Box(new Vector3(0.02f, 0.1f, 0.115f), new Vector3(0.07f, 0.016f, 0.02f));
+            b.Box(new Vector3(0.02f, 0.2f, 0.042f), new Vector3(0.08f, 0.018f, 0.02f));
+            b.Box(new Vector3(0.02f, 0.275f, 0.054f), new Vector3(0.08f, 0.018f, 0.02f));
         }
     }
 }

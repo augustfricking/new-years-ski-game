@@ -276,7 +276,9 @@ namespace Ski.Game
                 _basePose[i] = pose;
                 p.Snap(pose);
                 p.SetGogglesUp(true, true);
-                p.PolesHang = true;
+                p.Poles = PoleMode.Lap;
+                p.BoardHangYaw = SeatX(i) < 0f ? -24f : 24f;   // nose away from the neighbours
+                p.Smile = 0.35f;
                 p.PoseSpeed = 5f;
                 Friends[i] = p;
                 _gestureTimer[i] = 1.5f + i * 1.7f;

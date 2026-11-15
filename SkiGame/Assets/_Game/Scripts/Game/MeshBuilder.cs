@@ -216,6 +216,75 @@ namespace Ski.Game
             if (capBottom && profile[0].x > 1e-4f) Disc(origin + Vector3.up * profile[0].y, profile[0].x, sides, false);
         }
 
+        /// <summary>One cross-section of a <see cref="Loft"/>: an ellipse in the XZ plane at a height.</summary>
+        public struct Ring
+        {
+            public float Y, Rx, Rz, OffX, OffZ;
+            public Color Colour;
+            public bool HasColour;
+            public Ring(float y, float rx, float rz, float offZ = 0f, float offX = 0f) { Y = y; Rx = rx; Rz = rz; OffZ = offZ; OffX = offX; Colour = default; HasColour = false; }
+            public Ring Tint(Color c) { Colour = c; HasColour = true; return this; }
+        }
+
+        /// <summary>
+        /// A smooth skin stretched over a stack of elliptical rings: the workhorse for organic
+        /// shapes (torsos, limbs, heads). Rings go bottom to top along +Y; each may be shifted
+        /// sideways for curvature and carry its own colour. Ends are closed with flat caps unless
+        /// the end ring has zero size.
+        /// </summary>
+        public void Loft(IList<Ring> rings, int sides = 12, bool capBottom = true, bool capTop = true)
+        {
+            int n = rings.Count, w = sides + 1;
+            var p = new Vector3[n * w];
+            for (int i = 0; i < n; i++)
+                for (int k = 0; k <= sides; k++)
+                {
+                    float a = k / (float)sides * Mathf.PI * 2f;
+                    p[i * w + k] = new Vector3(rings[i].OffX + Mathf.Cos(a) * rings[i].Rx, rings[i].Y, rings[i].OffZ + Mathf.Sin(a) * rings[i].Rz);
+                }
+            int start = _v.Count;
+            Color keep = Col;
+            for (int i = 0; i < n; i++)
+            {
+                if (rings[i].HasColour) Col = rings[i].Colour; else Col = keep;
+                for (int k = 0; k <= sides; k++)
+                {
+                    // Normal from neighbouring points on the skin.
+                    Vector3 up = p[Mathf.Min(i + 1, n - 1) * w + k] - p[Mathf.Max(i - 1, 0) * w + k];
+                    Vector3 around = p[i * w + (k + 1) % sides] - p[i * w + (k + sides - 1) % sides];
+                    Vector3 nrm = Vector3.Cross(up, around);
+                    if (nrm.sqrMagnitude < 1e-10f)
+                    {
+                        float a = k / (float)sides * Mathf.PI * 2f;
+                        nrm = i == 0 ? Vector3.down : i == n - 1 ? Vector3.up : new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                    }
+                    Vert(p[i * w + k], nrm.normalized, new Vector2(k / (float)sides, i / (float)(n - 1)));
+                }
+            }
+            Col = keep;
+            for (int i = 0; i < n - 1; i++)
+                for (int k = 0; k < sides; k++)
+                {
+                    int a = start + i * w + k, b = a + w;
+                    _t.Add(a); _t.Add(b); _t.Add(b + 1);
+                    _t.Add(a); _t.Add(b + 1); _t.Add(a + 1);
+                }
+            if (capBottom && rings[0].Rx > 1e-4f)
+            {
+                if (rings[0].HasColour) Col = rings[0].Colour;
+                Vector3 c = new Vector3(rings[0].OffX, rings[0].Y, rings[0].OffZ);
+                for (int k = 0; k < sides; k++) Tri(c, p[k], p[k + 1]);
+                Col = keep;
+            }
+            if (capTop && rings[n - 1].Rx > 1e-4f)
+            {
+                if (rings[n - 1].HasColour) Col = rings[n - 1].Colour;
+                Vector3 c = new Vector3(rings[n - 1].OffX, rings[n - 1].Y, rings[n - 1].OffZ);
+                for (int k = 0; k < sides; k++) Tri(c, p[(n - 1) * w + k + 1], p[(n - 1) * w + k]);
+                Col = keep;
+            }
+        }
+
         /// <summary>Extrudes a 2D outline (in XY, counter-clockwise, convex) along Z.</summary>
         public void Prism(IList<Vector2> outline, float z0, float z1)
         {

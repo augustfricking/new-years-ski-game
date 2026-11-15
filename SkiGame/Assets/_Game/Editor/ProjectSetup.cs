@@ -55,11 +55,57 @@ namespace Ski.EditorTools
                 EditorUtility.SetDirty(asset);
                 log.AppendLine("configured " + asset.name);
             }
+            // The comic ink lines: a full-screen pass on depth and normals, on every renderer.
+            Directory.CreateDirectory("Assets/_Game/Resources/Materials");
+            const string inkMatPath = "Assets/_Game/Resources/Materials/InkEdges.mat";
+            var inkShader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/_Game/Resources/Shaders/SkiInkEdges.shader");
+            var inkMat = AssetDatabase.LoadAssetAtPath<Material>(inkMatPath);
+            if (inkMat == null && inkShader != null)
+            {
+                inkMat = new Material(inkShader);
+                AssetDatabase.CreateAsset(inkMat, inkMatPath);
+                log.AppendLine("created " + inkMatPath);
+            }
             foreach (string guid in AssetDatabase.FindAssets("t:UniversalRendererData"))
             {
-                var data = AssetDatabase.LoadAssetAtPath<UniversalRendererData>(AssetDatabase.GUIDToAssetPath(guid));
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (!path.StartsWith("Assets/")) continue;
+                var data = AssetDatabase.LoadAssetAtPath<UniversalRendererData>(path);
                 data.renderingMode = RenderingMode.Forward;
-                foreach (var f in data.rendererFeatures) if (f != null) f.SetActive(false); // no SSAO on a toon look
+                FullScreenPassRendererFeature ink = null;
+                foreach (var f in data.rendererFeatures)
+                {
+                    if (f == null) continue;
+                    if (f is FullScreenPassRendererFeature fs && f.name == "InkEdges") ink = fs;
+                    else f.SetActive(false); // no SSAO on a toon look
+                }
+                if (ink == null && inkMat != null)
+                {
+                    ink = ScriptableObject.CreateInstance<FullScreenPassRendererFeature>();
+                    ink.name = "InkEdges";
+                    AssetDatabase.AddObjectToAsset(ink, data);
+                    var so = new SerializedObject(data);
+                    var feats = so.FindProperty("m_RendererFeatures");
+                    feats.arraySize++;
+                    feats.GetArrayElementAtIndex(feats.arraySize - 1).objectReferenceValue = ink;
+                    var map = so.FindProperty("m_RendererFeatureMap");
+                    if (map != null && AssetDatabase.TryGetGUIDAndLocalFileIdentifier(ink, out _, out long localId))
+                    {
+                        map.arraySize++;
+                        map.GetArrayElementAtIndex(map.arraySize - 1).longValue = localId;
+                    }
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                    log.AppendLine("added InkEdges to " + data.name);
+                }
+                if (ink != null)
+                {
+                    ink.passMaterial = inkMat;
+                    ink.injectionPoint = FullScreenPassRendererFeature.InjectionPoint.BeforeRenderingPostProcessing;
+                    ink.requirements = ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Normal | ScriptableRenderPassInput.Color;
+                    ink.fetchColorBuffer = true;
+                    ink.SetActive(true);
+                    EditorUtility.SetDirty(ink);
+                }
                 EditorUtility.SetDirty(data);
                 log.AppendLine("renderer " + data.name + " -> Forward");
             }
