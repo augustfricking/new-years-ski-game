@@ -161,5 +161,21 @@ namespace Ski.Core
             "Fastest time. Find a way down.",
         };
         public static bool ScoreBased(SlopeId id) => id == SlopeId.Blue;
+
+        /// <summary>
+        /// Whether a result could have come from a run at all (nobody skis the red in five seconds).
+        /// Results outside this are kept off the world board: not anti-cheat, just a guard against garbage.
+        /// </summary>
+        public static bool Plausible(SlopeId id, float value)
+        {
+            switch (id)
+            {
+                case SlopeId.Green: return value > 22f && value < 900f;
+                case SlopeId.Blue: return value >= 0f && value < 200000f;
+                case SlopeId.Red: return value > 30f && value < 900f;
+                case SlopeId.Black: return value > 28f && value < 900f;
+                default: return value > 55f && value < 1800f;
+            }
+        }
     }
 }

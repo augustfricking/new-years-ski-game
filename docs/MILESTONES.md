@@ -97,10 +97,38 @@ Ghosts and boards
 - [x] Device profile: anonymous sign-in to Unity Gaming Services gives one profile per browser or
       device; a name can be set in the settings
 - [x] Online board client with local fallback (`OnlineBoards`); board configs in `Assets/_Game/Cloud`
-- [ ] The six boards must be created in the cloud project once (owner: see README, "World boards")
+- [x] The six boards exist in the cloud project (created by the owner)
+
+## M8 — Playtest round 2 (owner feedback, 15 November 2026) ✅
+- [x] World boards live (six boards created by the owner). Only real people: no seeded rivals on
+      any board, no computer skiers among the ghosts. Players need no account (anonymous device
+      profile). Nothing is ever sent from the Unity Editor, from the autopilot, or with a result
+      no run could give; such rows are also hidden when a board is shown.
+- [x] World board on the ski map card before a run; world record banner and fireworks
+- [x] Tavern: left click punches. Guests fly back, tumble, bounce off walls and tables, knock
+      each other over, lie there, get up and walk back. Guests carry real players' names when
+      the boards have any (they are not connected live).
+- [x] Look: pen strokes for folds, creases and face lines (`MeshBuilder.Stroke`, `Person.Ink`),
+      squared jaws, drawn brows, lashes and lips, stubble, heavier outlines
+- [x] Ski goggles with the real outline: one wrapped lens, two lobes and a nose notch
+- [x] Comic fonts: Bangers (headings) and Comic Neue (text), both OFL, in `Resources/Fonts`
+- [x] Hints cut to a word or two; the ghost setting says what it does
+- [x] Poles only below about 22 km/h
+- [x] Snow park: a clean landing from big air no longer crashes (softer landings on Blue)
+- [x] Riding switch: landing backwards is allowed, controls and camera stay as they are,
+      tricks started switch score 30 % more, landing switch 15 % more
+- [x] Snowboarder pushes with a little sideways hop
+- [x] Black: crossed poles at the bumps, no flags
+- [x] Map: thin edge highlight again; the off-piste line is drawn from the top
+- [x] Green: everyone skis on through the finish to the lift; people walk, talk and glide about
+      the village on every slope
+- [x] Sounds: the wailing "scream", the sliding "wooo" cheer and the howling wind are gone
+      (a swish, applause and a steadier rush instead); the menu music opens in the major
 
 ## Known gaps and ideas
-- World boards need the one-time cloud deploy above; until then every board is local.
+- One bogus row ("BrainyEnhancedTurnip", 0.01 s on slope_green) was sent by a development
+  session before the Editor guard existed. The game hides it; the owner can delete it in the
+  Unity Dashboard (Leaderboards > slope_green).
 - Ghosts of other players are their recorded runs, not a live connection: truly simultaneous
   play would need a relay service.
 - Rival times and trick values are tuned from bot runs, not from human play.

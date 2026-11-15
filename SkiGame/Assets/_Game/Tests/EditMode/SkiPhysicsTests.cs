@@ -246,7 +246,7 @@ namespace Ski.Tests
         [Test]
         public void LandingBackwardsIsRidingSwitchAndIsWorthMore()
         {
-            var s = new SkiSim(new RampCourse(12f, 0f), SkiParams.For(CharacterId.Linn));
+            var s = Make(12f, CharacterId.Linn);
             // Drop in from a couple of metres, moving down the hill but facing up it, after half a turn.
             TrickResult Drop(bool spin)
             {
@@ -281,7 +281,7 @@ namespace Ski.Tests
         [Test]
         public void PolesOnlyHelpWhenSlow()
         {
-            var s = Sim(CharacterId.Erik);
+            var s = Make(8f, CharacterId.Erik);
             s.Vel = new Vector3(0f, 0f, 7.5f);   // 27 km/h
             s.Step(default, SkiSim.FixedDt);
             Assert.IsFalse(s.PoleAvailable, "no poling at speed");

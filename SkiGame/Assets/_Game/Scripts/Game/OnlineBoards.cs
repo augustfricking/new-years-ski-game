@@ -37,6 +37,11 @@ namespace Ski.Game
         sealed class Meta { public string g; public int c = -1; }
 
         public const string ChugBoard = "chug";
+        /// <summary>
+        /// The world boards are for people playing the game. Nothing is ever sent from the Unity
+        /// Editor (development, tests, screenshots) unless this is switched on by hand.
+        /// </summary>
+        public static bool SendFromEditor;
         public static string BoardId(SlopeId slope) => "slope_" + slope.ToString().ToLowerInvariant();
 
         static readonly Dictionary<string, List<Entry>> Cache = new Dictionary<string, List<Entry>>();
@@ -44,7 +49,7 @@ namespace Ski.Game
         static Task _connect;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() { Status = State.Off; LastError = null; PlayerId = null; Cache.Clear(); Missing.Clear(); _connect = null; }
+        static void ResetStatics() { SendFromEditor = false; Status = State.Off; LastError = null; PlayerId = null; Cache.Clear(); Missing.Clear(); _connect = null; }
 
         /// <summary>The last list fetched for a board, or null.</summary>
         public static List<Entry> Cached(string board) => Cache.TryGetValue(board, out var l) ? l : null;
@@ -106,6 +111,12 @@ namespace Ski.Game
         public static async void Submit(string board, double score, string ghost, int character, Action<List<Entry>> done = null)
         {
             await Connect();
+            if (Application.isEditor && !SendFromEditor)
+            {
+                Debug.Log("[Online] not sent from the Editor: " + board + " " + score.ToString("0.##"));
+                Fetch(board, done);
+                return;
+            }
             if (Status != State.Online || Missing.Contains(board)) { done?.Invoke(null); return; }
             try
             {
@@ -136,6 +147,13 @@ namespace Ski.Game
             }
             catch (Exception) { /* no score on this board yet: nothing around us to show */ }
             list.Sort((a, b) => a.Rank.CompareTo(b.Rank));
+            // Rows no run could have produced are not shown, and the places close up behind them.
+            int dropped = 0;
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (!Plausible(board, list[i].Score)) { list.RemoveAt(i--); dropped++; continue; }
+                var e = list[i]; e.Rank -= dropped; list[i] = e;
+            }
             Cache[board] = list;
             done?.Invoke(list);
         }
@@ -150,6 +168,13 @@ namespace Ski.Game
                 catch (Exception) { /* a row without a recording is still a row */ }
             }
             list.Add(entry);
+        }
+
+        static bool Plausible(string board, double score)
+        {
+            if (board == ChugBoard) return score > 4.0 && score < 600.0;
+            for (int i = 0; i < 5; i++) if (BoardId((SlopeId)i) == board) return Courses.Plausible((SlopeId)i, (float)score);
+            return true;
         }
 
         static void Fail(string board, Exception e)

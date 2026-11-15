@@ -21,7 +21,11 @@ The game design lives in `docs/GAME_SPEC.md` (source of truth). The plan and mil
 - **Around a run.** `TerrainBuilder` (snow, forest, gates), `MountainBuilder` (flanks with the
   other runs, lift line, off-piste tracks), `VillageBuilder`, `GhostCrowd` (other skiers).
 - **Online.** `OnlineBoards` (Unity Gaming Services, anonymous sign-in, free tier). It must never
-  block or break local play: every call falls back to the local boards.
+  block or break local play: every call falls back to the local boards. The world boards are
+  live and hold real players' results: nothing is sent from the Editor (`SendFromEditor` stays
+  false), from the bot, or with an implausible value (`Courses.Plausible`). Never teleport a
+  player past the finish with submissions enabled. No seeded rivals, no bot ghosts.
+- **Hints and labels** are one to three words. The owner finds longer ones over-explained.
 - **Flow.** `GameApp`: lift menu -> cutscene -> ski map -> run -> village -> lift ride or tavern.
 - One MonoBehaviour per file, file named after the class.
 

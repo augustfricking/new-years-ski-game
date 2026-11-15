@@ -32,7 +32,7 @@ namespace Ski.Game
         public event Action<RunEvent> OnEvent;
 
         float _acc;
-        bool _jump, _pole, _clickSwallowed;
+        bool _jump, _pole, _clickSwallowed, _botDrove;
         /// <summary>Call when a click was used for something else (resuming from pause), so it does not also push.</summary>
         public void SwallowClick() { _clickSwallowed = true; }
         readonly System.Collections.Generic.HashSet<int> _screamed = new System.Collections.Generic.HashSet<int>();
@@ -80,6 +80,9 @@ namespace Ski.Game
             // New Year's fireworks for a new best; the big show if it is the best in the world.
             bool improved = r.PersonalBest && !float.IsNaN(r.PreviousBest);
             if (improved) Celebrate(10f);
+            // Only a person's own run goes to the world: never the autopilot, never a result no run could give.
+            bool real = !_botDrove && Courses.Plausible(Session.Slope, Session.ResultValue);
+            if (!real) { OnlineBoards.Fetch(OnlineBoards.BoardId(Session.Slope), list => { if (Session != null && panel != null) panel.ShowWorld(list); }); return; }
             OnlineBoards.Submit(OnlineBoards.BoardId(Session.Slope), Session.ResultValue, recording, (int)Session.Character, list =>
             {
                 if (Session == null || panel == null) return;
@@ -152,7 +155,7 @@ namespace Ski.Game
 
         SkiInput ReadInput()
         {
-            if (Autopilot != null) return Autopilot.Decide();
+            if (Autopilot != null) { _botDrove = true; return Autopilot.Decide(); }
             var inp = new SkiInput();
             var kb = Keyboard.current;
             if (kb == null || !InputEnabled) return inp;

@@ -28,8 +28,10 @@ Material:
     - _DepthSens: 0.06
     - _FadeEnd: 140
     - _FadeStart: 30
+    - _InnerEnd: 28
+    - _InnerStart: 7
     - _NormalSens: 0.55
-    - _Thickness: 1.25
+    - _Thickness: 1.6
     m_Colors:
     - _InkColor: {r: 0.10599997, g: 0.07799999, b: 0.18799996, a: 0.9}
   m_BuildTextureStacks: []
