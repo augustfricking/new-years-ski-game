@@ -49,6 +49,7 @@ namespace Ski.Game
             AudioDirector.Create(transform);
             Ui.Create(transform);
             SaveData.Load();
+            OnlineBoards.Connect();   // anonymous device profile for the world boards; local play does not wait for it
             Character = SaveData.LastCharacter;
             if (DebugSlope.HasValue) StartRun(DebugSlope.Value, Character);
             else ShowMenu();

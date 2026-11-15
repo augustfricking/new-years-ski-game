@@ -70,13 +70,14 @@ namespace Ski.Core
         /// <summary>The value that goes on the leaderboard: points on blue, seconds elsewhere.</summary>
         public float ResultValue => ScoreBased ? Score : FinalTime;
 
-        public RunSession(SlopeId slope, CharacterId character, Course course = null)
+        /// <param name="withCrowd">False for rivals sharing the player's course: they do not need their own crowd of kids.</param>
+        public RunSession(SlopeId slope, CharacterId character, Course course = null, bool withCrowd = true)
         {
             Slope = slope; Character = character;
             Course = course ?? Courses.Create(slope);
             Sim = new SkiSim(Course, SkiParams.For(character));
             _prevPos = Sim.Pos;
-            if (slope == SlopeId.Green) Crowd = new KidCrowd(Course, Course.Seed * 7 + 1);
+            if (slope == SlopeId.Green && withCrowd) Crowd = new KidCrowd(Course, Course.Seed * 7 + 1);
             if (slope == SlopeId.Red) BuildGates();
         }
 

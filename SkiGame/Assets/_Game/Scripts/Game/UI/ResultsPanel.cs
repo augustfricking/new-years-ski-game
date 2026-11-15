@@ -7,7 +7,9 @@ namespace Ski.Game
     /// <summary>The result card and leaderboard shown at the bottom of a run, while you keep skiing.</summary>
     public sealed class ResultsPanel
     {
-        readonly VisualElement _root, _banner;
+        readonly VisualElement _root, _banner, _board;
+        readonly Label _boardTitle;
+        readonly SlopeId _slope;
 
         public ResultsPanel(RunSession s, SubmitResult r)
         {
@@ -34,7 +36,9 @@ namespace Ski.Game
             string verdict = r.TopOfBoard ? "NEW SLOPE RECORD!" : r.PersonalBest && !float.IsNaN(r.PreviousBest) ? "NEW PERSONAL BEST!" : "Place " + r.Rank;
             Ui.Text(card, verdict, "h2" + (r.TopOfBoard || r.PersonalBest && !float.IsNaN(r.PreviousBest) ? " good" : ""));
 
-            var board = Ui.Div(card, "board");
+            _slope = s.Slope;
+            _boardTitle = Ui.Text(card, OnlineBoards.Status == OnlineBoards.State.Failed ? "THIS DEVICE AND THE LOCALS" : "THIS DEVICE AND THE LOCALS  -  world board loading...", "tiny");
+            var board = _board = Ui.Div(card, "board");
             var list = SaveData.Boards.Board(s.Slope);
             int shown = 0;
             bool markedMe = false;
@@ -45,7 +49,7 @@ namespace Ski.Game
                 if (i >= 7 && !me && r.Rank - 1 > i) continue;
                 var row = Ui.Div(board, "board-row" + (me ? " board-row-me" : ""));
                 Ui.Text(row, (i + 1) + ".", "board-rank");
-                Ui.Text(row, list[i].Name + (list[i].IsPlayer ? " (you)" : ""), "board-name");
+                Ui.Text(row, SaveData.BoardName(list[i]), "board-name");
                 Ui.Text(row, Leaderboards.Format(s.Slope, list[i].Value));
                 if (me) markedMe = true;
                 shown++;
@@ -59,6 +63,25 @@ namespace Ski.Game
             _banner = Ui.Div(_root, "banner");
             if (r.TopOfBoard) Ui.Text(_banner, "NEW RECORD!", "banner-text");
             else if (r.PersonalBest && !float.IsNaN(r.PreviousBest)) Ui.Text(_banner, "PERSONAL BEST!", "banner-text");
+        }
+
+        /// <summary>Replaces the local list with the world board, once it has arrived. Null: stay local.</summary>
+        public void ShowWorld(System.Collections.Generic.List<OnlineBoards.Entry> list)
+        {
+            if (_root.parent == null) return;
+            if (list == null || list.Count == 0) { _boardTitle.text = "THIS DEVICE AND THE LOCALS"; return; }
+            _boardTitle.text = "WORLD BOARD";
+            _board.Clear();
+            int shown = 0;
+            foreach (var e in list)
+            {
+                if (shown >= 9 && !e.Me) continue;
+                var row = Ui.Div(_board, "board-row" + (e.Me ? " board-row-me" : ""));
+                Ui.Text(row, (e.Rank + 1) + ".", "board-rank");
+                Ui.Text(row, e.Name + (e.Me ? " (you)" : ""), "board-name");
+                Ui.Text(row, Leaderboards.Format(_slope, (float)e.Score));
+                shown++;
+            }
         }
 
         public void Dispose() { _root.RemoveFromHierarchy(); }

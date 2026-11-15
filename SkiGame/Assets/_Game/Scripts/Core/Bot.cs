@@ -12,6 +12,7 @@ namespace Ski.Core
         public bool UseTuck = true;
         public bool DoTricks = true;
         public float Skill = 1f;          // 0..1, lower = sloppier pole timing
+        public float Lane;                // metres to the side of the usual line (rivals skiing beside each other)
 
         readonly RunSession _s;
         int _airPlan, _jumps;
@@ -99,8 +100,8 @@ namespace Ski.Core
         float TargetX(float z, float look)
         {
             var c = _s.Course; var sim = _s.Sim;
-            float x = c.RacingLineX(z);
-            if (z > c.FinishZ) return c.VillageX;
+            float x = c.RacingLineX(z) + (_s.Slope == SlopeId.OffPiste ? Lane * 0.2f : Lane);
+            if (z > c.FinishZ) return c.VillageX + Lane;
 
             switch (_s.Slope)
             {
@@ -143,7 +144,7 @@ namespace Ski.Core
             {
                 float x = c.CenterX(z) + i / 5f * hw;
                 float cost = Mathf.Abs(x - sim.Pos.x) * 0.06f + Mathf.Abs(i) * 0.05f;
-                foreach (var k in _s.Crowd.Kids)
+                if (_s.Crowd != null) foreach (var k in _s.Crowd.Kids)
                 {
                     if (!k.Active) continue;
                     float dz = k.Z - sim.Pos.z;

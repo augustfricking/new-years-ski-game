@@ -189,6 +189,7 @@ namespace Ski.Game
             var who = SaveData.LastCharacter;
             var res = SaveData.Chug.Submit(who, t);
             bool best = res.PersonalBest;
+            OnlineBoards.Submit(OnlineBoards.ChugBoard, t, "", (int)who);
             bool beatBar = res.TopOfBoard;
             if (best) { SaveData.BestChug = t; SaveData.Save(); }
             _tavern.Wobble = Mathf.Min(_tavern.Wobble + 1.6f, 6f);
@@ -217,7 +218,7 @@ namespace Ski.Game
                 if (!mine && i >= 6 && res.Rank - 1 > i) continue;   // keep room for the player's own row
                 var line = Ui.Div(board, mine ? "board-row board-row-me" : "board-row");
                 Ui.Text(line, (i + 1) + ".", "board-rank");
-                Ui.Text(line, list[i].Name, "board-name");
+                Ui.Text(line, SaveData.BoardName(list[i]), "board-name");
                 Ui.Text(line, list[i].Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " s", "board-value");
                 shown++;
             }

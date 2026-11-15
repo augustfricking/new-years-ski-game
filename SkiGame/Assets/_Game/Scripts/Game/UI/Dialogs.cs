@@ -61,6 +61,15 @@ namespace Ski.Game
             SliderRow(card, "Mouse sensitivity", SaveData.MouseSensitivity, 0.03f, 0.35f, v => SaveData.MouseSensitivity = v);
             ToggleRow(card, "Invert look up/down", SaveData.InvertLook, v => SaveData.InvertLook = v);
             ToggleRow(card, "Subtitles", SaveData.Subtitles, v => SaveData.Subtitles = v);
+            SliderRow(card, "Other skiers on the slope (ghosts)", SaveData.MaxGhosts, 0f, 12f, v => SaveData.MaxGhosts = Mathf.RoundToInt(v));
+            // The name this device goes by on the boards.
+            var row = Ui.Div(card, "dialog-row");
+            Ui.Text(row, "Your name on the boards", "dialog-label");
+            var name = new TextField { value = SaveData.PlayerName, maxLength = 16 };
+            name.AddToClassList("name-field");
+            name.RegisterValueChangedCallback(e => SaveData.PlayerName = e.newValue.Trim());
+            name.RegisterCallback<FocusOutEvent>(_ => { SaveData.Save(); OnlineBoards.NameChanged(); });
+            row.Add(name);
         }
 
         public static void Settings(Action onClose = null)

@@ -24,6 +24,8 @@ namespace Ski.Game
         public Action OnLiftReached, OnTavernReached;
 
         ResultsPanel _results;
+        GhostCrowd _ghosts;
+        readonly GhostTrack _track = new GhostTrack();
         SnowFx _snow;
         bool _left;
         public event Action<RunEvent> OnEvent;
@@ -54,6 +56,7 @@ namespace Ski.Game
             Rig.SetThirdPerson(slope == SlopeId.Blue);   // the park is ridden from behind, so tricks can be seen
             Rig.Sync(Session.Sim, 0.016f);
             _snow = SnowFx.Create(transform);
+            _ghosts = new GhostCrowd(Session, transform);
             if (WorldLook.Instance != null) WorldLook.Instance.Follow = Rig.Cam.transform;
             if (Ui.Instance != null)
             {
@@ -68,6 +71,11 @@ namespace Ski.Game
             var r = SaveData.Boards.Submit(Session.Slope, Session.Character, Session.ResultValue);
             Result = r;
             if (Ui.Instance != null) _results = new ResultsPanel(Session, r);
+            // A personal best is kept as this device's ghost, and goes to the world board with its recording.
+            string recording = _track.Encode();
+            if (r.PersonalBest) SaveData.SetGhost(Session.Slope, recording);
+            var panel = _results;
+            OnlineBoards.Submit(OnlineBoards.BoardId(Session.Slope), Session.ResultValue, recording, (int)Session.Character, list => panel?.ShowWorld(list));
             // New Year's fireworks for a new best.
             bool improved = r.PersonalBest && !float.IsNaN(r.PreviousBest);
             if (r.TopOfBoard || improved)
@@ -83,6 +91,7 @@ namespace Ski.Game
         public void Close()
         {
             _results?.Dispose();
+            _ghosts?.Close();
             Hud?.Dispose();
             Hud = null;
             if (Ui.Instance != null) Ui.Instance.ShowGoggles(false);
@@ -188,6 +197,11 @@ namespace Ski.Game
                 {
                     _acc -= SkiSim.FixedDt;
                     Session.Step(ReadInput(), SkiSim.FixedDt);
+                    if (Session.Phase != RunPhase.Ready)
+                    {
+                        if (Session.Phase == RunPhase.Running) _track.Record(Session.Time, Session.Sim.Pos.x, Session.Sim.Pos.z, Session.Sim.Contact ? 0f : Session.Sim.AirHeight);
+                        _ghosts.Step(SkiSim.FixedDt);
+                    }
                     _jump = _pole = false; // edges are consumed by the first step
                 }
                 if (guard >= 16) _acc = 0f;
@@ -210,6 +224,7 @@ namespace Ski.Game
             Session.Events.Clear();
 
             Rig.Sync(Session.Sim, dt);
+            _ghosts.Sync(Rig.Cam, dt);
             if (!Paused) _snow.Tick(Session.Sim, dt);
             if (Kids != null) { Kids.ViewerZ = Session.Sim.Pos.z; Kids.Sync(dt); }
             AmbientSounds();
