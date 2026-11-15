@@ -170,96 +170,73 @@ namespace Ski.Game
         {
             var b = new MeshBuilder();
             float hw = 0.5f, hh = MapH / MapW * 0.5f;
-            Color paper = Palette.UiPaper, ink = Palette.Ink;
+            Color ink = Palette.Ink;
+            for (int r = 0; r < 5; r++) _runs[r] = Smooth(RunPoints[r]);
+            Vector2 top = new Vector2(0.0f, 0.245f), v = MapPainter.Village;
+            var liftLine = Smooth(new[] { new Vector2(0.075f, -0.285f), new Vector2(0.105f, -0.1f), new Vector2(0.075f, 0.1f), new Vector2(0.02f, 0.245f) }, 6);
 
-            // Sheet with an ink border and fold lines.
-            Poly(b, Palette.Mul(paper, 0.8f), -0.0006f, new Vector2(-hw - 0.006f, -hh - 0.006f), new Vector2(hw + 0.006f, -hh - 0.006f), new Vector2(hw + 0.006f, hh + 0.006f), new Vector2(-hw - 0.006f, hh + 0.006f));
-            Poly(b, paper, 0f, new Vector2(-hw, -hh), new Vector2(hw, -hh), new Vector2(hw, hh), new Vector2(-hw, hh));
-            // Sky wash.
-            Poly(b, Palette.Mix(paper, Palette.SkyMid, 0.35f), 0.0002f, new Vector2(-hw + 0.012f, 0.02f), new Vector2(hw - 0.012f, 0.02f), new Vector2(hw - 0.012f, hh - 0.012f), new Vector2(-hw + 0.012f, hh - 0.012f));
-            // Far ridges.
-            Poly(b, Palette.Mix(paper, Palette.RidgeFar, 0.6f), 0.0004f, new Vector2(-0.488f, 0.02f), new Vector2(-0.488f, 0.14f), new Vector2(-0.36f, 0.22f), new Vector2(-0.24f, 0.15f), new Vector2(-0.12f, 0.02f));
-            Poly(b, Palette.Mix(paper, Palette.RidgeFar, 0.6f), 0.0004f, new Vector2(0.14f, 0.02f), new Vector2(0.3f, 0.2f), new Vector2(0.4f, 0.16f), new Vector2(0.488f, 0.21f), new Vector2(0.488f, 0.02f));
-            // The mountain: a snowy body with a shaded flank.
-            Vector2 peak = new Vector2(0.01f, 0.3f);
-            Poly(b, Palette.Snow, 0.0006f, peak, new Vector2(-0.14f, 0.19f), new Vector2(-0.33f, 0.1f), new Vector2(-0.488f, -0.08f), new Vector2(-0.488f, -0.338f), new Vector2(0.488f, -0.338f), new Vector2(0.488f, 0.04f), new Vector2(0.36f, 0.18f), new Vector2(0.16f, 0.22f));
-            Poly(b, Palette.Mix(Palette.Snow, Palette.SnowShadow, 0.6f), 0.0008f, peak, new Vector2(0.16f, 0.22f), new Vector2(0.36f, 0.18f), new Vector2(0.488f, 0.04f), new Vector2(0.488f, -0.1f), new Vector2(0.38f, 0.02f), new Vector2(0.2f, 0.14f));
-            Poly(b, Palette.Mix(Palette.Snow, Palette.SnowShadow, 0.4f), 0.0008f, peak, new Vector2(0.04f, 0.2f), new Vector2(0.0f, 0.24f));
+            // The printed sheet: a painted panorama (see MapPainter), with a darker back edge.
+            Poly(b, Palette.Mul(Palette.UiPaper, 0.75f), -0.0006f, new Vector2(-hw - 0.004f, -hh - 0.004f), new Vector2(hw + 0.004f, -hh - 0.004f), new Vector2(hw + 0.004f, hh + 0.004f), new Vector2(-hw - 0.004f, hh + 0.004f));
+            b.ToObject("Sheet back", _flat, _map, false, false);
+            b.Clear();
+            b.Col = Color.white;
+            b.Quad(P(-hw, -hh, 0f), P(-hw, hh, 0f), P(hw, hh, 0f), P(hw, -hh, 0f));
+            var print = Mats.Unlit(MapPainter.Get(_runs, liftLine), new Color(0.86f, 0.86f, 0.86f));
+            print.SetFloat("_Fog", 0f);
+            b.ToObject("Sheet", print, _map, false, false);
+            b.Clear();
 
-            // Forest patches between the runs.
-            var rng = new Rng(77);
-            for (int i = 0; i < 150; i++)
-            {
-                Vector2 p = new Vector2(rng.Range(-0.47f, 0.47f), rng.Range(-0.3f, 0.16f));
-                float inMountain = 0.26f - Mathf.Abs(p.x) * 0.55f;
-                if (p.y > inMountain) continue;
-                bool nearRun = false;
-                for (int r = 0; r < 5 && !nearRun; r++)
-                    foreach (var q in Smooth(RunPoints[r], 4)) if ((q - p).sqrMagnitude < (r == 4 ? 0.0004f : 0.0011f)) { nearRun = true; break; }
-                if (nearRun || p.magnitude < 0.0f) continue;
-                float s = rng.Range(0.011f, 0.018f);
-                Color tree = rng.Chance(0.5f) ? Palette.Pine : Palette.PineLight;
-                Poly(b, tree, 0.001f, p + new Vector2(0, s * 1.5f), p + new Vector2(-s * 0.7f, -s * 0.4f), p + new Vector2(s * 0.7f, -s * 0.4f));
-            }
-            // Cliff marks along the off-piste line.
-            foreach (var cp in new[] { new Vector2(0.4f, 0.08f), new Vector2(0.39f, -0.12f), new Vector2(0.26f, -0.24f) })
-                for (int k = 0; k < 4; k++) Box2(b, cp + new Vector2(k * 0.012f, k % 2 * 0.006f), new Vector2(0.004f, 0.018f), Palette.Rock, 0.0012f, 20f);
-
-            // Lift line with pylon ticks, top and bottom stations.
-            Vector2 top = new Vector2(0.0f, 0.245f), bottom = new Vector2(-0.0f, -0.285f);
-            var lift = new List<Vector2> { new Vector2(0.075f, -0.3f), new Vector2(0.105f, -0.1f), new Vector2(0.075f, 0.1f), new Vector2(0.02f, 0.25f) };
-            var liftLine = Smooth(lift.ToArray(), 6);
-            Ribbon(b, liftLine, 0.004f, ink, 0.0014f);
-            for (int i = 2; i < liftLine.Count; i += 4) Box2(b, liftLine[i], new Vector2(0.016f, 0.004f), ink, 0.0016f);
-
-            // The runs.
+            // Printed on top: numbered markers on the runs, stations, the legend symbols, a north arrow.
             for (int r = 0; r < 5; r++)
             {
-                _runs[r] = Smooth(RunPoints[r]);
-                Color c = Palette.Slope((SlopeId)r);
-                bool off = r == 4;
-                Ribbon(b, _runs[r], off ? 0.012f : 0.017f, ink, 0.0018f, off);
-                Ribbon(b, _runs[r], off ? 0.007f : 0.011f, c, 0.0022f, off);
                 var mid = _runs[r][_runs[r].Count / 2 + (r % 2 == 0 ? -3 : 2)];
-                Symbol(b, (SlopeId)r, mid, 0.026f, 0.0026f);
+                Symbol(b, (SlopeId)r, mid, 0.02f, 0.0026f);
             }
-
-            // Stations and the village.
-            Box2(b, top, new Vector2(0.05f, 0.026f), ink, 0.003f);
-            Box2(b, top, new Vector2(0.04f, 0.017f), Palette.SignalYellow, 0.0034f);
-            Vector2 v = new Vector2(0.0f, -0.305f);
-            Poly(b, ink, 0.003f, v + new Vector2(-0.062f, -0.02f), v + new Vector2(0.062f, -0.02f), v + new Vector2(0.062f, 0.012f), v + new Vector2(0f, 0.04f), v + new Vector2(-0.062f, 0.012f));
-            Poly(b, Palette.Timber, 0.0034f, v + new Vector2(-0.055f, -0.014f), v + new Vector2(0.055f, -0.014f), v + new Vector2(0.055f, 0.008f), v + new Vector2(0f, 0.031f), v + new Vector2(-0.055f, 0.008f));
-            Box2(b, v + new Vector2(-0.025f, -0.004f), new Vector2(0.013f, 0.012f), Palette.Window, 0.0038f);
-            Box2(b, v + new Vector2(0.025f, -0.004f), new Vector2(0.013f, 0.012f), Palette.Window, 0.0038f);
-
-            // Legend panel.
-            Vector2 lg = new Vector2(-0.385f, 0.245f);
-            Box2(b, lg, new Vector2(0.2f, 0.17f), ink, 0.003f);
-            Box2(b, lg, new Vector2(0.192f, 0.162f), paper, 0.0034f);
-            for (int r = 0; r < 5; r++) Symbol(b, (SlopeId)r, lg + new Vector2(-0.075f, 0.056f - r * 0.028f), 0.014f, 0.0038f);
-
-            b.ToObject("Sheet", _flat, _map, false, false);
+            Box2(b, top, new Vector2(0.03f, 0.016f), ink, 0.003f);
+            Box2(b, top, new Vector2(0.023f, 0.01f), Palette.SignalYellow, 0.0034f);
+            Box2(b, liftLine[0], new Vector2(0.022f, 0.013f), ink, 0.003f);
+            Box2(b, liftLine[0], new Vector2(0.016f, 0.008f), Palette.White, 0.0034f);
+            Vector2 lg = MapPainter.LegendCentre;
+            for (int r = 0; r < 5; r++) Symbol(b, (SlopeId)r, lg + new Vector2(-0.075f, 0.056f - r * 0.028f), 0.013f, 0.0038f);
+            Vector2 north = new Vector2(0.445f, -0.275f);
+            Poly(b, ink, 0.003f, north + new Vector2(0f, 0.03f), north + new Vector2(-0.011f, -0.008f), north + new Vector2(0f, -0.001f));
+            Poly(b, Palette.White, 0.003f, north + new Vector2(0f, 0.03f), north + new Vector2(0f, -0.001f), north + new Vector2(0.011f, -0.008f));
+            b.ToObject("Print", _flat, _map, false, false);
 
             // Text.
             for (int r = 0; r < 5; r++)
             {
-                Label3D(Courses.Names[r], lg + new Vector2(-0.055f, 0.056f - r * 0.028f), 0.016f, ink, TextAnchor.MiddleLeft);
+                Label3D((r + 1) + "  " + Courses.Names[r], lg + new Vector2(-0.057f, 0.056f - r * 0.028f), 0.0145f, ink, TextAnchor.MiddleLeft);
                 var q = _runs[r][_runs[r].Count / 2 + (r % 2 == 0 ? -3 : 2)];
-                Label3D((r + 1).ToString(), q + new Vector2(r == 3 ? 0f : 0f, 0.0f), 0.022f, r == 3 ? Palette.White : r == 4 ? Palette.Ink : Palette.White, TextAnchor.MiddleCenter, r == 4 ? -0.006f : 0f);
+                Label3D((r + 1).ToString(), q, 0.017f, r == 4 ? Palette.Ink : Palette.White, TextAnchor.MiddleCenter, r == 4 ? -0.0045f : 0f);
             }
-            Label3D("YOU ARE HERE", top + new Vector2(0.0f, 0.03f), 0.014f, ink, TextAnchor.MiddleCenter);
-            Label3D("AFTER SKI", v + new Vector2(0.0f, -0.035f), 0.014f, ink, TextAnchor.MiddleCenter);
-            Label3D("FJÄLLTOPPEN  -  PISTE MAP", new Vector2(0.17f, 0.315f), 0.02f, ink, TextAnchor.MiddleCenter);
+            Plaque("YOU ARE HERE  1 480 m", top + new Vector2(-0.125f, 0.022f), 0.013f);
+            Plaque("AFTER SKI  -  VILLAGE  620 m", v + new Vector2(-0.19f, -0.012f), 0.013f);
+            Plaque("A  FJÄLLEXPRESSEN", liftLine[liftLine.Count / 2] + new Vector2(0.082f, 0.012f), 0.011f);
+            Label3D("N", new Vector2(0.445f, -0.3f), 0.012f, ink, TextAnchor.MiddleCenter);
+            Label3D("FJÄLLTOPPEN", new Vector2(-0.47f, 0.318f), 0.024f, Palette.White, TextAnchor.MiddleLeft);
+            Label3D("PISTE MAP  -  WINTER", new Vector2(0.47f, 0.318f), 0.017f, Palette.SignalYellow, TextAnchor.MiddleRight);
+            Label3D("RUNS", lg + new Vector2(-0.085f, 0.074f), 0.009f, ink, TextAnchor.MiddleLeft);
 
             // Highlights, switched on when a run is hovered.
             for (int r = 0; r < 5; r++)
             {
                 var hb = new MeshBuilder();
-                Ribbon(hb, _runs[r], 0.032f, Palette.SignalYellow, 0.0016f, false);
+                Ribbon(hb, _runs[r], 0.024f, new Color(1f, 0.85f, 0.2f, 1f), 0.0016f, false);
                 _highlight[r] = hb.ToObject("Highlight " + r, _flat, _map, false, false);
                 _highlight[r].SetActive(false);
             }
+        }
+
+        /// <summary>A label on a small white plate, so it reads against the painted mountain.</summary>
+        void Plaque(string text, Vector2 centre, float height)
+        {
+            var b = new MeshBuilder();
+            Vector2 size = new Vector2(text.Length * height * 0.56f + height * 1.2f, height * 1.7f);
+            Box2(b, centre, size + Vector2.one * 0.003f, Palette.Ink, 0.0036f);
+            Box2(b, centre, size, Palette.White, 0.0039f);
+            b.ToObject("Plaque", _flat, _map, false, false);
+            Label3D(text, centre, height, Palette.Ink, TextAnchor.MiddleCenter);
         }
 
         void Label3D(string text, Vector2 at, float height, Color colour, TextAnchor anchor, float yShift = 0f)

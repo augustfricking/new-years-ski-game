@@ -21,6 +21,7 @@ namespace Ski.Game
             if (c is OffPisteCourse op) BuildOffPisteForest(op, root.transform);
             else BuildPisteForest(c, root.transform);
             BuildFeatureProps(c, root.transform);
+            MountainBuilder.Build(c, root.transform);
             BuildMarkers(c, session, root.transform);
             return root;
         }
@@ -51,6 +52,7 @@ namespace Ski.Game
             var pos = new Vector3[rows * cols];
             var col = new Color32[rows * cols];
             Color32 piste = Palette.Snow, wild = Palette.SnowOffPiste, lip = Palette.Mix(Palette.SignalBlue, Palette.Snow, 0.35f);
+            Color32 bumpShade = Palette.Mix(Palette.Snow, Palette.SnowShadow, 0.95f), bumpLight = Color.white;
             for (int r = 0; r < rows; r++)
             {
                 float z = zs[r];
@@ -74,6 +76,14 @@ namespace Ski.Game
                     float edge = Mathf.Abs(x - cx) - hw;
                     bool groomed = !off && edge < -0.6f || off && z > c.FinishZ + 12f;
                     Color32 cc = groomed ? piste : wild;
+                    if (groomed)
+                    {
+                        // Hollows and the lee side of rollers are painted in shadow, crests are picked
+                        // out bright, so the bumps can be read from well uphill.
+                        float bump = BumpShade(c, x, z);
+                        if (bump > 0f) cc = Color32.Lerp(piste, bumpShade, bump);
+                        else if (bump < 0f) cc = Color32.Lerp(piste, bumpLight, -bump);
+                    }
                     cc.a = (byte)(groomed ? 255 : 0);
                     col[i] = cc;
                 }
@@ -130,6 +140,37 @@ namespace Ski.Game
             }
         }
 
+        /// <summary>How much a point lies in the shade of a pit or roller (+) or on a lit crest (-).</summary>
+        static float BumpShade(PisteCourse c, float x, float z)
+        {
+            float shade = 0f;
+            foreach (var f in c.Features)
+            {
+                if (z < f.Z0 || z > f.Z1 || Mathf.Abs(x - f.X) > f.HalfW) continue;
+                if (f is Pit pit)
+                {
+                    // The whole hollow is painted in deep shadow, darkest round the rim, so that it
+                    // shows as a blue ellipse even at the shallow angle you approach it from.
+                    float r = Mathf.Sqrt((x - pit.X) * (x - pit.X) + (z - pit.Zc) * (z - pit.Zc)) / pit.Radius;
+                    if (r < 1f) shade = Mathf.Max(shade, 0.62f + 0.38f * Mathf.Clamp01((r - 0.55f) / 0.4f));
+                }
+                else if (f is Roller roller && roller.Amp > 0f)
+                {
+                    float k = Mathf.Clamp01(roller.Add(x, z) / roller.Amp);
+                    float u = (z - roller.Zc) / roller.Len;
+                    if (k <= 0.02f) continue;
+                    if (u > 0.05f) shade = Mathf.Max(shade, Mathf.Clamp01(k * 1.6f) * Mathf.Clamp01(u * 3f) * 0.9f);        // lee side: you cannot see over it
+                    else if (u > -0.3f) shade = Mathf.Max(shade, k * 0.75f * Mathf.Clamp01((u + 0.3f) / 0.12f));               // a shadow line along the crest
+                    else if (u > -0.75f) shade = Mathf.Min(shade, -k * 0.9f * Mathf.Clamp01((u + 0.75f) / 0.2f));              // the lit face rising toward it
+                }
+                else if (f is Roller dip && dip.Amp < 0f)
+                {
+                    shade = Mathf.Max(shade, Mathf.Clamp01(dip.Add(x, z) / dip.Amp) * 0.6f);
+                }
+            }
+            return Mathf.Clamp(shade, -1f, 1f);
+        }
+
         // ---- forest ----------------------------------------------------------------------
 
         static void BuildPisteForest(PisteCourse c, Transform parent)
@@ -157,6 +198,7 @@ namespace Ski.Game
                         if (keep > 1f - row * 0.1f) continue;
                         float zz = z + jz;
                         float x = c.CenterX(zz) + side * (c.HalfWidth(zz) + 2.6f + row * 3.6f + jx);
+                        if (Mathf.Abs(x - MountainBuilder.LiftX(c, zz)) < 4.6f) continue;   // the lift line is cut through the trees
                         b.Push(new Vector3(x, c.SnowHeight(x, zz) - 0.15f, zz), Quaternion.Euler(0, yaw, 0), Vector3.one * (scale * (1f + row * 0.05f)));
                         Props.Pine(b, variant, rng);
                         b.Pop();
@@ -208,6 +250,20 @@ namespace Ski.Game
                     b.Push(new Vector3(box.X, y0, box.ZStart), Quaternion.LookRotation(dir));
                     Props.JibBox(b, box.Length / dir.z * 1f, box.Width, box.Top, colours[n++ % colours.Length]);
                     b.Pop();
+                }
+                else if (f is Pit || f is Roller)
+                {
+                    // Orange warning poles either side, as on a real black run.
+                    float halfW = f is Pit pit ? pit.Radius + 0.9f : Mathf.Min(((Roller)f).Width * 0.5f + 1f, c.HalfWidth(f.Z0) - 0.6f);
+                    float zc = (f.Z0 + f.Z1) * 0.5f;
+                    for (int s = -1; s <= 1; s += 2)
+                    {
+                        float x = f.X + s * halfW;
+                        if (Mathf.Abs(x - c.CenterX(zc)) > c.HalfWidth(zc) + 1.5f) continue;
+                        b.Push(new Vector3(x, c.Height(x, zc), zc));
+                        Props.GatePole(b, Palette.SafetyOrange, -s, true);
+                        b.Pop();
+                    }
                 }
                 else if (f is Kicker k)
                 {

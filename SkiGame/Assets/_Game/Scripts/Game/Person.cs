@@ -85,6 +85,7 @@ namespace Ski.Game
         public float BrowRaise;        // -1 = frown, +1 = surprised
         public float MouthOpen;        // 0..1 base openness (shouting kids)
         public float Smile;            // 0..1
+        public bool EyesClosed;
         public Vector2 LookOffset;     // extra head yaw / pitch in degrees
         public bool Alive = true;      // breathing, blinking, small head movement
         public PoleMode Poles = PoleMode.Ski;
@@ -631,7 +632,7 @@ namespace Ski.Game
             // Blink.
             if (_time > _nextBlink) { _blink = 0.13f; _nextBlink = _time + 1.8f + Mathf.PerlinNoise(_seed, _time) * 4f; }
             _blink -= dt;
-            float lidUp = _blink > 0f ? -0.02f : 0.215f + (BrowRaise > 0f ? BrowRaise * 0.08f : BrowRaise * 0.06f) - Smile * 0.03f;
+            float lidUp = _blink > 0f || EyesClosed ? -0.02f : 0.215f + (BrowRaise > 0f ? BrowRaise * 0.08f : BrowRaise * 0.06f) - Smile * 0.03f;
             _lidL.localPosition = new Vector3(-hr * EyeX, hr * (EyeY + lidUp), hr * EyeZ);
             _lidR.localPosition = new Vector3(hr * EyeX, hr * (EyeY + lidUp), hr * EyeZ);
             // Brows: raised and arched when surprised, pulled down and together when angry.

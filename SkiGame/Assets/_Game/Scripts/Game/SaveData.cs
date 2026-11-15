@@ -15,6 +15,8 @@ namespace Ski.Game
     {
         static Leaderboards _boards;
         public static Leaderboards Boards => _boards ??= new Leaderboards(new PrefsStore());
+        static ChugBoard _chug;
+        public static ChugBoard Chug => _chug ??= new ChugBoard(new PrefsStore());
 
         public static float MasterVolume = 0.85f, MusicVolume = 0.4f, AmbienceVolume = 0.4f, EffectsVolume = 0.6f, VoiceVolume = 1f, MouseSensitivity = 0.12f;
         public static bool Subtitles = true, InvertLook;
@@ -22,7 +24,7 @@ namespace Ski.Game
         public static CharacterId LastCharacter = CharacterId.Erik;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() { _boards = null; }
+        static void ResetStatics() { _boards = null; _chug = null; }
 
         public static void Load()
         {

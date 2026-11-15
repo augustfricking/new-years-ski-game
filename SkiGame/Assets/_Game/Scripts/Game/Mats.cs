@@ -116,6 +116,20 @@ namespace Ski.Game
             return m;
         }
 
+        static Material _text;
+        /// <summary>World text that is hidden by things in front of it (the built-in font shader is not).</summary>
+        public static Material Text(Font font)
+        {
+            if (_text == null)
+            {
+                var sh = Resources.Load<Shader>("Shaders/SkiText3D");
+                if (sh == null) return font.material;
+                _text = new Material(sh) { name = "Text3D" };
+            }
+            _text.mainTexture = font.material.mainTexture;
+            return _text;
+        }
+
         public static Material Unlit(Texture tex, Color tint)
         {
             var m = new Material(UnlitShader);

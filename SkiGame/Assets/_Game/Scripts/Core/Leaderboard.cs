@@ -33,6 +33,66 @@ namespace Ski.Core
         public float PreviousBest;  // NaN if none
     }
 
+    /// <summary>The tavern's chugging board: fastest stein wins. Seeded with the regulars.</summary>
+    public sealed class ChugBoard
+    {
+        readonly IKeyValueStore _store;
+        readonly List<BoardEntry> _list = new List<BoardEntry>();
+        static readonly string[] Regulars = { "Berit (bar)", "Sigge", "Tuva", "Olle", "Freja", "Viggo", "Ebba", "Nisse" };
+        static readonly float[] Times = { 8.9f, 9.8f, 10.9f, 12.2f, 13.6f, 15.2f, 17.5f, 20.5f };
+        public const float HouseRecord = 8.9f;
+
+        public IReadOnlyList<BoardEntry> Entries => _list;
+
+        public ChugBoard(IKeyValueStore store)
+        {
+            _store = store;
+            for (int i = 0; i < Regulars.Length; i++) _list.Add(new BoardEntry { Name = Regulars[i], Value = Times[i] });
+            string raw = store.Get("board_chug");
+            if (string.IsNullOrEmpty(raw)) return;
+            foreach (var part in raw.Split(';'))
+            {
+                var f = part.Split('|');
+                if (f.Length != 2 || !int.TryParse(f[0], out int who) || who < 0 || who > 3) continue;
+                if (!float.TryParse(f[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float v)) continue;
+                Insert(new BoardEntry { Name = SkierInfo.Get((CharacterId)who).Name, Value = v, IsPlayer = true, Character = (CharacterId)who });
+            }
+        }
+
+        int Insert(BoardEntry e)
+        {
+            int pos = 0;
+            while (pos < _list.Count && _list[pos].Value <= e.Value) pos++;
+            _list.Insert(pos, e);
+            return pos;
+        }
+
+        public float PersonalBest
+        {
+            get { foreach (var e in _list) if (e.IsPlayer) return e.Value; return float.NaN; }
+        }
+
+        public SubmitResult Submit(CharacterId who, float seconds)
+        {
+            float prev = PersonalBest;
+            var r = new SubmitResult { PreviousBest = prev, PersonalBest = float.IsNaN(prev) || seconds < prev };
+            int pos = Insert(new BoardEntry { Name = SkierInfo.Get(who).Name, Value = seconds, IsPlayer = true, Character = who });
+            r.Rank = pos + 1; r.TopOfBoard = pos == 0;
+            int mine = 0;
+            for (int i = 0; i < _list.Count; i++)
+                if (_list[i].IsPlayer && ++mine > 5) { _list.RemoveAt(i); i--; }
+            var sb = new StringBuilder();
+            foreach (var e in _list)
+            {
+                if (!e.IsPlayer) continue;
+                if (sb.Length > 0) sb.Append(';');
+                sb.Append((int)e.Character).Append('|').Append(e.Value.ToString("0.###", CultureInfo.InvariantCulture));
+            }
+            _store.Set("board_chug", sb.ToString());
+            return r;
+        }
+    }
+
     /// <summary>
     /// Local leaderboards, one per slope. Seeded with rival skiers so a first run has something to
     /// beat. Lower is better for times; higher is better for park points.

@@ -233,7 +233,7 @@ namespace Ski.Game
             tm.alignment = TextAlignment.Center;
             tm.fontStyle = FontStyle.Bold;
             tm.color = colour;
-            go.GetComponent<MeshRenderer>().sharedMaterial = font.material;
+            go.GetComponent<MeshRenderer>().sharedMaterial = Mats.Text(font);
             return tm;
         }
     }

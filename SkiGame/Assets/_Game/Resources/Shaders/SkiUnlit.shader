@@ -65,6 +65,28 @@ Shader "Ski/Unlit"
             half4 frag() : SV_Target { return 0; }
             ENDHLSL
         }
+        // Depth and normals for the ink-line pass, so nothing behind an unlit surface is outlined through it.
+        Pass
+        {
+            Name "DepthNormals"
+            Tags { "LightMode" = "DepthNormals" }
+            ZWrite On
+            Cull Off
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; };
+            struct Varyings { float4 positionCS : SV_POSITION; float3 normalWS : TEXCOORD0; };
+            Varyings vert(Attributes IN)
+            {
+                Varyings OUT;
+                OUT.positionCS = TransformObjectToHClip(IN.positionOS.xyz);
+                OUT.normalWS = TransformObjectToWorldNormal(IN.normalOS);
+                return OUT;
+            }
+            half4 frag(Varyings IN) : SV_Target { return half4(normalize(IN.normalWS), 0.0); }
+            ENDHLSL
+        }
     }
     FallBack Off
 }

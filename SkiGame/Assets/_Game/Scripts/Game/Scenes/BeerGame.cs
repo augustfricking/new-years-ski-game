@@ -12,7 +12,6 @@ namespace Ski.Game
     /// </summary>
     public sealed class BeerGame
     {
-        public const float BartenderRecord = 7.5f;
 
         readonly TavernScene _tavern;
         readonly Person _bartender;
@@ -22,7 +21,10 @@ namespace Ski.Game
         ZoneBar _bar;
         Label _status, _timer;
         Transform _stein, _beer, _foam;
-        float _countdown = 1.6f, _raise, _flash;
+        float _countdown = 1.6f, _raise, _flash, _shown = 1f, _slosh;
+        readonly Transform[] _drops = new Transform[10];
+        readonly Vector3[] _dropVel = new Vector3[10];
+        readonly float[] _dropLife = new float[10];
         int _round;
 
         /// <summary>How far the head is tipped back, 0..1.</summary>
@@ -56,6 +58,7 @@ namespace Ski.Game
             if (_status != null) _status.text = "GET READY...";
             _bartender.Target = Pose.Stand.WithArms(70, 8, 30, 40, 10, 70);
             AudioDirector.Sfx("clink", 0.7f);
+            _shown = 1f;
             SetLevel(1f);
         }
 
@@ -74,12 +77,34 @@ namespace Ski.Game
             glass.Sphere(new Vector3(0.125f, 0.1f, 0f), new Vector3(0.05f, 0.065f, 0.05f), 8, 5);
             glass.ToObject("Glass", Mats.Props, _stein);
             var beer = new MeshBuilder();
-            beer.Col = Palette.Lamp; beer.Cylinder(Vector3.zero, 0.062f, 0.066f, 0.2f, 12);
-            _beer = beer.ToObject("Beer", Mats.Glow(Color.white, 1.3f), _stein, false, false).transform;
+            beer.Col = Palette.Mix(Palette.Lamp, Palette.SafetyOrange, 0.35f); beer.Cylinder(Vector3.zero, 0.062f, 0.066f, 0.2f, 12);
+            _beer = beer.ToObject("Beer", Mats.Glow(Color.white, 0.95f), _stein, false, false).transform;
             var foam = new MeshBuilder();
             foam.Col = Palette.White; foam.Cylinder(Vector3.zero, 0.068f, 0.06f, 0.04f, 12);
             _foam = foam.ToObject("Foam", Mats.Props, _stein, false).transform;
             _beer.localPosition = new Vector3(0, 0.012f, 0);
+            // Drops that fly when a gulp is mistimed.
+            for (int i = 0; i < _drops.Length; i++)
+            {
+                var d = new MeshBuilder();
+                d.Col = i % 3 == 0 ? Palette.White : Palette.Lamp;
+                d.Sphere(Vector3.zero, new Vector3(0.012f, 0.018f, 0.012f), 5, 4);
+                _drops[i] = d.ToObject("Drop", Mats.Glow(Color.white, 1.3f), _tavern.Cam.transform, false, false).transform;
+                _drops[i].gameObject.SetActive(false);
+            }
+        }
+
+        void Spill()
+        {
+            _slosh = 1f;
+            var rng = new Rng(_game.Spills * 31 + _game.Gulps + 7);
+            for (int i = 0; i < _drops.Length; i++)
+            {
+                _drops[i].gameObject.SetActive(true);
+                _drops[i].localPosition = _stein.localPosition + _stein.localRotation * new Vector3(rng.Range(-0.05f, 0.05f), 0.012f + 0.2f * _shown, rng.Range(-0.05f, 0.05f));
+                _dropVel[i] = new Vector3(rng.Range(-0.5f, 0.35f), rng.Range(0.5f, 1.3f), rng.Range(-0.15f, 0.25f));
+                _dropLife[i] = rng.Range(0.45f, 0.8f);
+            }
         }
 
         void SetLevel(float level)
@@ -115,12 +140,12 @@ namespace Ski.Game
                     {
                         AudioDirector.Sfx("gulp", 0.9f, 0.9f + _game.Gulps * 0.03f);
                         _flash = 1f;
-                        SetLevel(_game.Level);
                         if (_status != null) _status.text = _game.Gulps >= ChugGame.GulpsToFinish - 2 && !_game.Finished ? "ALMOST..." : "CHUG!";
                     }
                     else
                     {
-                        AudioDirector.Sfx("gate_miss", 0.6f, 1.3f);
+                        AudioDirector.Sfx("spill", 0.8f);
+                        Spill();
                         if (_status != null) _status.text = "SPILLED!  +" + ChugGame.SpillPenalty.ToString("0.0") + " s";
                     }
                 }
@@ -132,8 +157,22 @@ namespace Ski.Game
             _raise = Mathf.MoveTowards(_raise, drinking ? 1f : 0f, dt * 3.5f);
             Tilt = Mathf.Lerp(Tilt, drinking ? 0.25f + (1f - _game.Level) * 0.75f : 0f, 1f - Mathf.Exp(-6f * dt));
             _flash = Mathf.MoveTowards(_flash, 0f, dt * 4f);
-            _stein.localPosition = Vector3.Lerp(new Vector3(0.26f, -0.3f, 0.55f), new Vector3(0.17f, -0.2f + _flash * 0.015f, 0.46f), _raise);
-            _stein.localRotation = Quaternion.Euler(Mathf.Lerp(0f, -18f - Tilt * 42f, _raise), -25f, Mathf.Lerp(0f, 12f, _raise));
+            _slosh = Mathf.MoveTowards(_slosh, 0f, dt * 2.6f);
+            float jolt = Mathf.Sin(_slosh * 22f) * _slosh;
+            _stein.localPosition = Vector3.Lerp(new Vector3(0.26f, -0.3f, 0.55f), new Vector3(0.17f, -0.2f + _flash * 0.015f, 0.46f), _raise) + new Vector3(jolt * 0.02f, _slosh * 0.02f, 0f);
+            _stein.localRotation = Quaternion.Euler(Mathf.Lerp(0f, -18f - Tilt * 42f, _raise), -25f, Mathf.Lerp(0f, 12f, _raise) + jolt * 14f);
+            // The beer goes down a notch with every gulp, and a splash is lost with every spill.
+            float want = Mathf.Clamp01(_game.Level - Mathf.Min(_game.Spills, 6) * 0.012f);
+            _shown = Mathf.MoveTowards(_shown, want, dt * 0.9f);
+            SetLevel(_shown);
+            for (int i = 0; i < _drops.Length; i++)
+            {
+                if (_dropLife[i] <= 0f) continue;
+                _dropLife[i] -= dt;
+                _dropVel[i] += Vector3.down * 5.5f * dt;
+                _drops[i].localPosition += _dropVel[i] * dt;
+                if (_dropLife[i] <= 0f) _drops[i].gameObject.SetActive(false);
+            }
 
             if (_bar != null)
             {
@@ -147,12 +186,17 @@ namespace Ski.Game
         void Finish()
         {
             float t = _game.Time;
-            bool best = SaveData.BestChug <= 0f || t < SaveData.BestChug;
-            bool beatBar = t < BartenderRecord;
+            var who = SaveData.LastCharacter;
+            var res = SaveData.Chug.Submit(who, t);
+            bool best = res.PersonalBest;
+            bool beatBar = res.TopOfBoard;
             if (best) { SaveData.BestChug = t; SaveData.Save(); }
             _tavern.Wobble = Mathf.Min(_tavern.Wobble + 1.6f, 6f);
+            // The whole hall cheers an empty stein.
+            _tavern.Cheer(beatBar ? 6f : 3.6f);
             AudioDirector.Sfx("burp", 0.9f);
-            AudioDirector.Sfx("cheer", beatBar ? 1f : 0.6f);
+            AudioDirector.Sfx("cheer", 1f);
+            if (beatBar) AudioDirector.Sfx("cheer", 0.8f, 1.12f);
             _bartender.Target = beatBar ? Pose.Cheer : Pose.Stand.WithArms(40, 10, 70, 40, 10, 70);
             if (_status != null) _status.text = "";
             var ui = Ui.Instance;
@@ -163,7 +207,20 @@ namespace Ski.Game
             Ui.Text(card, beatBar ? "SKÅL! NEW HOUSE RECORD!" : best ? "SKÅL! PERSONAL BEST!" : "SKÅL!", "h1");
             Ui.Text(card, t.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " s", "results-big");
             Ui.Text(card, _game.Spills == 0 ? "Not a drop spilled." : _game.Spills + " spill" + (_game.Spills > 1 ? "s" : "") + " (+" + (_game.Spills * ChugGame.SpillPenalty).ToString("0.0") + " s)", "small");
-            Ui.Text(card, "Your best: " + SaveData.BestChug.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " s     Bartender's record: " + BartenderRecord.ToString("0.0") + " s", "small");
+            // The board: the regulars and you.
+            var list = SaveData.Chug.Entries;
+            var board = Ui.Div(card, "board");
+            int shown = 0;
+            for (int i = 0; i < list.Count && shown < 8; i++)
+            {
+                bool mine = i == res.Rank - 1;
+                if (!mine && i >= 6 && res.Rank - 1 > i) continue;   // keep room for the player's own row
+                var line = Ui.Div(board, mine ? "board-row board-row-me" : "board-row");
+                Ui.Text(line, (i + 1) + ".", "board-rank");
+                Ui.Text(line, list[i].Name, "board-name");
+                Ui.Text(line, list[i].Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " s", "board-value");
+                shown++;
+            }
             var row = Ui.Div(card);
             Ui.Keys(row, "SPACE", "another one");
             Ui.Keys(row, "E", "that's enough");

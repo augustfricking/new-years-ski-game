@@ -133,7 +133,7 @@ namespace Ski.Tests
             Assert.IsTrue(finished, $"route {route} stuck at z={s.Sim.Pos.z:0}");
         }
 
-        [Test]
+        [Test, Timeout(600000)]   // twelve full bot runs through the forest
         public void OffPisteRoutesAreCloseAndSuitDifferentSkiers()
         {
             // No route should be hopeless, and no route should be the best for everyone by a mile.
