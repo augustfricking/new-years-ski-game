@@ -4,6 +4,10 @@ A first-person ski game for the browser. Four friends ride the last lift of New 
 storm rolls in, and you pick one last run before the after-ski: the kids' slope, the snow park,
 the slalom, the black downhill or the off-piste maze. Built with Unity 6 (WebGL).
 
+## Play it
+
+https://augustfricking.github.io/new-years-ski-game/ (a desktop browser with a keyboard and mouse)
+
 ## Play it locally
 The web build is in `SkiGame/Builds/WebGL` (not in git; build it from the Editor or with the
 steps below). Serve that folder with any static web server and open it in a browser:

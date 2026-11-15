@@ -45,7 +45,8 @@ Durable progress state. Update after each verified step. Acceptance criteria are
 - [x] WebGL build (about 11 MB) loads and plays in the browser, input verified
 - [x] Full-window web page with loading screen
 - [ ] Owner local playtest
-- [ ] GitHub Pages deploy (approved by the owner; see the note at the end of M7)
+- [x] GitHub Pages deploy: https://augustfricking.github.io/new-years-ski-game/ (branch `gh-pages`
+      holds the contents of `SkiGame/Builds/WebGL` plus `.nojekyll`; rebuild, then replace and push)
 
 ## M7 — Playtest round 1 (owner feedback, November 2026) ✅
 Look
