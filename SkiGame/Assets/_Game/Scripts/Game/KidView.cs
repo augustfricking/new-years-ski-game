@@ -66,6 +66,9 @@ namespace Ski.Game
             }
         }
 
+        /// <summary>Where the player is; people far away are frozen or hidden to save time.</summary>
+        public float ViewerZ;
+
         public void Sync(float dt)
         {
             int leash = 0;
@@ -74,8 +77,16 @@ namespace Ski.Game
                 var k = _crowd.Kids[i];
                 if (i >= _people.Count) _people.Add(Spawn(k));
                 var p = _people[i];
-                if (p.gameObject.activeSelf != k.Active) p.gameObject.SetActive(k.Active);
-                if (!k.Active) { if (k.Kind == KidKind.HarnessParent) leash++; continue; }
+                float ahead = k.Z - ViewerZ;
+                bool visible = k.Active && ahead > -45f && ahead < 260f;
+                if (p.gameObject.activeSelf != visible) p.gameObject.SetActive(visible);
+                if (!visible)
+                {
+                    if (k.Kind == KidKind.HarnessParent) { _leashes[leash].enabled = false; leash++; }
+                    continue;
+                }
+                // Far away the pose no longer needs animating.
+                p.enabled = ahead < 110f;
                 float y = _course.Height(k.X, k.Z);
                 Vector3 n = _course.Normal(k.X, k.Z);
                 Vector3 fwd = new Vector3(Mathf.Sin(k.Heading), 0f, Mathf.Cos(k.Heading));

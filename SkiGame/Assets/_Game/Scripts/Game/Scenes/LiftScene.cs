@@ -632,8 +632,10 @@ namespace Ski.Game
             // The top station slides out of the white at the very end.
             if (b.Shot == 7) _station.localPosition = new Vector3(0f, 0f, Mathf.MoveTowards(_station.localPosition.z, 13f, dt * 9f));
             else _station.localPosition = new Vector3(0f, 0f, 60f);
+            // Normally the line ends with its voice clip; never wait more than a moment longer than
+            // its length, so a browser that has not started audio yet cannot stall the scene.
             bool voiceDone = AudioDirector.I == null || !AudioDirector.I.VoicePlaying;
-            if (_beatT >= _beatLen && voiceDone) NextBeat();
+            if (_beatT >= _beatLen && (voiceDone || _beatT >= _beatLen + 1.2f)) NextBeat();
         }
 
         public void Close()

@@ -170,21 +170,25 @@ namespace Ski.Game
             // Chunk the obstacles on a grid so the camera only draws what is near.
             const float cell = 64f;
             var trees = new Dictionary<Vector2Int, MeshBuilder>();
+            var farTrees = new Dictionary<Vector2Int, MeshBuilder>();
             var props = new Dictionary<Vector2Int, MeshBuilder>();
             var rng = new Rng(c.Seed + 99);
             foreach (var o in c.Obstacles)
             {
                 if (o.IsBox) continue;
                 bool isTree = o.Kind == ObstacleKind.Tree;
-                var dict = isTree ? trees : props;
+                // Trees more than a few metres into the forest are never seen up close.
+                bool far = isTree && c.Clear(o.X, o.Z) < -4.5f;
+                var dict = far ? farTrees : isTree ? trees : props;
                 var key = new Vector2Int(Mathf.FloorToInt(o.X / cell), Mathf.FloorToInt(o.Z / cell));
                 if (!dict.TryGetValue(key, out var b)) dict[key] = b = new MeshBuilder();
                 float s = o.Scale * (o.Kind == ObstacleKind.Rock ? o.Radius : 1f);
                 b.Push(new Vector3(o.X, c.SnowHeight(o.X, o.Z) - 0.12f, o.Z), Quaternion.Euler(0, rng.Range(0f, 360f), 0), Vector3.one * s);
-                Props.Obstacle(b, o, rng);
+                if (far) Props.PineFar(b, o.Variant); else Props.Obstacle(b, o, rng);
                 b.Pop();
             }
             foreach (var kv in trees) kv.Value.ToObject("Trees " + kv.Key, Mats.Trees, parent, true, false);
+            foreach (var kv in farTrees) kv.Value.ToObject("Far trees " + kv.Key, Mats.Trees, parent, false, false);
             foreach (var kv in props) kv.Value.ToObject("Rocks " + kv.Key, Mats.Props, parent, true, true);
         }
 

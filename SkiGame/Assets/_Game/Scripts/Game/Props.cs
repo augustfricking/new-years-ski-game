@@ -30,6 +30,27 @@ namespace Ski.Game
             }
         }
 
+        /// <summary>A cheaper pine for trees nobody gets close to: two plain tiers, no trunk. 20 triangles.</summary>
+        public static void PineFar(MeshBuilder b, int variant)
+        {
+            float h = variant == 0 ? 6.2f : variant == 1 ? 7.4f : 5.2f;
+            float w = variant == 0 ? 1.55f : variant == 1 ? 1.35f : 1.8f;
+            for (int t = 0; t < 2; t++)
+            {
+                Vector3 c = new Vector3(0f, h * (0.12f + t * 0.36f), 0f);
+                float r = w * (1f - t * 0.38f), th = h * 0.52f;
+                Vector3 apex = c + Vector3.up * th;
+                for (int i = 0; i < 5; i++)
+                {
+                    float a0 = i / 5f * Mathf.PI * 2f + t, a1 = (i + 1) / 5f * Mathf.PI * 2f + t;
+                    Vector3 p0 = c + new Vector3(Mathf.Cos(a0), 0, Mathf.Sin(a0)) * r, p1 = c + new Vector3(Mathf.Cos(a1), 0, Mathf.Sin(a1)) * r;
+                    Vector3 m0 = Vector3.Lerp(p0, apex, 0.45f), m1 = Vector3.Lerp(p1, apex, 0.45f);
+                    b.Col = t == 0 ? Palette.Pine : Palette.PineLight; b.Tri(p0, m0, p1); b.Tri(p1, m0, m1);
+                    b.Col = Palette.Mix(Palette.PineLight, Palette.Snow, 0.85f); b.Tri(m0, apex, m1);
+                }
+            }
+        }
+
         /// <summary>A cone whose tip is snow-white, fading to the given colour at the skirt.</summary>
         static void Cone(MeshBuilder b, Vector3 baseCentre, float r, float h, int sides, Color skirt, float twist)
         {

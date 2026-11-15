@@ -196,7 +196,7 @@ namespace Ski.Game
 
             Rig.Sync(Session.Sim, dt);
             if (!Paused) _snow.Tick(Session.Sim, dt);
-            if (Kids != null) Kids.Sync(dt);
+            if (Kids != null) { Kids.ViewerZ = Session.Sim.Pos.z; Kids.Sync(dt); }
             AmbientSounds();
 
             // After the finish: ski to the lift for another run, or to the tavern door.
