@@ -4,8 +4,8 @@ using UnityEngine.UIElements;
 namespace Ski.Game
 {
     /// <summary>
-    /// The pole-push timing ring: a dot runs around the ring; press Shift while it is inside the
-    /// bright zone. The zone and the speed of the dot come from the simulation.
+    /// The pole-push timing ring: a dot runs around the ring; click while it is inside the bright
+    /// zone, which always sits at the top. The zone and the speed of the dot come from the simulation.
     /// </summary>
     public sealed class PoleRing : VisualElement
     {
@@ -20,7 +20,8 @@ namespace Ski.Game
             generateVisualContent += Draw;
         }
 
-        static Angle A(float phase) => Angle.Degrees(phase * 360f - 90f);
+        // The ring is turned so that the sweet spot is at twelve o'clock.
+        Angle A(float phase) => Angle.Degrees((phase - SweetSpot) * 360f - 90f);
 
         void Draw(MeshGenerationContext ctx)
         {
@@ -41,7 +42,7 @@ namespace Ski.Game
             p.BeginPath(); p.Arc(c, radius, A(SweetSpot - Window), A(SweetSpot + Window)); p.Stroke();
 
             // The runner.
-            float a = (Phase * 360f - 90f) * Mathf.Deg2Rad;
+            float a = ((Phase - SweetSpot) * 360f - 90f) * Mathf.Deg2Rad;
             Vector2 dot = c + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * radius;
             p.fillColor = Palette.Ink;
             p.BeginPath(); p.Arc(dot, 15f, Angle.Degrees(0), Angle.Degrees(360)); p.Fill();

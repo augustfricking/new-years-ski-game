@@ -86,8 +86,8 @@ namespace Ski.Game
 
         // ---- one-shots ---------------------------------------------------------------------
 
-        public static void Click() { if (I != null) I.Play("click", 0.6f); }
-        public static void Hover() { if (I != null) I.Play("hover", 0.5f); }
+        public static void Click() { if (I != null) I.Play("click", 0.35f); }
+        public static void Hover() { if (I != null) I.Play("hover", 0.12f); }
         public static void Sfx(string id, float volume = 1f, float pitch = 1f) { if (I != null) I.Play(id, volume, pitch); }
 
         public void Play(string id, float volume = 1f, float pitch = 1f, float pan = 0f)

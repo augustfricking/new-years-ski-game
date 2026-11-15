@@ -15,7 +15,7 @@ Vector2 look = new Vector2(0, -8);
 int steps = 60;
 switch (what)
 {
-    case "brake": inp.Brake = true; look = new Vector2(0, -48); steps = 50; break;
+    case "brake": inp.Brake = true; look = new Vector2(0, -62); steps = 150; break;
     case "carve": inp.Steer = 1f; look = new Vector2(0, -30); steps = 45; break;
     case "air": z = 232f; inp.Trick = 1; look = new Vector2(0, -35); steps = 110; break;
     case "kids":

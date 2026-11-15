@@ -47,7 +47,7 @@ namespace Ski.Game
                 if (Cache.TryGetValue("character", out var m) && m != null) return m;
                 m = NewToon(Color.white, 2.1f);
                 m.name = "Character";
-                m.SetFloat("_InkShadow", 0.38f);
+                m.SetFloat("_InkShadow", 0.26f);
                 m.SetFloat("_BackRim", 0.55f);
                 m.SetColor("_BackRimColor", new Color(0.5f, 0.78f, 1f));
                 m.SetFloat("_RimStrength", 0.3f);

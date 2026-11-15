@@ -54,10 +54,10 @@ namespace Ski.Game
             new Shot(new Vector3(1.75f, 0.78f, 2.7f), new Vector3(1.55f, 0.76f, 2.5f), new Vector3(0.56f, 0.62f, 0f), 27f), // 1 Jonte + Maja
             new Shot(new Vector3(-2.9f, 0.74f, 1.5f), new Vector3(-2.6f, 0.72f, 1.2f), new Vector3(0.2f, 0.56f, 0.05f), 30f), // 2 profile along the row
             new Shot(new Vector3(-1.65f, 0.76f, 2.6f), new Vector3(-1.45f, 0.74f, 2.4f), new Vector3(-0.57f, 0.62f, 0f), 26f), // 3 Erik + Linn
-            new Shot(new Vector3(0.5f, -1.7f, 2.9f), new Vector3(0.2f, -1.5f, 2.5f), new Vector3(0f, 0.35f, 0f), 40f),       // 4 from under the skis
-            new Shot(new Vector3(0.7f, 1.2f, -2.6f), new Vector3(0.45f, 1.15f, -2.3f), new Vector3(0f, 2.7f, 6f), 46f),      // 5 over the shoulders, uphill
+            new Shot(new Vector3(-0.7f, 0.22f, 3.7f), new Vector3(-0.35f, 0.3f, 3.2f), new Vector3(0f, 0.58f, 0f), 33f),      // 4 low front, all four faces
+            new Shot(new Vector3(1.5f, 0.98f, 3.9f), new Vector3(1.1f, 0.9f, 3.4f), new Vector3(-0.05f, 0.6f, 0f), 32f),     // 5 front, a little high and from Jonte's side
             new Shot(new Vector3(-0.15f, 0.64f, 3.1f), new Vector3(-0.05f, 0.62f, 2.7f), new Vector3(0f, 0.6f, 0f), 25f),     // 6 tight front
-            new Shot(new Vector3(2.9f, 1.7f, -4.6f), new Vector3(2.4f, 1.5f, -3.8f), new Vector3(0f, 2.3f, 5f), 50f),         // 7 behind, arriving
+            new Shot(new Vector3(0.35f, 0.78f, 4.6f), new Vector3(0.2f, 0.7f, 3.3f), new Vector3(0.1f, 0.58f, 0f), 31f),       // 7 front, pushing in as they arrive
         };
         int _shot;
         float _shotT, _shotLen = 6f;
@@ -396,8 +396,9 @@ namespace Ski.Game
                 _subName = Ui.Text(_subBox, "", "sub-name");
                 _subText = Ui.Text(_subBox, "", "sub-text");
                 _subBox.style.opacity = 0f;
-                _skip = Ui.Div(_ui, "skip");
-                Ui.Keys(_skip, "SPACE", "skip");
+                // On the top layer, so it shows on the letterbox bar instead of under it.
+                _skip = Ui.Div(ui.TopLayer, "skip");
+                Ui.Keys(_skip, "SPACE", "skip the ride");
                 ui.Letterbox(true);
             }
             CutsceneTime = 0f;
@@ -427,7 +428,7 @@ namespace Ski.Game
                 f.Talking = i == who;
                 f.BrowRaise = i == who ? b.Mood : b.Panic ? 0.8f : b.Mood * 0.3f;
                 // Everyone else looks at whoever is talking.
-                f.LookOffset = i == who ? Vector2.zero : new Vector2(Mathf.Clamp((SeatX(who) - SeatX(i)) * 48f, -55f, 55f), 0f);
+                f.LookOffset = i == who ? Vector2.zero : new Vector2(Mathf.Clamp((SeatX(who) - SeatX(i)) * 40f, -36f, 36f), 0f);   // glance at the speaker, face still to the camera
                 Pose p = b.Panic ? (i % 2 == 0 ? Pose.SitPanic : Pose.SitCold) : _basePose[i];
                 if (i == who && b.Gesture.HasValue) p = b.Gesture.Value;
                 f.Target = p;
@@ -539,9 +540,17 @@ namespace Ski.Game
                 var p = _skiers[i].transform;
                 p.localPosition = new Vector3(x, h, s);
                 float heading = 180f + Mathf.Cos(s * 0.09f + _skierPhase[i]) * -32f;
-                p.localRotation = Upright * Quaternion.Euler(0f, heading, 0f);
-                _skiers[i].Target = Pose.Ski;
-                _skiers[i].Target.TorsoRoll = turn * 14f;
+                // The whole body banks into the turn, the upper body stays quieter, the knees sink
+                // through the middle of the turn and rise at the change of edges.
+                p.localRotation = Upright * Quaternion.Euler(0f, heading, -turn * 21f);
+                var pose = Pose.Ski;
+                float load = Mathf.Abs(turn);
+                pose.ThighL += load * 12f; pose.KneeL += load * 24f; pose.ThighR += load * 12f; pose.KneeR += load * 24f;
+                pose.TorsoRoll = -turn * 9f; pose.TorsoYaw = turn * 12f; pose.TorsoPitch += load * 6f;
+                pose.ArmOutL += turn * 14f; pose.ArmOutR -= turn * 14f;
+                pose.ArmFwdL += (1f - load) * 16f * (turn > 0f ? 1f : 0f); pose.ArmFwdR += (1f - load) * 16f * (turn < 0f ? 1f : 0f);   // reach for the pole plant
+                _skiers[i].Target = pose;
+                _skiers[i].PoseSpeed = 9f;
             }
         }
 
@@ -642,6 +651,7 @@ namespace Ski.Game
         public void Close()
         {
             _ui?.RemoveFromHierarchy();
+            _skip?.RemoveFromHierarchy();
             if (Ui.Instance != null) Ui.Instance.Letterbox(false);
             if (AudioDirector.I != null) { AudioDirector.I.StopVoice(); AudioDirector.I.Ambience(null); }
             Destroy(gameObject);

@@ -7,8 +7,8 @@ namespace Ski.Game
 {
     public enum GearKind { None, Skis, Board }
 
-    /// <summary>Where the ski poles are: in the hands, hanging straight down, or resting across the lap.</summary>
-    public enum PoleMode { InHands, Hang, Lap }
+    /// <summary>Where the ski poles are: fixed in the hands, aimed while skiing (down and back), hanging straight down, or resting across the lap.</summary>
+    public enum PoleMode { InHands, Ski, Hang, Lap }
 
     /// <summary>What a person looks like: size, face, clothes and gear.</summary>
     public sealed class PersonLook
@@ -87,14 +87,16 @@ namespace Ski.Game
         public float Smile;            // 0..1
         public Vector2 LookOffset;     // extra head yaw / pitch in degrees
         public bool Alive = true;      // breathing, blinking, small head movement
-        public PoleMode Poles = PoleMode.InHands;
+        public PoleMode Poles = PoleMode.Ski;
+        /// <summary>Which way the poles point in <see cref="PoleMode.Ski"/>, in the person's own space.</summary>
+        public Vector3 PoleAim = new Vector3(0f, -0.82f, -0.57f);
         /// <summary>1 = a snowboarder riding: body turned across the direction of travel, head looking ahead.</summary>
         public float SideStance;
         /// <summary>How the board hangs from the front foot when seated on the lift (yaw in degrees).</summary>
         public float BoardHangYaw = -24f;
 
         /// <summary>Kept for older callers: poles pointing at the ground.</summary>
-        public bool PolesHang { get => Poles == PoleMode.Hang; set => Poles = value ? PoleMode.Hang : PoleMode.InHands; }
+        public bool PolesHang { get => Poles == PoleMode.Hang; set => Poles = value ? PoleMode.Hang : PoleMode.Ski; }
 
         public Transform HandL => _handL;
         public Transform HandR => _handR;
@@ -118,6 +120,7 @@ namespace Ski.Game
         float _time, _blink, _nextBlink = 2f, _seed, _goggleUp, _goggleUpTarget, _talk;
         Vector2 _wander, _wanderTarget; float _nextWander;
         PoleMode _poleMode = PoleMode.InHands;
+        bool _headVisible = true;
         static int _count;
         const float EyeX = 0.31f, EyeY = 0.85f, EyeZ = 0.775f, MouthY = 0.24f, MouthZ = 0.765f;   // in head radii
 
@@ -135,7 +138,28 @@ namespace Ski.Game
         /// <summary>Goggles on the helmet (1) or over the eyes (0).</summary>
         public void SetGogglesUp(bool up, bool instant = false) { _goggleUpTarget = up ? 1f : 0f; if (instant) { _goggleUp = _goggleUpTarget; PlaceGoggles(); } }
         /// <summary>Hides the head (first person: the camera sits inside it).</summary>
-        public void SetHeadVisible(bool visible) { foreach (var r in _headParts) if (r != null) r.enabled = visible; }
+        public void SetHeadVisible(bool visible)
+        {
+            if (visible == _headVisible) return;
+            _headVisible = visible;
+            var mode = visible ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+            foreach (var r in _headParts) if (r != null) r.shadowCastingMode = mode;
+        }
+
+        float SkiHalfWidth => 0.0425f * Mathf.Lerp(_s, 1f, 0.5f);
+        float LegExtent(in Pose p)
+        {
+            float t = p.ThighL * Mathf.Deg2Rad, k = p.KneeL * Mathf.Deg2Rad;
+            return _thigh * Mathf.Cos(t) + _shin * Mathf.Cos(t - k);
+        }
+
+        /// <summary>How far apart the legs must be for the ski tips to almost touch at this toe-in.</summary>
+        public float LegOutForPlough(in Pose p)
+        {
+            float footX = SkiHalfWidth + 0.02f + 0.56f * Look.GearLength * Mathf.Sin(p.FootIn * Mathf.Deg2Rad);
+            float sin = (footX - 0.095f * _s) / Mathf.Max(LegExtent(p), 0.1f);
+            return Mathf.Asin(Mathf.Clamp(sin, 0f, 0.75f)) * Mathf.Rad2Deg;
+        }
 
         static Transform Node(string name, Transform parent, Vector3 localPos)
         {
@@ -641,7 +665,16 @@ namespace Ski.Game
 
             // Hips: high enough that the feet reach the ground, or at the seat.
             float tL = p.ThighL * Mathf.Deg2Rad, kL = p.KneeL * Mathf.Deg2Rad;
-            float standY = _ankle + (_thigh * Mathf.Cos(tL) + _shin * Mathf.Cos(tL - kL)) * Mathf.Cos(p.LegOut * Mathf.Deg2Rad) + 0.04f * _s;
+            float ext = _thigh * Mathf.Cos(tL) + _shin * Mathf.Cos(tL - kL);
+            float standY = _ankle + ext * Mathf.Cos(p.LegOut * Mathf.Deg2Rad) + 0.04f * _s;
+            // Snowplough: the toes turn in at the ankle, never so far that the ski tips cross.
+            float footIn = p.FootIn;
+            if (Look.Gear == GearKind.Skis && footIn > 0f)
+            {
+                float footX = 0.095f * _s + ext * Mathf.Sin(p.LegOut * Mathf.Deg2Rad);
+                float maxSin = (footX - SkiHalfWidth - 0.012f) / (0.56f * Look.GearLength);
+                footIn = Mathf.Min(footIn, Mathf.Asin(Mathf.Clamp(maxSin, 0f, 0.6f)) * Mathf.Rad2Deg);
+            }
             float footZ = _thigh * Mathf.Sin(tL) + _shin * Mathf.Sin(tL - kL);
             var hipRot = Quaternion.Euler(0f, side * 82f, 0f);
             _hips.localRotation = hipRot;
@@ -655,14 +688,14 @@ namespace Ski.Game
             _elL.localRotation = Quaternion.Euler(-p.ElbowL, 0, 0);
             _elR.localRotation = Quaternion.Euler(-p.ElbowR, 0, 0);
 
-            _hipL.localRotation = Quaternion.AngleAxis(-p.LegOut, Vector3.forward) * Quaternion.AngleAxis(-p.ThighL, Vector3.right) * Quaternion.AngleAxis(p.FootIn, Vector3.up);
-            _hipR.localRotation = Quaternion.AngleAxis(p.LegOut, Vector3.forward) * Quaternion.AngleAxis(-p.ThighR, Vector3.right) * Quaternion.AngleAxis(-p.FootIn, Vector3.up);
+            _hipL.localRotation = Quaternion.AngleAxis(-p.LegOut, Vector3.forward) * Quaternion.AngleAxis(-p.ThighL, Vector3.right);
+            _hipR.localRotation = Quaternion.AngleAxis(p.LegOut, Vector3.forward) * Quaternion.AngleAxis(-p.ThighR, Vector3.right);
             _kneeL.localRotation = Quaternion.Euler(p.KneeL, 0, 0);
             _kneeR.localRotation = Quaternion.Euler(p.KneeR, 0, 0);
             // Keep the feet flat on the ground (seated: let them hang a little toe-down).
             float hang = p.Seated * 12f;
-            _footL.localRotation = Quaternion.Euler(p.ThighL - p.KneeL + hang, 0, 0) * Quaternion.AngleAxis(p.LegOut * (1f - p.Seated), Vector3.forward);
-            _footR.localRotation = Quaternion.Euler(p.ThighR - p.KneeR + hang, 0, 0) * Quaternion.AngleAxis(-p.LegOut * (1f - p.Seated), Vector3.forward);
+            _footL.localRotation = Quaternion.Euler(p.ThighL - p.KneeL + hang, 0, 0) * Quaternion.AngleAxis(p.LegOut * (1f - p.Seated), Vector3.forward) * Quaternion.Euler(0f, footIn, -footIn * 0.35f);
+            _footR.localRotation = Quaternion.Euler(p.ThighR - p.KneeR + hang, 0, 0) * Quaternion.AngleAxis(-p.LegOut * (1f - p.Seated), Vector3.forward) * Quaternion.Euler(0f, -footIn, footIn * 0.35f);
 
             if (_board != null)
             {
@@ -675,7 +708,14 @@ namespace Ski.Game
             if (_poleMode == PoleMode.Lap && Poles != PoleMode.Lap)
                 foreach (var pole in _poles) { pole.localPosition = new Vector3(0, -0.06f * _s, 0.02f * _s); pole.localRotation = Quaternion.Euler(-62f, 0f, 0f); }
             _poleMode = Poles;
-            if (Poles == PoleMode.Hang)
+            if (Poles == PoleMode.Ski)
+            {
+                // Tucked low the poles lie back under the arms; otherwise they trail down and back.
+                Vector3 aim = Vector3.Lerp(PoleAim, new Vector3(0f, -0.06f, -1f), Mathf.Clamp01((p.TorsoPitch - 30f) / 30f)).normalized;
+                for (int i = 0; i < _poles.Count; i++)
+                    _poles[i].rotation = transform.rotation * Quaternion.FromToRotation(Vector3.down, new Vector3(aim.x + (i == 0 ? -0.1f : 0.1f), aim.y, aim.z));
+            }
+            else if (Poles == PoleMode.Hang)
             {
                 for (int i = 0; i < _poles.Count; i++)
                     _poles[i].rotation = transform.rotation * Quaternion.Euler(-14f, 0f, i == 0 ? 5f : -5f);

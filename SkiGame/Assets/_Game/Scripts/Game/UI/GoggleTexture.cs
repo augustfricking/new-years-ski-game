@@ -13,7 +13,7 @@ namespace Ski.Game
         public static Texture2D Get()
         {
             if (_tex != null) return _tex;
-            const int w = 640, h = 360;
+            const int w = 1600, h = 900;   // close to screen size, so the rim stays crisp
             _tex = new Texture2D(w, h, TextureFormat.RGBA32, false) { name = "Goggles", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
             var px = new Color32[w * h];
             Color ink = Palette.Ink, rim = Palette.InkSoft, tint = new Color(1f, 0.72f, 0.45f);

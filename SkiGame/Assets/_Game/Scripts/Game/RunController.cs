@@ -29,7 +29,9 @@ namespace Ski.Game
         public event Action<RunEvent> OnEvent;
 
         float _acc;
-        bool _jump, _pole;
+        bool _jump, _pole, _clickSwallowed;
+        /// <summary>Call when a click was used for something else (resuming from pause), so it does not also push.</summary>
+        public void SwallowClick() { _clickSwallowed = true; }
         readonly System.Collections.Generic.HashSet<int> _screamed = new System.Collections.Generic.HashSet<int>();
 
         public static RunController Create(Transform parent, SlopeId slope, CharacterId who)
@@ -49,13 +51,14 @@ namespace Ski.Game
             VillageBuilder.Build(course, transform);
             if (Session.Crowd != null) Kids = KidView.Create(Session.Crowd, course, transform);
             Rig = PlayerRig.Create(who, transform);
+            Rig.SetThirdPerson(slope == SlopeId.Blue);   // the park is ridden from behind, so tricks can be seen
             Rig.Sync(Session.Sim, 0.016f);
             _snow = SnowFx.Create(transform);
             if (WorldLook.Instance != null) WorldLook.Instance.Follow = Rig.Cam.transform;
             if (Ui.Instance != null)
             {
                 Hud = new Hud(this);
-                Ui.Instance.ShowGoggles(true);
+                Ui.Instance.ShowGoggles(!Rig.ThirdPerson);
             }
         }
 
@@ -156,10 +159,19 @@ namespace Ski.Game
             if (kb != null && InputEnabled && Autopilot == null)
             {
                 if (kb.spaceKey.wasPressedThisFrame) _jump = true;
-                if (kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame) _pole = true;
-                if (kb.rKey.wasPressedThisFrame && !Paused) Session.Respawn();
                 var mouse = Mouse.current;
-                if (mouse != null && (Cursor.lockState == CursorLockMode.Locked || mouse.rightButton.isPressed))
+                // Pole push: left mouse button (Shift still works).
+                if (kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame) _pole = true;
+                if (mouse != null && mouse.leftButton.wasPressedThisFrame && !Paused && !Dialogs.Open && !_clickSwallowed) _pole = true;
+                _clickSwallowed = false;
+                if (kb.rKey.wasPressedThisFrame && !Paused) Session.Respawn();
+                if (kb.cKey.wasPressedThisFrame && !Paused)
+                {
+                    Rig.SetThirdPerson(!Rig.ThirdPerson);
+                    if (Ui.Instance != null) Ui.Instance.ShowGoggles(!Rig.ThirdPerson);
+                }
+                // The mouse always looks around while skiing: no click needed.
+                if (mouse != null && !Paused && !Dialogs.Open)
                 {
                     Vector2 d = mouse.delta.ReadValue() * SaveData.MouseSensitivity;
                     Rig.Look.x = Mathf.Clamp(Rig.Look.x + d.x, -120f, 120f);

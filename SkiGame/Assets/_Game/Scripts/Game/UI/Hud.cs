@@ -17,7 +17,7 @@ namespace Ski.Game
         readonly Label _timer, _penalty, _speed, _extra, _toast, _toastSub, _score, _air;
         readonly PoleRing _ring;
         readonly CarveMeter _carve;
-        readonly VisualElement _hints, _ringBox, _carveBox;
+        readonly VisualElement _hints, _tricks, _ringBox, _carveBox;
         readonly Action<float> _ticker;
         readonly Queue<(string title, string sub, bool bad, float time)> _queue = new Queue<(string, string, bool, float)>();
         float _toastLeft, _hintTime;
@@ -56,7 +56,7 @@ namespace Ski.Game
             _ringBox = Ui.Div(bottom, "center");
             _ring = new PoleRing();
             _ringBox.Add(_ring);
-            Ui.Keys(_ringBox, "SHIFT", SkierInfo.Get(s.Character).Gear == Gear.Snowboard ? "push off in time" : "pole in time");
+            Ui.Keys(_ringBox, "CLICK", SkierInfo.Get(s.Character).Gear == Gear.Snowboard ? "push off when the dot is at the top" : "pole when the dot is at the top");
             _carveBox = Ui.Div(bottom, "center");
             _carve = new CarveMeter { CarveMin = s.Sim.P.CarveMin, CarveMax = s.Sim.P.CarveMax };
             _carveBox.Add(_carve);
@@ -66,9 +66,24 @@ namespace Ski.Game
             Ui.Keys(_hints, "W", "hold to tuck");
             Ui.Keys(_hints, "S", "snowplough brake");
             Ui.Keys(_hints, "SPACE", "jump");
-            if (s.ScoreBased) Ui.Keys(_hints, "1 2 3 4 5", "tricks in the air (+ W A S D)");
+            Ui.Keys(_hints, "CLICK", "pole push (left mouse), in time with the ring");
             Ui.Keys(_hints, "R", "back on course");
-            Ui.Keys(_hints, "MOUSE", "look around (click first)");
+            Ui.Keys(_hints, "MOUSE", "look around");
+            Ui.Keys(_hints, "C", "switch camera");
+
+            // The trick list stays up for the whole park run.
+            _tricks = Ui.Div(_root, "hud-corner hud-br");
+            if (s.ScoreBased)
+            {
+                Ui.Text(_tricks, "TRICKS - IN THE AIR", "hint");
+                Ui.Keys(_tricks, "A D", "spin (land straight or switch)");
+                Ui.Keys(_tricks, "1", "safety grab   +W nose   +S tail");
+                Ui.Keys(_tricks, "2", "mute grab   +W japan   +S truck driver");
+                Ui.Keys(_tricks, "3", "backflip   +W frontflip");
+                Ui.Keys(_tricks, "4", "spread eagle   +W daffy   +S backscratcher");
+                Ui.Keys(_tricks, "5", "cork (A or D picks the side)");
+                Ui.Text(_tricks, "Hold grabs longer and combine for more points.", "hint");
+            }
 
             run.OnEvent += OnEvent;
             _ticker = ui.AddTicker(Tick);

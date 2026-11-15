@@ -100,6 +100,7 @@ namespace Ski.Game
             Look.Storm = 0.06f; Look.Night = 0f;
             if (AudioDirector.I != null) { AudioDirector.I.Music("music_ski", 0.6f); AudioDirector.I.Ambience(null); }
             Run = RunController.Create(transform, slope, who);
+            Cursor.lockState = CursorLockMode.Locked;   // mouse look from the first moment (browsers engage it on the first key or click)
             Run.OnLiftReached = () => Transition(ShowRide);
             Run.OnTavernReached = () => Transition(ShowTavern);
         }
