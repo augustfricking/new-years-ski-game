@@ -101,17 +101,21 @@ namespace Ski.Game
         public void Sync(Camera cam, float dt)
         {
             var c = _s.Course;
+            Vector3 me = _s.Sim.Pos;
+            // Nobody stands inside you: a ghost only appears once it is clear of the player.
+            bool Crowding(Vector3 p) => (p - me).sqrMagnitude < 9f;
             foreach (var r in _replays)
             {
                 bool live = r.Track.At(_clock, out Vector3 p, out float air, out float heading, out float speed);
-                if (!live && _clock > r.Track.Duration + 6f) { r.View.Hide(); continue; }
+                if (!live && _clock > r.Track.Duration + 6f || _clock <= 0f) { r.View.Hide(); continue; }
                 p.y = c.Height(p.x, p.z) + air;
+                if (Crowding(p)) { r.View.Hide(); continue; }
                 r.View.Show(p, heading, live ? speed : 0f, air, speed > 22f ? 1f : 0f, 0f, cam, dt);
             }
             foreach (var r in _rivals)
             {
-                if (r.Done > 8f) { r.View.Hide(); continue; }
                 var sim = r.Session.Sim;
+                if (r.Done > 8f || _clock < r.Delay || Crowding(sim.Pos)) { r.View.Hide(); continue; }
                 r.View.Show(sim.Pos, sim.Heading, sim.Speed, sim.Contact ? 0f : 1f, sim.Tuck, sim.Plough, cam, dt);
             }
         }

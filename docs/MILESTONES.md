@@ -45,12 +45,65 @@ Durable progress state. Update after each verified step. Acceptance criteria are
 - [x] WebGL build (about 11 MB) loads and plays in the browser, input verified
 - [x] Full-window web page with loading screen
 - [ ] Owner local playtest
-- [ ] GitHub Pages deploy (needs the owner's go-ahead; repo must be public for free Pages)
+- [ ] GitHub Pages deploy (approved by the owner; see the note at the end of M7)
+
+## M7 — Playtest round 1 (owner feedback, November 2026) ✅
+Look
+- [x] Comic ink lines: a full-screen depth/normal edge pass (`Ski/InkEdges`) on top of the toon shader
+- [x] Sculpted characters (`Person` v2): lofted torso and limbs, egg-shaped head, eyes with lids and
+      irises, brows, lips, helmets, hair, goggles with strap, proper boots and gloves
+- [x] Painted piste map (`MapPainter`): shaded mountain, forest, cleared pistes, lift, village, legend
+- [x] World text is depth-tested (`Ski/Text3D`): signs no longer show through the map
+- [x] Goggle frame at screen resolution
+
+Player
+- [x] The player is a full posed body (`PlayerRig` drives a `Person`): nothing interpenetrates when
+      looking down; the snowplough V never crosses, the tips just meet
+- [x] Third-person camera (default on Blue, **C** toggles anywhere) and a trick list on the HUD
+- [x] Pole push on the left mouse button, sweet spot at the top of the ring; mouse look without a click
+- [x] Pause silences the ski sounds; carve/skid sound follows the edge with no delay
+
+Slopes
+- [x] Green: 43 kids and parents, each wobbling, balancing, waving and looking about
+- [x] Blue: 1190 m with a big-air line, halfpipe with assisted walls
+- [x] Red: 34 gates in rhythm sections (open, rhythm, flush, delay), bends and steepness vary
+- [x] Black: more bends; pits and rollers are painted in shadow and flagged with orange poles
+- [x] Off-piste: three ways down (The Chute, The Tangle, The Meadows), 8 dead ends, "back to the
+      fork" returns above the fork, rocks cannot be skied through, old ski tracks hint at the routes
+- [x] The whole mountain is visible from the village: forested flanks with the other four runs
+- [x] A chairlift with pylons, chairs and riders runs beside every piste
+
+Lift and cutscene
+- [x] Poles rest across the lap, the board hangs from the front foot: nothing overlaps on the chair
+- [x] Every cutscene shot shows the faces; the skip key is shown on the letterbox
+- [x] Expressive voices (Chatterbox TTS, local), skiers below bank and flex through their turns
+
+Tavern
+- [x] Beer-hall tables with benches: guests seated on both sides, some dancing on the tables
+- [x] Layered animated fire, stone chimney breast, candles
+- [x] An original sing-along song (the requested recording is copyrighted and is not used)
+- [x] Behind the bar: a painting of Erik and Linn at midnight, rendered from the real characters
+- [x] Beer game: 14 gulps, faster; the level drops per gulp, spills fly on a miss; the hall cheers;
+      a chugging board with the regulars
+
+Sound
+- [x] Separate volumes: music, wind and ambience, effects, voices; wind is two wandering layers
+- [x] Soft menu clicks; quiet music while skiing
+
+Ghosts and boards
+- [x] Ghosts on every slope, with names above them and a cap in the settings: your own best run,
+      live rivals, and (when online) other players' runs from the world board
+- [x] Device profile: anonymous sign-in to Unity Gaming Services gives one profile per browser or
+      device; a name can be set in the settings
+- [x] Online board client with local fallback (`OnlineBoards`); board configs in `Assets/_Game/Cloud`
+- [ ] The six boards must be created in the cloud project once (owner: see README, "World boards")
 
 ## Known gaps and ideas
-- Online leaderboards (Unity Gaming Services) are not wired; boards are local with rival times.
+- World boards need the one-time cloud deploy above; until then every board is local.
+- Ghosts of other players are their recorded runs, not a live connection: truly simultaneous
+  play would need a relay service.
 - Rival times and trick values are tuned from bot runs, not from human play.
 - The default UI font is used; a comic display font would lift the look (needs a download).
-- Characters are procedural (rigid parts). Blender-sculpted heroes would be a visual upgrade.
-- No lift line beside the pistes, no ski tracks hinting at the off-piste routes.
-- Cameras are hand-written (first-person rig, cutscene shots), not Cinemachine.
+- Cameras are hand-written (player rig, cutscene shots). Cinemachine was tried on paper and left
+  out: every camera here is driven by the simulation each frame, which a few lines do directly.
+- The new sounds and voices were checked by analysis, not by ear.

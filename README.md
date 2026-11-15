@@ -20,7 +20,8 @@ Then open http://localhost:8123.
 | A / D | Turn. A short hold carves and gains speed; a long hold skids and brakes. |
 | W | Hold to tuck: faster, but turns less |
 | S | Snowplough brake |
-| Shift | Pole push at low speed: press when the dot is in the green part of the ring |
+| Left click | Pole push at low speed: click when the dot is in the green at the top of the ring |
+| C | Switch between first and third person |
 | Space | Jump |
 | 1 2 4 | Grabs in the air (add W or S for variants) |
 | 3 | Flip (S or nothing = backflip, W = frontflip) |
@@ -39,6 +40,22 @@ In the tavern: W A S D to walk, mouse to look, E to use, Space to gulp.
 | Maja | skiblades | tighter turns that lose less speed, lower top speed |
 | Erik | carving skis | gains more speed from a clean carve |
 | Linn | twin-tips | easier push timing and stronger pushes |
+
+## World boards and ghosts
+
+Every result is kept on this device. The game also signs in anonymously to Unity Gaming Services
+(free tier, no account): one profile per browser or device, with the name set under Settings.
+Other players' best runs then appear on the results card and as ghosts on the slope.
+
+The boards have to exist in the Unity cloud project once. Either:
+
+1. Open the project in the Unity Editor (signed in), **Services > Deployment**, and deploy the six
+   files in `SkiGame/Assets/_Game/Cloud` (needs the package `com.unity.services.deployment`), or
+2. Create them by hand in the Unity Dashboard (Leaderboards), with these ids:
+   `slope_green`, `slope_red`, `slope_black`, `slope_offpiste`, `chug` (ascending, keep best) and
+   `slope_blue` (descending, keep best).
+
+Until then the game simply stays local: nothing breaks.
 
 ## For developers
 See `CLAUDE.md` for how the project is put together and `docs/` for the design, plan and

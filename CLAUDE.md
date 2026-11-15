@@ -14,7 +14,14 @@ The game design lives in `docs/GAME_SPEC.md` (source of truth). The plan and mil
   (`LiftScene`, `MapScene`, `TavernScene`), UI (UI Toolkit, `Resources/UI/Game.uss`), audio
   (`Synth` makes every sound from maths; voices are `.ogg` files in `Resources/Voices`).
 - **Look.** `Palette.cs` is the only source of colours. Everything lit uses the `Ski/Toon` shader
-  (`Resources/Shaders`). Meshes come from `MeshBuilder` and `Props`.
+  (`Resources/Shaders`); `Ski/InkEdges` is a full-screen pass that draws the comic ink lines from
+  depth and normals, so every shader that should be outlined needs a DepthNormals pass. Meshes come
+  from `MeshBuilder` (`Loft` for organic shapes) and `Props`. People are `Person` (poses are joint
+  angles in `Pose`); the player is a `Person` driven by `PlayerRig`.
+- **Around a run.** `TerrainBuilder` (snow, forest, gates), `MountainBuilder` (flanks with the
+  other runs, lift line, off-piste tracks), `VillageBuilder`, `GhostCrowd` (other skiers).
+- **Online.** `OnlineBoards` (Unity Gaming Services, anonymous sign-in, free tier). It must never
+  block or break local play: every call falls back to the local boards.
 - **Flow.** `GameApp`: lift menu -> cutscene -> ski map -> run -> village -> lift ride or tavern.
 - One MonoBehaviour per file, file named after the class.
 
@@ -24,7 +31,7 @@ The game design lives in `docs/GAME_SPEC.md` (source of truth). The plan and mil
   - `Screenshots/` — verification captures (outside Assets, not in git).
   - `Builds/WebGL` — web build output (not in git).
 - `tools/` — scripts that drive the Editor; `tools/diag` — one-off C# snippets for `script eval`.
-- `audio/make_voices.py` — generates the cutscene voices with Kokoro TTS (local, free).
+- `audio/make_voices.py` — generates the cutscene voices with Chatterbox TTS (local, free).
 - `docs/` — spec, plan, milestones, art bible.
 
 ## Working with Unity (learned the hard way)
@@ -37,6 +44,11 @@ The game design lives in `docs/GAME_SPEC.md` (source of truth). The plan and mil
   - `tools/play.ps1 -Slope Green|Blue|Red|Black|OffPiste|None -Who Erik -Seconds 5 -Shot name [-Keep] [-NoBot]`
     enters Play mode, starts a run with the bot driving (or stays on the menu with `None`) and
     saves `SkiGame/Screenshots/<name>.png`. Always look at the image afterwards.
+  - `tools/pose.ps1 -Slope X -What brake|carve|air|kids|park|pipe|offpiste -Shot name` freezes a
+    situation; `tools/cutshots.ps1 -Beats 9,11` captures cutscene beats; `tools/diag/*.cs` are
+    one-off views (face close-up, tavern, pits, the look back up the mountain, ghosts).
+  - WebGL build: `tools/u.ps1 command build run -- --target WebGL --output-path "Builds/WebGL" --confirm true`,
+    then poll `tools/u.ps1 command build status` (it takes ten minutes or more).
   - `tools/u.ps1 <unity cli args>` — the Unity CLI pinned to this project, for example
     `tools/u.ps1 command script eval '<C#>'` or `... script eval --file <absolute .cs path>`.
 - Unity commands fail inside the sandbox (helper processes cannot start): disable it for them.

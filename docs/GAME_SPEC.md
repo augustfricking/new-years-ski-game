@@ -61,13 +61,13 @@ any moment; ends on the ski map in first person of the chosen character.
 | S | Snowplough (skis make a V) → brake |
 | R | Put me back on the course (time penalty) |
 | Esc | Pause, settings |
-| Shift (timed presses) | Pole push at start/low speed. A rhythm meter; timing window tightens as speed rises, until speed is high enough that poles are no longer needed. |
+| Left mouse button (timed presses; Shift also works) | Pole push at start/low speed. A rhythm meter; timing window tightens as speed rises, until speed is high enough that poles are no longer needed. |
 | Space | Jump |
 | 1–5 | Tricks (grabs, spins, flips); some combine with WASD for harder variants and more points |
 | Mouse | Look around (head look, independent of skiing direction within limits) |
 
 First-person view: looking down shows skis, hands/gloves and poles; snowplough visibly makes the
-V; crouch lowers the view; poles animate on Shift.
+V; crouch lowers the view; poles animate on a push. **C** switches between first and third person (the snow park starts in third person). The mouse looks around without clicking first.
 
 AC: each of the above has a unit test on the physics model and is visible in first person.
 
