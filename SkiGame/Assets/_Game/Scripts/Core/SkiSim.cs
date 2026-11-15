@@ -161,6 +161,13 @@ namespace Ski.Core
                 float maxRate = Mathf.Min(P.TurnRateLow, P.LatAccelMax / Mathf.Max(sH, 1f));
                 maxRate *= Mathf.Lerp(1f, P.TuckTurnFactor, Tuck) * Mathf.Lerp(1f, 0.8f, Plough);
                 Heading = M.WrapPi(Heading + Lean * maxRate * dt);
+                // On a halfpipe wall the skis follow the arc of travel by themselves.
+                float align = c.AlignAssist(Pos.x, Pos.z);
+                if (align > 0f && sH > 3f)
+                {
+                    float off = M.WrapPi(Mathf.Atan2(Vel.x, Vel.z) - Heading);
+                    Heading = M.WrapPi(Heading + off * Mathf.Min(1f, 9f * align * dt));
+                }
                 Vector3 fwd = Forward;
                 f = (fwd - Vector3.Dot(fwd, n) * n).normalized;
                 Vector3 r = Vector3.Cross(n, f);
@@ -186,7 +193,7 @@ namespace Ski.Core
                     float absLean = Mathf.Abs(Lean);
                     // Too much edge: the skis skid and brake.
                     OverLean = Mathf.Clamp01((absLean - P.CarveMax) / (1f - P.CarveMax));
-                    acc -= vhat * (OverLean * P.SkidDecel * Mathf.Clamp01(speed / 7f));
+                    acc -= vhat * (OverLean * P.SkidDecel * c.SkidScale * Mathf.Clamp01(speed / 7f));
                     // Just enough edge: the carve gives speed back.
                     float band = Mathf.Clamp01((absLean - P.CarveMin) / (P.CarveMax - P.CarveMin));
                     float q = absLean < P.CarveMax ? Mathf.Sin(Mathf.PI * band) : 0f;

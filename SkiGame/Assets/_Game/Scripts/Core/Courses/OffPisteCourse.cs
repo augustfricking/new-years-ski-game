@@ -34,9 +34,12 @@ namespace Ski.Core
     }
 
     /// <summary>
-    /// Off-piste: a wide forested face with a maze of glades. A few routes reach the village;
-    /// more of them end at a cliff or in a thicket. Generated from a fixed seed, so the mountain
-    /// is the same every run and can be learned.
+    /// Off-piste: a wide forested face with a maze of glades. Three routes reach the village, each
+    /// with its own character, and more branches end at a cliff or in a thicket. Generated from a
+    /// fixed seed, so the mountain is the same every run and can be learned.
+    ///   Route 0 "The Chute"   - the direct line: steep, straight, with ledges to drop off.
+    ///   Route 1 "The Tangle"  - short but twisting through tight trees.
+    ///   Route 2 "The Meadows" - long sweeping glades with flatter stretches.
     /// </summary>
     public sealed class OffPisteCourse : PisteCourse
     {
@@ -44,7 +47,8 @@ namespace Ski.Core
         {
             public Vector2 A, B;
             public float HwA, HwB;
-            public bool Solution;
+            public int Route; // 0..2 for a valid route, -1 for a dead-end branch
+            public bool Solution => Route >= 0;
         }
 
         public enum DeadEndKind { Cliff, Thicket }
@@ -54,9 +58,12 @@ namespace Ski.Core
         public readonly List<DeadEnd> DeadEnds = new List<DeadEnd>();
         /// <summary>Way-points of the valid routes, top to bottom.</summary>
         public readonly List<List<Vector2>> Solutions = new List<List<Vector2>>();
+        public static readonly string[] RouteNames = { "The Chute", "The Tangle", "The Meadows" };
+        /// <summary>Which route bots and respawn hints follow.</summary>
+        public int PreferredRoute;
 
-        const int Rows = 11, Slots = 5;
-        const float RowLen = 104f, FirstRowZ = 80f, SlotGap = 44f, FieldHalfWidth = 128f;
+        const int Rows = 11, Slots = 7;
+        const float RowLen = 104f, FirstRowZ = 80f, SlotGap = 34f, FieldHalfWidth = 128f;
         const float Cell = 2f;
 
         float[] _clear; int _nx, _nz; float _gx0, _gz0;
@@ -64,6 +71,7 @@ namespace Ski.Core
         readonly Vector2[,] _node = new Vector2[Rows + 1, Slots];
         readonly bool[,] _used = new bool[Rows + 1, Slots];
         readonly List<(int r, int a, int b)> _edges = new List<(int, int, int)>();
+        const int Mid = Slots / 2;
 
         public OffPisteCourse()
         {
@@ -79,53 +87,40 @@ namespace Ski.Core
                 for (int s = 0; s < Slots; s++)
                 {
                     bool end = r == 0 || r == Rows;
-                    _node[r, s] = new Vector2((s - 2) * SlotGap + (end ? 0f : _rng.Range(-9f, 9f)), FirstRowZ + r * RowLen + (end ? 0f : _rng.Range(-12f, 12f)));
+                    _node[r, s] = new Vector2((s - Mid) * SlotGap + (end ? 0f : _rng.Range(-6f, 6f)), FirstRowZ + r * RowLen + (end ? 0f : _rng.Range(-10f, 10f)));
                 }
 
             // Start glade and the funnel into the village.
-            AddSegment(new Vector2(0f, -12f), _node[0, 2], 11f, 11f, true);
-            AddSegment(_node[Rows, 2], new Vector2(0f, finish + 12f), 13f, 20f, true);
+            AddSegment(new Vector2(0f, -12f), _node[0, Mid], 11f, 11f, 0);
+            AddSegment(_node[Rows, Mid], new Vector2(0f, finish + 12f), 13f, 20f, 0);
 
-            var pathA = MakeSolution(1, null);
-            var pathB = MakeSolution(3, pathA);
-            AddSolution(pathA);
-            AddSolution(pathB);
-            AddDeadEnds(pathA, pathB);
+            // Three ways down: straight down the middle, a tangle on the left, wide meadows on the right.
+            var chute = MakeRoute(new[] { 3, 3, 3, 4, 3, 3, 2, 3, 3, 3, 3, 3 });
+            var tangle = MakeRoute(new[] { 3, 2, 1, 1, 0, 1, 1, 0, 1, 2, 2, 3 });
+            var meadows = MakeRoute(new[] { 3, 4, 5, 6, 5, 6, 5, 4, 5, 5, 4, 3 });
+            AddRoute(chute, 0);
+            AddRoute(tangle, 1);
+            AddRoute(meadows, 2);
+            AddDeadEnds(new[] { chute, tangle, meadows });
             BuildClearMask();
             ScatterCorridorObstacles();
             PlantForest();
 
-            for (int r = 0; r <= Rows; r++)
-                for (int s = 0; s < Slots; s++)
-                    if (_used[r, s]) Checkpoints.Add(_node[r, s]);
+            // Respawn points: junctions on the valid routes only, so a reset never lands in a dead end.
+            foreach (var route in new[] { chute, tangle, meadows })
+                for (int r = 0; r < Rows; r++)
+                {
+                    var n = _node[r, route[r]];
+                    if (!Checkpoints.Contains(n)) Checkpoints.Add(n);
+                }
         }
 
         // ---- generation --------------------------------------------------------------------
 
-        int[] MakeSolution(int homeSlot, int[] avoid)
+        int[] MakeRoute(int[] slots)
         {
-            var p = new int[Rows + 1];
-            p[0] = 2;
-            for (int r = 1; r < Rows; r++)
-            {
-                int s = p[r - 1];
-                int want = s < homeSlot ? 1 : s > homeSlot ? -1 : 0;
-                int step = _rng.Chance(0.55f) ? want : _rng.Range(-1, 2);
-                // The last rows must be able to reach slot 2 again.
-                int remaining = Rows - r;
-                int next = Mathf.Clamp(s + step, 0, Slots - 1);
-                if (Mathf.Abs(next - 2) > remaining) next = s + (2 > s ? 1 : -1);
-                if (avoid != null && r > 1 && r < Rows - 1 && next == avoid[r])
-                {
-                    int alt = Mathf.Clamp(s + (homeSlot >= 2 ? 1 : -1), 0, Slots - 1);
-                    if (alt != avoid[r] && Mathf.Abs(alt - 2) <= remaining && !Crosses(r - 1, s, alt)) next = alt;
-                }
-                p[r] = next;
-                _edges.Add((r - 1, s, next));
-            }
-            p[Rows] = 2;
-            _edges.Add((Rows - 1, p[Rows - 1], 2));
-            return p;
+            for (int r = 0; r < Rows; r++) _edges.Add((r, slots[r], slots[r + 1]));
+            return slots;
         }
 
         bool Crosses(int row, int a, int b)
@@ -135,76 +130,119 @@ namespace Ski.Core
             return false;
         }
 
-        void AddSolution(int[] p)
+        void AddRoute(int[] p, int route)
         {
             var pts = new List<Vector2> { new Vector2(0f, StartZ) };
+            float hw = route == 0 ? 7.5f : route == 1 ? 6.2f : 9.5f;
             for (int r = 0; r < Rows; r++)
             {
                 _used[r, p[r]] = true; _used[r + 1, p[r + 1]] = true;
                 Vector2 a = _node[r, p[r]], b = _node[r + 1, p[r + 1]];
-                Vector2 m = AddEdge(a, b, 8f, true);
                 if (pts[pts.Count - 1] != a) pts.Add(a);
-                pts.Add(m);
-                // A ledge to drop off on some of the valid routes.
-                if (r > 0 && _rng.Chance(0.38f))
+                if (route == 0)
                 {
-                    Vector2 d = Vector2.Lerp(m, b, 0.45f);
-                    AddFeature(new Drop(d.x, d.y, _rng.Range(1.5f, 2.6f), 20f));
+                    // Straight, with a ledge to drop off on most pitches.
+                    AddSegment(a, b, hw, hw, route);
+                    if (r > 0 && r % 2 == 1)
+                    {
+                        Vector2 d = Vector2.Lerp(a, b, 0.5f);
+                        AddFeature(new Drop(d.x, d.y, _rng.Range(1.7f, 2.6f), 20f));
+                    }
+                }
+                else if (route == 1)
+                {
+                    // Two sharp kinks per pitch: a slalom through the trees.
+                    Vector2 d = b - a, perp = new Vector2(d.y, -d.x).normalized;
+                    float side = r % 2 == 0 ? 1f : -1f;
+                    Vector2 k1 = a + d * 0.33f + perp * side * _rng.Range(6.5f, 8.5f);
+                    Vector2 k2 = a + d * 0.66f - perp * side * _rng.Range(6.5f, 8.5f);
+                    AddSegment(a, k1, hw, hw, route); AddSegment(k1, k2, hw, hw, route); AddSegment(k2, b, hw, hw, route);
+                    pts.Add(k1); pts.Add(k2);
+                }
+                else
+                {
+                    // One long sweeping bend.
+                    Vector2 m = (a + b) * 0.5f + new Vector2((r % 2 == 0 ? 1f : -1f) * _rng.Range(9f, 14f), _rng.Range(-6f, 6f));
+                    AddSegment(a, m, hw, hw, route); AddSegment(m, b, hw, hw, route);
+                    pts.Add(m);
                 }
             }
-            pts.Add(_node[Rows, 2]);
+            pts.Add(_node[Rows, Mid]);
             pts.Add(new Vector2(0f, FinishZ + 20f));
             Solutions.Add(pts);
         }
 
         /// <summary>Adds a two-piece corridor with a kink in the middle; returns the kink point.</summary>
-        Vector2 AddEdge(Vector2 a, Vector2 b, float hw, bool solution)
+        Vector2 AddEdge(Vector2 a, Vector2 b, float hw, int route)
         {
-            Vector2 m = (a + b) * 0.5f + new Vector2(_rng.Range(-9f, 9f), _rng.Range(-8f, 8f));
-            AddSegment(a, m, hw, hw, solution);
-            AddSegment(m, b, hw, hw, solution);
+            Vector2 m = (a + b) * 0.5f + new Vector2(_rng.Range(-8f, 8f), _rng.Range(-8f, 8f));
+            AddSegment(a, m, hw, hw, route);
+            AddSegment(m, b, hw, hw, route);
             return m;
         }
 
-        void AddSegment(Vector2 a, Vector2 b, float hwA, float hwB, bool solution)
+        void AddSegment(Vector2 a, Vector2 b, float hwA, float hwB, int route)
         {
-            Segments.Add(new Segment { A = a, B = b, HwA = hwA, HwB = hwB, Solution = solution });
+            Segments.Add(new Segment { A = a, B = b, HwA = hwA, HwB = hwB, Route = route });
         }
 
-        void AddDeadEnds(int[] pathA, int[] pathB)
+        /// <summary>Distance from a point to the nearest glade of a valid route.</summary>
+        float DistToRoutes(Vector2 p)
+        {
+            float best = float.MaxValue;
+            foreach (var s in Segments)
+            {
+                if (!s.Solution) continue;
+                float d = M.DistToSegment(p.x, p.y, s.A.x, s.A.y, s.B.x, s.B.y, out _);
+                if (d < best) best = d;
+            }
+            return best;
+        }
+
+        void AddDeadEnds(int[][] routes)
         {
             int made = 0, tries = 0;
-            while (made < 7 && tries++ < 400)
+            while (made < 8 && tries++ < 900)
             {
-                var path = _rng.Chance(0.5f) ? pathA : pathB;
+                var path = routes[_rng.Range(0, routes.Length)];
                 int r = _rng.Range(1, Rows - 2);
                 int s = path[r];
                 int dir = _rng.Chance(0.5f) ? -1 : 1;
                 int t = s + dir;
                 if (t < 0 || t >= Slots || _used[r + 1, t] || Crosses(r, s, t)) continue;
 
-                // Branch off, wander for up to two more rows, then end badly.
-                int cr = r + 1, cs = t;
-                _used[cr, cs] = true;
-                _edges.Add((r, s, t));
-                AddEdge(_node[r, s], _node[cr, cs], 7.5f, false);
-                int extra = _rng.Range(0, 3);
-                for (int k = 0; k < extra && cr < Rows - 2; k++)
+                // Plan the branch first: off to the side, perhaps one more row, then a bad ending.
+                var chain = new List<(int r, int s)> { (r, s), (r + 1, t) };
+                if (_rng.Chance(0.45f) && r + 1 < Rows - 2)
                 {
-                    int ns = cs + _rng.Range(-1, 2);
-                    if (ns < 0 || ns >= Slots || _used[cr + 1, ns] || Crosses(cr, cs, ns)) break;
-                    _edges.Add((cr, cs, ns));
-                    AddEdge(_node[cr, cs], _node[cr + 1, ns], 7.5f, false);
-                    cr++; cs = ns;
-                    _used[cr, cs] = true;
+                    int ns = t + _rng.Range(-1, 2);
+                    if (ns >= 0 && ns < Slots && !_used[r + 2, ns] && !Crosses(r + 1, t, ns)) chain.Add((r + 2, ns));
                 }
-                Vector2 n = _node[cr, cs];
-                Vector2 end = n + new Vector2(_rng.Range(-12f, 12f), _rng.Range(44f, 56f));
-                if (_rng.Chance(0.5f))
+                var last = chain[chain.Count - 1];
+                Vector2 n = _node[last.r, last.s];
+                bool cliff = made % 2 == 0;
+                // The ending must be well away from every valid route, or it would swallow it.
+                Vector2 end = default; bool ok = false;
+                foreach (float dx in new[] { 0f, -9f, 9f, -18f, 18f, -27f, 27f })
+                {
+                    end = n + new Vector2(dx, _rng.Range(44f, 54f));
+                    if (Mathf.Abs(end.x) > FieldHalfWidth - 16f) continue;
+                    if (cliff ? DistToRoutes(end) > 34f && DistToRoutes(end + new Vector2(0f, 22f)) > 36f && DistToRoutes(end + new Vector2(0f, 40f)) > 24f
+                              : DistToRoutes(end) > 22f && DistToRoutes(end - new Vector2(0f, 6f)) > 30f) { ok = true; break; }
+                }
+                if (!ok) continue;
+
+                for (int k = 1; k < chain.Count; k++)
+                {
+                    _used[chain[k].r, chain[k].s] = true;
+                    _edges.Add((chain[k - 1].r, chain[k - 1].s, chain[k].s));
+                    AddEdge(_node[chain[k - 1].r, chain[k - 1].s], _node[chain[k].r, chain[k].s], 7.5f, -1);
+                }
+                if (cliff)
                 {
                     // Cliff: a blind roll, then nothing.
-                    AddSegment(n, end, 7.5f, 8f, false);
-                    AddSegment(end, end + new Vector2(0f, 40f), 9f, 9f, false);
+                    AddSegment(n, end, 7.5f, 8f, -1);
+                    AddSegment(end, end + new Vector2(0f, 40f), 9f, 9f, -1);
                     AddFeature(new Roller(end.x, end.y - 9f, 8f, 0.85f, 16f));
                     AddFeature(new CliffPocket(end.x, end.y, _rng.Range(15f, 21f)));
                     DeadEnds.Add(new DeadEnd { Kind = DeadEndKind.Cliff, Zone = new Zone(end.x, end.y + 20f, 21f) });
@@ -212,7 +250,7 @@ namespace Ski.Core
                 else
                 {
                     // Thicket: the glade closes in.
-                    AddSegment(n, end, 7.5f, 0.3f, false);
+                    AddSegment(n, end, 7.5f, 0.3f, -1);
                     DeadEnds.Add(new DeadEnd { Kind = DeadEndKind.Thicket, Zone = new Zone(end.x, end.y - 6f, 16f) });
                 }
                 made++;
@@ -255,7 +293,7 @@ namespace Ski.Core
                         for (int ix = x0; ix <= x1; ix++)
                         {
                             float dx = _gx0 + ix * Cell - n.x, dz = _gz0 + iz * Cell - n.y;
-                            float c = 11f - Mathf.Sqrt(dx * dx + dz * dz);
+                            float c = 10f - Mathf.Sqrt(dx * dx + dz * dz);
                             int idx = iz * _nx + ix;
                             if (c > _clear[idx]) _clear[idx] = c;
                         }
@@ -280,23 +318,27 @@ namespace Ski.Core
             foreach (var s in Segments)
             {
                 float len = (s.B - s.A).magnitude;
-                if (len < 30f || s.A.y < FirstRowZ - 1f || s.B.y > FinishZ - 20f) continue;
+                if (len < 26f || s.A.y < FirstRowZ - 1f || s.B.y > FinishZ - 20f) continue;
                 Vector2 dir = (s.B - s.A) / len, perp = new Vector2(dir.y, -dir.x);
-                float d = _rng.Range(12f, 18f);
-                while (d < len - 12f)
+                // The Tangle is already tight; the Meadows are open and dotted with things to steer round.
+                float gapMin = s.Route == 1 ? 22f : s.Route == 2 ? 11f : 14f;
+                float d = _rng.Range(10f, 16f);
+                while (d < len - 10f)
                 {
                     float t = d / len;
                     float hw = Mathf.Lerp(s.HwA, s.HwB, t);
                     if (hw > 4f)
                     {
-                        Vector2 p = s.A + dir * d + perp * _rng.Range(-(hw - 2.2f), hw - 2.2f);
+                        Vector2 p = s.A + dir * d + perp * _rng.Range(-(hw - 2.4f), hw - 2.4f);
                         float pick = _rng.Value();
-                        if (pick < 0.35f) AddCircle(ObstacleKind.Rock, p.x, p.y, _rng.Range(0.7f, 1.25f), 0.8f, _rng.Range(0.8f, 1.4f), _rng.Range(0, 3));
+                        float size = _rng.Range(0.7f, 1.25f);
+                        // A rock's collision circle and its "fly over" height match the boulder you see.
+                        if (pick < 0.35f) AddCircle(ObstacleKind.Rock, p.x, p.y, size * 1.05f, size * 1.25f + 0.35f, size, _rng.Range(0, 3)); // only a real jump clears it
                         else if (pick < 0.62f) AddCircle(ObstacleKind.Bush, p.x, p.y, 0.9f, 0.8f, _rng.Range(0.8f, 1.3f), _rng.Range(0, 3), false);
                         else if (pick < 0.9f) AddCircle(ObstacleKind.Tree, p.x, p.y, 0.45f, 6f, _rng.Range(0.6f, 1f), _rng.Range(0, 3));
                         else AddCircle(ObstacleKind.DeadTree, p.x, p.y, 0.4f, 3f, _rng.Range(0.8f, 1.2f), _rng.Range(0, 2));
                     }
-                    d += _rng.Range(13f, 23f);
+                    d += _rng.Range(gapMin, gapMin + 9f);
                 }
             }
         }
@@ -334,9 +376,9 @@ namespace Ski.Core
             return h;
         }
 
-        public override float RacingLineX(float z)
+        public float RouteX(int route, float z)
         {
-            var p = Solutions[0];
+            var p = Solutions[Mathf.Clamp(route, 0, Solutions.Count - 1)];
             for (int i = 0; i < p.Count - 1; i++)
                 if (z <= p[i + 1].y)
                 {
@@ -345,6 +387,8 @@ namespace Ski.Core
                 }
             return p[p.Count - 1].x;
         }
+
+        public override float RacingLineX(float z) => RouteX(PreferredRoute, z);
 
         public override Vector2 RecoverPoint(Vector3 pos)
         {

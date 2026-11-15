@@ -9,7 +9,7 @@ namespace Ski.Core
     /// </summary>
     public sealed class ChugGame
     {
-        public const int GulpsToFinish = 10;
+        public const int GulpsToFinish = 14;
         public const float SpillPenalty = 0.8f;
 
         public float Marker;                 // 0..1
@@ -25,13 +25,13 @@ namespace Ski.Core
         public ChugGame(int seed = 1)
         {
             _rng = new Rng(seed);
-            _speed = 0.75f;
+            _speed = 0.9f;
             NewZone();
         }
 
         void NewZone()
         {
-            float width = Mathf.Lerp(0.24f, 0.11f, Gulps / (float)GulpsToFinish);
+            float width = Mathf.Lerp(0.24f, 0.1f, Gulps / (float)GulpsToFinish);
             float centre = _rng.Range(0.12f + width * 0.5f, 0.88f - width * 0.5f);
             ZoneMin = centre - width * 0.5f; ZoneMax = centre + width * 0.5f;
         }
@@ -55,7 +55,7 @@ namespace Ski.Core
             if (Marker >= ZoneMin && Marker <= ZoneMax)
             {
                 Gulps++;
-                _speed += 0.11f;
+                _speed += 0.12f;
                 if (Gulps >= GulpsToFinish) { Finished = true; Running = false; }
                 else NewZone();
                 return true;

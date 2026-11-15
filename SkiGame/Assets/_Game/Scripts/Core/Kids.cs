@@ -51,9 +51,10 @@ namespace Ski.Core
             float top = 70f, bottom = course.FinishZ - 40f;
 
             // Slow traversers, spread down the hill.
-            for (int i = 0; i < 8; i++)
+            const int traversers = 17;
+            for (int i = 0; i < traversers; i++)
             {
-                float z = Mathf.Lerp(top, bottom, (i + _rng.Range(0.1f, 0.9f)) / 8f);
+                float z = Mathf.Lerp(top, bottom, (i + _rng.Range(0.1f, 0.9f)) / traversers);
                 var k = Add(KidKind.Traverser, z, _rng.Range(-0.8f, 0.8f));
                 k.Dir = _rng.Chance(0.5f) ? 1 : -1;
                 k.Rate = _rng.Range(2.2f, 3.4f);       // sideways speed
@@ -63,9 +64,10 @@ namespace Ski.Core
             }
 
             // Kids on a harness with a parent behind.
-            for (int i = 0; i < 4; i++)
+            const int pairs = 8;
+            for (int i = 0; i < pairs; i++)
             {
-                float z = Mathf.Lerp(top + 30f, bottom - 20f, (i + _rng.Range(0.2f, 0.8f)) / 4f);
+                float z = Mathf.Lerp(top + 30f, bottom - 20f, (i + _rng.Range(0.2f, 0.8f)) / pairs);
                 var kid = Add(KidKind.HarnessKid, z, _rng.Range(-0.4f, 0.4f));
                 kid.Size = _rng.Range(0.45f, 0.55f);
                 kid.Amp = _rng.Range(4.5f, 7f); kid.Rate = _rng.Range(0.42f, 0.6f); kid.Down = _rng.Range(2.8f, 3.8f);
@@ -75,10 +77,11 @@ namespace Ski.Core
             }
 
             // Ski schools: an instructor and a row of kids snaking across the slope.
-            _trails = new List<Vector2>[3];
-            for (int i = 0; i < 3; i++)
+            const int schools = 5;
+            _trails = new List<Vector2>[schools];
+            for (int i = 0; i < schools; i++)
             {
-                float z = Mathf.Lerp(top + 60f, bottom - 60f, (i + _rng.Range(0.25f, 0.75f)) / 3f);
+                float z = Mathf.Lerp(top + 50f, bottom - 50f, (i + _rng.Range(0.25f, 0.75f)) / schools);
                 var lead = Add(KidKind.Instructor, z, 0f);
                 lead.Size = 1f; lead.Radius = 0.5f; lead.Group = 200 + i;
                 lead.Amp = _rng.Range(0.62f, 0.8f);    // fraction of the half-width
@@ -103,8 +106,8 @@ namespace Ski.Core
             }
 
             // Bombers appear behind the skier during the run.
-            for (int i = 0; i < 7; i++)
-                _bomberPlan.Add((3.5f + i * _rng.Range(5.5f, 7.5f), _rng.Range(-0.75f, 0.75f), _rng.Range(12.5f, 16.5f)));
+            for (int i = 0; i < 13; i++)
+                _bomberPlan.Add((3f + i * _rng.Range(3.2f, 4.6f), _rng.Range(-0.8f, 0.8f), _rng.Range(12.5f, 16.5f)));
 
             foreach (var k in Kids) k.Colour = _rng.Range(0, 8);
             Step(0f, 0f, 0f);

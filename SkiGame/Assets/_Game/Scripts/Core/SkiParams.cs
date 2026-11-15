@@ -29,7 +29,7 @@ namespace Ski.Core
             new SkierInfo { Id = CharacterId.Jonte, Name = "Jonte", Gear = Gear.Snowboard, Trait = Trait.TuckSpeed,
                 TraitTitle = "Bomber", TraitText = "Slightly higher top speed in a tuck." },
             new SkierInfo { Id = CharacterId.Maja, Name = "Maja", Gear = Gear.Blades, Trait = Trait.TightTurns, IsGirl = true,
-                TraitTitle = "Quick feet", TraitText = "Tighter turns that lose less speed, but a lower top speed." },
+                TraitTitle = "Quick feet", TraitText = "Tighter turns that lose less speed." },
             new SkierInfo { Id = CharacterId.Erik, Name = "Erik", Gear = Gear.Carvers, Trait = Trait.Carver,
                 TraitTitle = "Edge master", TraitText = "Gains more speed from a clean carve." },
             new SkierInfo { Id = CharacterId.Linn, Name = "Linn", Gear = Gear.TwinTips, Trait = Trait.PoleRhythm, IsGirl = true,
@@ -107,13 +107,11 @@ namespace Ski.Core
                     p.DragTuck *= 0.915f; // about +4.5 % tucked top speed
                     break;
                 case Trait.TightTurns:
-                    p.LatAccelMax *= 1.14f;
-                    p.TurnRateLow *= 1.1f;
-                    p.SkidDecel *= 0.72f;
-                    p.SkidLossFactor = 0.7f;
-                    p.CarveMax = 0.78f;
-                    p.DragUpright *= 1.07f; // about -3.5 % top speed
-                    p.DragTuck *= 1.07f;
+                    p.LatAccelMax *= 1.09f;
+                    p.TurnRateLow *= 1.08f;
+                    p.SkidDecel *= 0.82f;
+                    p.SkidLossFactor = 0.8f;
+                    p.CarveMax = 0.75f;
                     break;
                 case Trait.Carver:
                     p.CarveBoost *= 1.3f;

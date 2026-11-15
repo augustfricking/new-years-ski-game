@@ -182,7 +182,7 @@ namespace Ski.Game
                 var dict = far ? farTrees : isTree ? trees : props;
                 var key = new Vector2Int(Mathf.FloorToInt(o.X / cell), Mathf.FloorToInt(o.Z / cell));
                 if (!dict.TryGetValue(key, out var b)) dict[key] = b = new MeshBuilder();
-                float s = o.Scale * (o.Kind == ObstacleKind.Rock ? o.Radius : 1f);
+                float s = o.Scale;
                 b.Push(new Vector3(o.X, c.SnowHeight(o.X, o.Z) - 0.12f, o.Z), Quaternion.Euler(0, rng.Range(0f, 360f), 0), Vector3.one * s);
                 if (far) Props.PineFar(b, o.Variant); else Props.Obstacle(b, o, rng);
                 b.Pop();

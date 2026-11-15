@@ -62,6 +62,8 @@ namespace Ski.Core
         readonly Dictionary<string, int> _trickCounts = new Dictionary<string, int>();
         float _stuckTimer;
         Vector3 _prevPos;
+        Vector2 _lastJunction;
+        bool _hasJunction;
 
         public bool ScoreBased => Courses.ScoreBased(Slope);
         public float FinalTime => Time + Penalty;
@@ -80,17 +82,38 @@ namespace Ski.Core
 
         void BuildGates()
         {
+            // Set like a real slalom: the rhythm changes all the way down. Open, rounded turns;
+            // a steady medium rhythm; a quick flush of tight gates close to the fall line; and
+            // the odd long delayed turn out to the side.
             var rng = new Rng(Course.Seed + 5);
             float z = 75f;
             int side = 1;
             bool red = true;
-            while (z < Course.FinishZ - 45f)
+            int section = 0;
+            bool first = true;
+            while (z < Course.FinishZ - 50f)
             {
-                float cx = Course.CenterX(z);
-                float inner = cx + side * rng.Range(2.6f, 4.6f);
-                Gates.Add(new Gate { Z = z, InnerX = inner, OuterX = inner + side * GateWidth, Red = red });
-                side = -side; red = !red;
-                z += rng.Range(19f, 25f);
+                int kind = section++ % 4;
+                int count = kind == 0 ? 4 : kind == 1 ? 5 : kind == 2 ? 5 : 2;
+                for (int i = 0; i < count && z < Course.FinishZ - 50f; i++)
+                {
+                    float offset, gap;
+                    switch (kind)
+                    {
+                        case 0: offset = rng.Range(4.0f, 5.0f); gap = rng.Range(26f, 30f); break;   // open
+                        case 1: offset = rng.Range(2.6f, 3.3f); gap = rng.Range(19f, 21f); break;   // rhythm
+                        case 2: offset = rng.Range(1.0f, 1.5f); gap = rng.Range(13f, 14.5f); break; // flush
+                        default: offset = rng.Range(5.4f, 6.2f); gap = rng.Range(33f, 37f); break;  // delay
+                    }
+                    // The distance to a gate depends on that gate: a wide one needs room to get to.
+                    if (!first) z += gap;
+                    first = false;
+                    if (z >= Course.FinishZ - 50f) break;
+                    float cx = Course.CenterX(z);
+                    float inner = cx + side * offset;
+                    Gates.Add(new Gate { Z = z, InnerX = inner, OuterX = inner + side * GateWidth, Red = red });
+                    side = -side; red = !red;
+                }
             }
         }
 
@@ -125,6 +148,14 @@ namespace Ski.Core
                         Emit(RunEventType.PersonHit, PersonPenalty, "Watch out! +" + PersonPenalty.ToString("0") + " s", kid: k);
                     }
                 }
+            }
+
+            // Remember the last junction on a valid route that we skied through.
+            var cps = Course.Checkpoints;
+            for (int i = 0; i < cps.Count; i++)
+            {
+                float dx = Sim.Pos.x - cps[i].x, dz = Sim.Pos.z - cps[i].y;
+                if (dx * dx + dz * dz < 13f * 13f) { _lastJunction = cps[i]; _hasJunction = true; break; }
             }
 
             if (Gates.Count > 0 && Phase == RunPhase.Running) CheckGates();
@@ -222,7 +253,12 @@ namespace Ski.Core
         void DoRespawn(string text, RunEventType type)
         {
             Vector2 p;
-            if (Course.Checkpoints.Count > 0) p = Course.CheckpointBefore(Sim.Pos.z, Sim.Pos.x);
+            if (Course.Checkpoints.Count > 0)
+            {
+                // A little above the junction, so both ways on are in view again.
+                p = _hasJunction ? _lastJunction : new Vector2(Course.StartX, Course.StartZ + 30f);
+                p.y -= 7f;
+            }
             else
             {
                 float z = Mathf.Max(Course.StartZ, Sim.Pos.z - 8f);

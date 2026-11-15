@@ -210,10 +210,10 @@ namespace Ski.Tests
         }
 
         [Test]
-        public void MajaTurnsTighterButHasLowerTopSpeed()
+        public void MajaTurnsTighterWithNoSpeedPenalty()
         {
             float maja = TopSpeed(24f, CharacterId.Maja, true), erik = TopSpeed(24f, CharacterId.Erik, true);
-            Assert.That(maja / erik, Is.InRange(0.94f, 0.985f));
+            Assert.That(maja, Is.EqualTo(erik).Within(0.01f), "quick feet must not cost top speed");
 
             float Loss(CharacterId who)
             {
@@ -223,7 +223,9 @@ namespace Ski.Tests
                 Run(s, 1.2f, new SkiInput { Steer = 1f });
                 return 1f - s.Speed / before;
             }
-            Assert.That(Loss(CharacterId.Maja), Is.LessThan(Loss(CharacterId.Erik) * 0.9f));
+            float m = Loss(CharacterId.Maja), e = Loss(CharacterId.Erik);
+            Assert.That(m, Is.LessThan(e * 0.95f));
+            Assert.That(m, Is.GreaterThan(e * 0.6f), "the perk should stay modest");
         }
 
         [Test]

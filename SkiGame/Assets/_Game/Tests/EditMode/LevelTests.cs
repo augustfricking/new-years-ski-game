@@ -32,8 +32,13 @@ namespace Ski.Tests
         public void SlalomBotClearsMostGates()
         {
             var s = PlayBot(SlopeId.Red, CharacterId.Erik, out _);
-            Assert.That(s.Gates.Count, Is.GreaterThan(25));
-            Assert.That(s.GatesMissed, Is.LessThanOrEqualTo(3), "gates missed");
+            Assert.That(s.Gates.Count, Is.GreaterThan(30));
+            Assert.That(s.GatesMissed, Is.LessThanOrEqualTo(5), "gates missed");
+            // The rhythm really varies: both tight flushes and long open turns are in the course.
+            float minGap = float.MaxValue, maxGap = 0f;
+            for (int i = 1; i < s.Gates.Count; i++) { float g = s.Gates[i].Z - s.Gates[i - 1].Z; minGap = Mathf.Min(minGap, g); maxGap = Mathf.Max(maxGap, g); }
+            Assert.That(minGap, Is.LessThan(15f));
+            Assert.That(maxGap, Is.GreaterThan(26f));
         }
 
         [Test]
@@ -71,9 +76,9 @@ namespace Ski.Tests
                 if (k.Kind == KidKind.HarnessKid) harness++;
                 if (k.Kind == KidKind.SchoolKid) school++;
             }
-            Assert.That(trav, Is.GreaterThan(3));
-            Assert.That(harness, Is.GreaterThan(2));
-            Assert.That(school, Is.GreaterThan(12));
+            Assert.That(trav, Is.GreaterThan(12));
+            Assert.That(harness, Is.GreaterThan(6));
+            Assert.That(school, Is.GreaterThan(28));
             // Bombers arrive during the run.
             for (int i = 0; i < 120 * 30; i++) s.Step(new SkiInput { Pole = i % 80 == 0 }, SkiSim.FixedDt);
             int bombers = 0;
@@ -100,13 +105,99 @@ namespace Ski.Tests
         public void OffPisteHasFewWaysDownAndMoreDeadEnds()
         {
             var c = new OffPisteCourse();
-            Assert.That(c.Solutions.Count, Is.GreaterThanOrEqualTo(2));
+            Assert.AreEqual(3, c.Solutions.Count, "three ways down");
             Assert.That(c.DeadEnds.Count, Is.GreaterThan(c.Solutions.Count));
             // Every way-point of a valid route is on open ground.
             foreach (var route in c.Solutions)
                 foreach (var p in route)
                     if (p.y < c.FinishZ) Assert.That(c.Clear(p.x, p.y), Is.GreaterThan(3f), $"route point {p} is in the forest");
+            // No dead end may sit on a valid route.
+            foreach (var route in c.Solutions)
+                for (int i = 0; i < route.Count - 1; i++)
+                    for (float t = 0f; t <= 1f; t += 0.1f)
+                    {
+                        Vector2 p = Vector2.Lerp(route[i], route[i + 1], t);
+                        Assert.IsFalse(c.InDeadEnd(p.x, p.y, out _), $"a dead end covers the valid route at {p}");
+                    }
             Debug.Log($"Off-piste: {c.Solutions.Count} routes, {c.DeadEnds.Count} dead ends, {c.Obstacles.Count} obstacles, {c.Segments.Count} glade segments");
+        }
+
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(2)]
+        public void EveryOffPisteRouteReachesTheBottom(int route)
+        {
+            var s = new RunSession(SlopeId.OffPiste, CharacterId.Erik);
+            bool finished = Bot.Play(s, new Bot(s, route));
+            Debug.Log($"Off-piste route {route} ({OffPisteCourse.RouteNames[route]}): finished={finished} time={s.FinalTime:0.0} crashes={s.Sim.CrashCount}");
+            Assert.IsTrue(finished, $"route {route} stuck at z={s.Sim.Pos.z:0}");
+        }
+
+        [Test]
+        public void OffPisteRoutesAreCloseAndSuitDifferentSkiers()
+        {
+            // No route should be hopeless, and no route should be the best for everyone by a mile.
+            var sb = new StringBuilder("Off-piste routes x skiers (bot times)\n");
+            float slowest = 0f, fastest = float.MaxValue;
+            for (int route = 0; route < 3; route++)
+            {
+                sb.Append(OffPisteCourse.RouteNames[route].PadRight(13));
+                for (int who = 0; who < 4; who++)
+                {
+                    var s = new RunSession(SlopeId.OffPiste, (CharacterId)who);
+                    bool fin = Bot.Play(s, new Bot(s, route));
+                    sb.Append($" {SkierInfo.Get((CharacterId)who).Name}={s.FinalTime:0.0}{(fin ? "" : "(DNF)")}");
+                    if (fin && who == 2) { slowest = Mathf.Max(slowest, s.FinalTime); fastest = Mathf.Min(fastest, s.FinalTime); }
+                }
+                sb.Append("\n");
+            }
+            Debug.Log(sb.ToString());
+            Assert.That(slowest / fastest, Is.LessThan(1.35f), "one route is far slower than another");
+        }
+
+        [Test]
+        public void DeadEndRespawnIsAtAForkOnAValidRoute()
+        {
+            var c = new OffPisteCourse();
+            var s = new RunSession(SlopeId.OffPiste, CharacterId.Erik, c);
+            // Ski the direct route for a while so a junction is passed, then ask to be put back.
+            var bot = new Bot(s, 0);
+            for (int i = 0; i < 120 * 25; i++) { s.Step(bot.Decide(), SkiSim.FixedDt); s.Events.Clear(); }
+            Assert.That(s.Sim.Pos.z, Is.GreaterThan(150f));
+            s.Respawn();
+            float x = s.Sim.Pos.x, z = s.Sim.Pos.z;
+            Assert.That(c.Clear(x, z), Is.GreaterThan(2f), "respawn point is not in open ground");
+            bool nearJunction = false;
+            foreach (var cp in c.Checkpoints) if (Mathf.Abs(cp.x - x) < 1f && Mathf.Abs(cp.y - 7f - z) < 1f) nearJunction = true;
+            Assert.IsTrue(nearJunction, "respawn is not just above a junction of a valid route");
+        }
+
+        [Test]
+        public void RocksAreAsBigAsTheyLook()
+        {
+            var c = new OffPisteCourse();
+            int rocks = 0;
+            foreach (var o in c.Obstacles)
+            {
+                if (o.Kind != ObstacleKind.Rock) continue;
+                rocks++;
+                Assert.That(o.Radius, Is.GreaterThanOrEqualTo(o.Scale), "collision circle smaller than the boulder");
+                // Skiing straight into it at speed, crouched, must crash.
+                var sim = new SkiSim(c, SkiParams.For(CharacterId.Erik));
+                sim.Teleport(o.X, o.Z - 6f, 0f);
+                sim.Vel = new Vector3(0f, -6f, 24f);
+                bool crashed = false; float airAtRock = 0f;
+                for (int i = 0; i < 80 && !crashed; i++)
+                {
+                    sim.Step(new SkiInput { Tuck = true }, SkiSim.FixedDt);
+                    crashed = sim.Crashed;
+                    if (Mathf.Abs(sim.Pos.z - o.Z) < o.Radius) airAtRock = Mathf.Max(airAtRock, sim.AirHeight);
+                }
+                // Either you hit it, or you were properly in the air above it (off a ledge, say).
+                Assert.IsTrue(crashed || airAtRock > o.Height, $"skied through a rock at ({o.X:0},{o.Z:0}), air {airAtRock:0.00} m");
+                if (rocks >= 12) break;
+            }
+            Assert.That(rocks, Is.GreaterThan(5));
         }
 
         [Test]

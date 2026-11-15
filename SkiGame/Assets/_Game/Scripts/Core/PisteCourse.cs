@@ -121,27 +121,36 @@ namespace Ski.Core
         public override void Breakpoints(List<float> zs) { zs.Add(ZStart - RampLen); zs.Add(ZStart); zs.Add(ZStart + Length - 0.02f); zs.Add(ZStart + Length + 0.02f); }
     }
 
-    /// <summary>A halfpipe running down the fall line.</summary>
+    /// <summary>
+    /// A halfpipe running down the fall line: a flat bottom and two walls that curve up to nearly
+    /// vertical at the lip, so riding up one throws you into the air above it.
+    /// </summary>
     public sealed class Halfpipe : Feature
     {
         public float ZA, ZB, HalfWidth, WallHeight;
-        const float Blend = 14f;
+        const float Blend = 16f, FlatPart = 0.5f, Arc = 0.96f;
         public Halfpipe(float x, float zA, float zB, float halfWidth, float wallHeight)
         {
             X = x; ZA = zA; ZB = zB; HalfWidth = halfWidth; WallHeight = wallHeight;
-            Z0 = zA; Z1 = zB; HalfW = halfWidth + 7f;
+            Z0 = zA; Z1 = zB; HalfW = halfWidth + 9f;
         }
         public float Envelope(float z) => M.Smooth((z - ZA) / Blend) * (1f - M.Smooth((z - (ZB - Blend)) / Blend));
+        /// <summary>0 on the flat bottom, 1 at the lip.</summary>
+        public float WallT(float x) => Mathf.Clamp01((Mathf.Abs(x - X) / HalfWidth - FlatPart) / (1f - FlatPart));
         public override float Add(float x, float z)
         {
             if (z < ZA || z > ZB) return 0f;
             float d = Mathf.Abs(x - X);
-            float u = d / HalfWidth;
+            float t = WallT(x);
             float wall;
-            if (u < 0.35f) wall = 0f;                               // flat bottom
-            else if (u < 1f) { float t = (u - 0.35f) / 0.65f; wall = WallHeight * t * t * (1.6f - 0.6f * t); } // steepening wall
-            else wall = WallHeight * (1f - 0.25f * M.Smooth((d - HalfWidth) / 6f)); // deck falls away a little
-            float fade = 1f - M.Smooth((d - HalfWidth - 3f) / 4f);
+            if (d <= HalfWidth)
+            {
+                // Quarter-circle transition, stopped just short of vertical.
+                float sArc = Arc * t;
+                wall = WallHeight * (1f - Mathf.Sqrt(1f - sArc * sArc)) / (1f - Mathf.Sqrt(1f - Arc * Arc));
+            }
+            else wall = WallHeight * (1f - 0.2f * M.Smooth((d - HalfWidth) / 7f)); // the deck
+            float fade = 1f - M.Smooth((d - HalfWidth - 4f) / 5f);
             return wall * Envelope(z) * fade;
         }
     }
@@ -341,6 +350,16 @@ namespace Ski.Core
             return SurfaceKind.Snow;
         }
 
+        public override float AlignAssist(float x, float z)
+        {
+            var list = FeaturesNear(z);
+            if (list == null) return 0f;
+            for (int i = 0; i < list.Count; i++)
+                if (list[i] is Halfpipe hp && z > hp.ZA && z < hp.ZB && Mathf.Abs(x - hp.X) < hp.HalfWidth + 2f)
+                    return M.Smooth((hp.WallT(x) - 0.12f) / 0.4f) * hp.Envelope(z);
+            return 0f;
+        }
+
         public override Vector3 AirAssist(Vector3 pos, Vector3 vel)
         {
             var list = FeaturesNear(pos.z);
@@ -349,10 +368,11 @@ namespace Ski.Core
             {
                 if (list[i] is Halfpipe hp && pos.z > hp.ZA && pos.z < hp.ZB)
                 {
+                    // Above the lip or the deck: lean back in, so you come down on the wall you left.
                     float d = pos.x - hp.X;
-                    float over = Mathf.Abs(d) - hp.HalfWidth * 0.8f;
-                    if (over > 0f && Mathf.Abs(d) < hp.HalfWidth + 8f)
-                        return new Vector3(-Mathf.Sign(d) * Mathf.Min(9f, 3f + over * 2.5f) * hp.Envelope(pos.z), 0f, 0f);
+                    float over = Mathf.Abs(d) - hp.HalfWidth * 0.86f;
+                    if (over > 0f && Mathf.Abs(d) < hp.HalfWidth + 9f)
+                        return new Vector3(-Mathf.Sign(d) * Mathf.Min(11f, 3.5f + over * 3f) * hp.Envelope(pos.z), 0f, 0f);
                 }
             }
             return Vector3.zero;

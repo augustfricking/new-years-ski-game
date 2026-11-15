@@ -70,6 +70,10 @@ namespace Ski.Core
         public virtual bool Blocked(float x, float z) => false;
         /// <summary>Snow friction multiplier (deep snow off-piste is slower).</summary>
         public float MuScale = 1f;
+        /// <summary>How much speed a skidded turn costs (the park is groomed soft and forgiving).</summary>
+        public float SkidScale = 1f;
+        /// <summary>0..1: how strongly the skis are steered along the direction of travel here (halfpipe walls).</summary>
+        public virtual float AlignAssist(float x, float z) => 0f;
         /// <summary>Extra acceleration while airborne (used by the halfpipe to bring riders back in).</summary>
         public virtual Vector3 AirAssist(Vector3 pos, Vector3 vel) => Vector3.zero;
         /// <summary>The line a sensible skier follows; used by bots and for respawns.</summary>

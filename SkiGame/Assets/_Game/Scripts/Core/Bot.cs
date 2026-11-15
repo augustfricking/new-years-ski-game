@@ -16,16 +16,17 @@ namespace Ski.Core
         readonly RunSession _s;
         int _airPlan, _jumps;
 
-        public Bot(RunSession session)
+        public Bot(RunSession session, int route = 0)
         {
             _s = session;
+            if (session.Course is OffPisteCourse op) op.PreferredRoute = route;
             switch (session.Slope)
             {
                 case SlopeId.Green: SpeedLimit = 12.5f; break;
                 case SlopeId.Blue: SpeedLimit = 17f; UseTuck = false; break;
-                case SlopeId.Red: SpeedLimit = 15.5f; UseTuck = false; break;
+                case SlopeId.Red: SpeedLimit = 12.5f; UseTuck = false; break;
                 case SlopeId.Black: SpeedLimit = 33f; break;
-                case SlopeId.OffPiste: SpeedLimit = 11.5f; UseTuck = false; break;
+                case SlopeId.OffPiste: SpeedLimit = route == 1 ? 9.5f : route == 2 ? 11.5f : 11f; UseTuck = false; break;
             }
         }
 
@@ -41,6 +42,8 @@ namespace Ski.Core
 
             // --- where do we want to be a little further down? ---------------------------
             float look = Mathf.Clamp(speed * 0.9f, 7f, 26f);
+            if (_s.Slope == SlopeId.OffPiste) look = Mathf.Clamp(speed * 0.75f, 5f, 11f); // glades twist: look closer
+            if (_s.Slope == SlopeId.Red) look = Mathf.Clamp(speed * 0.6f, 5f, 12f);        // gates come quickly
             float tz = sim.Pos.z + look;
             float tx = TargetX(tz, look);
             float desired = Mathf.Atan2(tx - sim.Pos.x, look);
@@ -107,12 +110,12 @@ namespace Ski.Core
                     if (_s.NextGate < _s.Gates.Count)
                     {
                         var g = _s.Gates[_s.NextGate];
-                        float aim = g.InnerX + g.Side * 1.6f;
+                        float aim = g.InnerX + g.Side * 1.5f;
                         float dz = g.Z - sim.Pos.z;
                         if (dz > look && _s.NextGate > 0)
                         {
                             var p = _s.Gates[_s.NextGate - 1];
-                            return Mathf.Lerp(p.InnerX + p.Side * 1.6f, aim, Mathf.InverseLerp(p.Z, g.Z, z));
+                            return Mathf.Lerp(p.InnerX + p.Side * 1.5f, aim, M.Smooth(Mathf.InverseLerp(p.Z, g.Z, z)));
                         }
                         // Steer for the gate itself: return the x that points at it.
                         return sim.Pos.x + (aim - sim.Pos.x) * Mathf.Clamp(look / Mathf.Max(dz, 3f), 0f, 1.6f);
@@ -123,6 +126,8 @@ namespace Ski.Core
                     return AvoidKids(z, x);
                 case SlopeId.Black:
                     return AvoidFeatures(z, x);
+                case SlopeId.OffPiste:
+                    return AvoidObstacles(z, x, look);
                 default:
                     return x;
             }
@@ -149,6 +154,30 @@ namespace Ski.Core
                     float d = Mathf.Abs(kx - x);
                     float danger = Mathf.Max(0f, 5.5f - d);
                     cost += danger * danger * (dz < 0f ? 0.25f : 1f) * Mathf.Lerp(1.4f, 0.4f, Mathf.Clamp01(dz / 55f));
+                }
+                if (cost < bestCost) { bestCost = cost; best = x; }
+            }
+            return best;
+        }
+
+        /// <summary>Off-piste: stay on the route but step round rocks, bushes and lone trees in the glade.</summary>
+        float AvoidObstacles(float z, float centre, float look)
+        {
+            var c = (OffPisteCourse)_s.Course; var sim = _s.Sim;
+            float best = centre, bestCost = float.MaxValue;
+            for (int i = -4; i <= 4; i++)
+            {
+                float x = centre + i * 1.3f;
+                float cost = Mathf.Abs(i) * 0.5f + Mathf.Abs(x - sim.Pos.x) * 0.04f;
+                // Check the straight line from here to that point.
+                for (int k = 1; k <= 4; k++)
+                {
+                    float t = k / 4f;
+                    float px = Mathf.Lerp(sim.Pos.x, x, t), pz = Mathf.Lerp(sim.Pos.z, z, t);
+                    float edge = c.Clear(px, pz);
+                    if (edge < 1.2f) cost += (1.2f - edge) * 6f;
+                    float room = c.Clearance(px, pz, 2.2f);
+                    if (room < 1.3f) cost += (1.3f - room) * 14f;
                 }
                 if (cost < bestCost) { bestCost = cost; best = x; }
             }
