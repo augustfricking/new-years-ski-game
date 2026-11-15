@@ -124,7 +124,7 @@ namespace Ski.Game
             if (AudioDirector.I != null)
             {
                 AudioDirector.I.Ambience("lift");
-                AudioDirector.I.Music(State == Mode.Menu ? "music_menu" : null);
+                AudioDirector.I.Music("music_menu", State == Mode.Menu ? 1f : 0.7f);
             }
             if (State == Mode.Menu) BuildMenuUi();
             if (State == Mode.Ride) BuildRideUi();
@@ -503,7 +503,6 @@ namespace Ski.Game
             {
                 _lastPylon = pylon;
                 _swayVel += 0.9f;
-                AudioDirector.Sfx("pole", 0.35f, 0.6f);
             }
             _swayVel += (-_sway * 9f - _swayVel * 1.2f) * dt + (Mathf.PerlinNoise(_time * 0.8f, 9f) - 0.5f) * (0.5f + storm * 6f) * dt;
             _sway += _swayVel * dt;

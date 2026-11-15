@@ -53,8 +53,10 @@ namespace Ski.Game
 
         static void AddSettings(VisualElement card)
         {
-            SliderRow(card, "Volume", SaveData.MasterVolume, 0f, 1f, v => SaveData.MasterVolume = v);
+            SliderRow(card, "Overall volume", SaveData.MasterVolume, 0f, 1f, v => SaveData.MasterVolume = v);
             SliderRow(card, "Music", SaveData.MusicVolume, 0f, 1f, v => SaveData.MusicVolume = v);
+            SliderRow(card, "Wind and ambience", SaveData.AmbienceVolume, 0f, 1f, v => SaveData.AmbienceVolume = v);
+            SliderRow(card, "Effects (skis, poles, crashes)", SaveData.EffectsVolume, 0f, 1f, v => SaveData.EffectsVolume = v);
             SliderRow(card, "Voices", SaveData.VoiceVolume, 0f, 1f, v => SaveData.VoiceVolume = v);
             SliderRow(card, "Mouse sensitivity", SaveData.MouseSensitivity, 0.03f, 0.35f, v => SaveData.MouseSensitivity = v);
             ToggleRow(card, "Invert look up/down", SaveData.InvertLook, v => SaveData.InvertLook = v);

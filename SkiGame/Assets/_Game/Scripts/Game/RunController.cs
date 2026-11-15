@@ -83,7 +83,7 @@ namespace Ski.Game
             Hud?.Dispose();
             Hud = null;
             if (Ui.Instance != null) Ui.Instance.ShowGoggles(false);
-            if (AudioDirector.I != null) AudioDirector.I.Silence();
+            if (AudioDirector.I != null) { AudioDirector.I.Silence(); AudioDirector.I.Paused = false; }
             Session = null;
             Destroy(gameObject);
         }
@@ -93,17 +93,17 @@ namespace Ski.Game
             switch (e.Type)
             {
                 case RunEventType.PolePush: AudioDirector.Sfx((PoleQuality)(int)e.Value == PoleQuality.Perfect ? "pole_perfect" : "pole", 0.7f); break;
-                case RunEventType.Jump: AudioDirector.Sfx("jump", 0.6f); break;
-                case RunEventType.Landed: AudioDirector.Sfx("land", 0.8f); break;
-                case RunEventType.HeavyLanding: AudioDirector.Sfx("land_heavy", 0.9f); break;
-                case RunEventType.Crash: AudioDirector.Sfx("crash"); break;
+                case RunEventType.Jump: AudioDirector.Sfx("jump", 0.55f); break;
+                case RunEventType.Landed: AudioDirector.Sfx("land", 0.7f); break;
+                case RunEventType.HeavyLanding: AudioDirector.Sfx("land_heavy", 0.8f); break;
+                case RunEventType.Crash: AudioDirector.Sfx("crash", 0.9f); break;
                 case RunEventType.GatePassed: AudioDirector.Sfx("gate", 0.5f, 1f + (e.Value % 2) * 0.12f); break;
-                case RunEventType.GateMissed: AudioDirector.Sfx("gate_miss", 0.8f); break;
-                case RunEventType.TrickScored: AudioDirector.Sfx(e.Trick.Points >= 600 ? "trick_big" : "trick", 0.8f); break;
-                case RunEventType.PersonHit: AudioDirector.Sfx("penalty", 0.7f); AudioDirector.Sfx("scream", 0.8f, 1.15f); break;
-                case RunEventType.DeadEnd: AudioDirector.Sfx("penalty", 0.7f); break;
-                case RunEventType.Finished: AudioDirector.Sfx("finish", 0.9f); break;
-                case RunEventType.Started: AudioDirector.Sfx("gate", 0.6f, 1.5f); break;
+                case RunEventType.GateMissed: AudioDirector.Sfx("gate_miss", 0.7f); break;
+                case RunEventType.TrickScored: AudioDirector.Sfx(e.Trick.Points >= 600 ? "trick_big" : "trick", 0.7f); break;
+                case RunEventType.PersonHit: AudioDirector.Sfx("penalty", 0.6f); AudioDirector.Sfx("scream", 0.4f, 1.15f); break;
+                case RunEventType.DeadEnd: AudioDirector.Sfx("penalty", 0.6f); break;
+                case RunEventType.Finished: AudioDirector.Sfx("finish", 0.8f); break;
+                case RunEventType.Started: AudioDirector.Sfx("gate", 0.5f, 1.4f); break;
             }
         }
 
@@ -112,7 +112,10 @@ namespace Ski.Game
             var a = AudioDirector.I;
             if (a == null) return;
             var sim = Session.Sim;
-            a.SkiState(sim.Speed, Mathf.Max(sim.SkidAmount, sim.OverLean, sim.Plough), sim.CarveQuality, sim.Contact && !sim.Crashed, WorldLook.Instance != null ? WorldLook.Instance.Storm : 0f);
+            a.Paused = Paused;
+            // The scrape follows the edge itself (OverLean), so it starts the instant a carve tips into a skid.
+            float skid = Mathf.Max(sim.OverLean, sim.Plough, sim.SkidAmount * 0.7f);
+            a.SkiState(sim.Speed, skid, sim.CarveQuality, sim.Contact && !sim.Crashed, WorldLook.Instance != null ? WorldLook.Instance.Storm : 0f);
             // Bombers scream as they come past.
             if (Session.Crowd != null)
                 foreach (var k in Session.Crowd.Kids)
@@ -122,7 +125,7 @@ namespace Ski.Game
                     if (dz > -16f && dz < 10f && Mathf.Abs(dx) < 18f)
                     {
                         _screamed.Add(k.Id);
-                        a.Play("scream", 0.75f, 0.9f + (k.Id % 5) * 0.06f, Mathf.Clamp(dx / 10f, -1f, 1f));
+                        a.Play("scream", 0.3f, 0.9f + (k.Id % 5) * 0.06f, Mathf.Clamp(dx / 10f, -1f, 1f));
                     }
                 }
         }

@@ -60,3 +60,8 @@ tools/tts/models/
 audio/raw/
 SkiGame/Builds/
 SkiGame/Data/
+
+# Expressive TTS environment and models
+tools/tts/.venv-expressive/
+tools/tts/models-*/
+audio/refs/

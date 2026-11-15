@@ -98,7 +98,7 @@ namespace Ski.Game
             Character = who;
             Screen = GameScreen.Run;
             Look.Storm = 0.06f; Look.Night = 0f;
-            if (AudioDirector.I != null) AudioDirector.I.Music(null);
+            if (AudioDirector.I != null) { AudioDirector.I.Music("music_ski", 0.6f); AudioDirector.I.Ambience(null); }
             Run = RunController.Create(transform, slope, who);
             Run.OnLiftReached = () => Transition(ShowRide);
             Run.OnTavernReached = () => Transition(ShowTavern);

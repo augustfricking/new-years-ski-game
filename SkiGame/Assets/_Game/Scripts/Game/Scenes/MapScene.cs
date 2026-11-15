@@ -84,6 +84,7 @@ namespace Ski.Game
             BuildUi();
             Pose(0f);
             AudioDirector.Sfx("paper", 0.8f);
+            if (AudioDirector.I != null) AudioDirector.I.Music("music_menu", 0.7f);
         }
 
         // ---- the paper map -----------------------------------------------------------------

@@ -16,7 +16,7 @@ namespace Ski.Game
         static Leaderboards _boards;
         public static Leaderboards Boards => _boards ??= new Leaderboards(new PrefsStore());
 
-        public static float MasterVolume = 0.85f, MusicVolume = 0.6f, VoiceVolume = 1f, MouseSensitivity = 0.12f;
+        public static float MasterVolume = 0.85f, MusicVolume = 0.4f, AmbienceVolume = 0.4f, EffectsVolume = 0.6f, VoiceVolume = 1f, MouseSensitivity = 0.12f;
         public static bool Subtitles = true, InvertLook;
         public static float BestChug; // seconds, 0 = none yet
         public static CharacterId LastCharacter = CharacterId.Erik;
@@ -27,7 +27,9 @@ namespace Ski.Game
         public static void Load()
         {
             MasterVolume = PlayerPrefs.GetFloat("vol_master", 0.85f);
-            MusicVolume = PlayerPrefs.GetFloat("vol_music", 0.6f);
+            MusicVolume = PlayerPrefs.GetFloat("vol_music2", 0.4f);
+            AmbienceVolume = PlayerPrefs.GetFloat("vol_ambience", 0.4f);
+            EffectsVolume = PlayerPrefs.GetFloat("vol_effects", 0.6f);
             VoiceVolume = PlayerPrefs.GetFloat("vol_voice", 1f);
             MouseSensitivity = PlayerPrefs.GetFloat("mouse", 0.12f);
             Subtitles = PlayerPrefs.GetInt("subs", 1) == 1;
@@ -40,7 +42,9 @@ namespace Ski.Game
         public static void Save()
         {
             PlayerPrefs.SetFloat("vol_master", MasterVolume);
-            PlayerPrefs.SetFloat("vol_music", MusicVolume);
+            PlayerPrefs.SetFloat("vol_music2", MusicVolume);
+            PlayerPrefs.SetFloat("vol_ambience", AmbienceVolume);
+            PlayerPrefs.SetFloat("vol_effects", EffectsVolume);
             PlayerPrefs.SetFloat("vol_voice", VoiceVolume);
             PlayerPrefs.SetFloat("mouse", MouseSensitivity);
             PlayerPrefs.SetInt("subs", Subtitles ? 1 : 0);
@@ -55,7 +59,7 @@ namespace Ski.Game
         {
             var a = AudioDirector.I;
             if (a == null) return;
-            a.Master = MasterVolume; a.MusicVol = MusicVolume; a.VoiceVol = VoiceVolume;
+            a.Master = MasterVolume; a.MusicVol = MusicVolume; a.AmbienceVol = AmbienceVolume; a.SfxVol = EffectsVolume; a.VoiceVol = VoiceVolume;
         }
     }
 }

@@ -216,8 +216,8 @@ namespace Ski.Game
             if (AudioDirector.I != null)
             {
                 AudioDirector.I.Silence();
-                AudioDirector.I.Music("music_tavern");
-                AudioDirector.I.Ambience("crowd");
+                AudioDirector.I.Music("music_tavern", 1.2f);
+                AudioDirector.I.Ambience("crowd", "fire");
                 AudioDirector.I.Play("door", 0.8f);
             }
             var ui = Ui.Instance;
