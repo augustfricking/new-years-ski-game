@@ -56,10 +56,11 @@ any moment; ends on the ski map in first person of the chosen character.
 ## 4. Controls (all levels)
 | Input | Action |
 |---|---|
-| W | Lean forward / go straight |
-| A / D | Turn left / right. Just-right turning = carve and gain speed. Too hard = skid and brake. |
+| W (hold) | Crouch into a tuck → faster acceleration and higher top speed. (Owner's decision: W.) |
+| A / D | Turn left / right. Holding leans the skis further: a short hold carves and gains speed, a long hold skids and brakes. |
 | S | Snowplough (skis make a V) → brake |
-| Crouch key (hold, keep pressing) | Tuck → faster acceleration and higher top speed. Owner wrote "A"; that conflicts with turning, so use **Ctrl or C** and confirm with the owner. |
+| R | Put me back on the course (time penalty) |
+| Esc | Pause, settings |
 | Shift (timed presses) | Pole push at start/low speed. A rhythm meter; timing window tightens as speed rises, until speed is high enough that poles are no longer needed. |
 | Space | Jump |
 | 1–5 | Tricks (grabs, spins, flips); some combine with WASD for harder variants and more points |
@@ -130,8 +131,8 @@ AC: fireworks trigger only on a new personal or global best; restart and tavern 
 from the finish area.
 
 ## 8. Leaderboards
-- Local best times/scores always. Online leaderboards through Unity Gaming Services
-  (anonymous sign-in; the project is already linked to Unity Cloud).
+- Local best times/scores, with eight rival skiers per slope to beat.
+- Online leaderboards (Unity Gaming Services, free tier) are an optional later step.
 
 ## 9. Audio
 - Wind and ski-on-snow sounds that depend on speed, carve and skid; lift sounds; crowd and music

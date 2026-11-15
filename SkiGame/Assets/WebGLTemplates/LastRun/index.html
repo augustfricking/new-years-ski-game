@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>{{{ PRODUCT_NAME }}}</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #1B1430; overflow: hidden; font-family: "Segoe UI", Arial, sans-serif; }
+    #unity-canvas { width: 100vw; height: 100vh; display: block; background: #1B1430; outline: none; }
+    #loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #F5EBD8; }
+    #title { font-size: min(13vw, 120px); font-weight: 800; letter-spacing: 0.06em; color: #FFC64A; transform: rotate(-3deg); text-shadow: 5px 5px 0 #000; }
+    #sub { letter-spacing: 0.3em; font-size: min(3vw, 20px); margin-top: 6px; }
+    #bar { width: min(420px, 70vw); height: 18px; border: 4px solid #F5EBD8; border-radius: 6px; margin-top: 34px; }
+    #fill { height: 100%; width: 0; background: #FFC64A; transition: width 0.2s; }
+    #hint { margin-top: 14px; font-size: 15px; opacity: 0.8; }
+  </style>
+</head>
+<body>
+  <canvas id="unity-canvas" tabindex="-1"></canvas>
+  <div id="loading">
+    <div id="title">LAST RUN</div>
+    <div id="sub">NEW YEAR'S EVE ON THE MOUNTAIN</div>
+    <div id="bar"><div id="fill"></div></div>
+    <div id="hint">Riding the lift up...</div>
+  </div>
+  <script>
+    const canvas = document.querySelector("#unity-canvas");
+    const fill = document.querySelector("#fill");
+    const hint = document.querySelector("#hint");
+    const loading = document.querySelector("#loading");
+    const buildUrl = "Build";
+    const loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}";
+    const config = {
+      dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
+      frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+#if USE_THREADS
+      workerUrl: buildUrl + "/{{{ WORKER_FILENAME }}}",
+#endif
+#if USE_WASM
+      codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+#endif
+#if SYMBOLS_FILENAME
+      symbolsUrl: buildUrl + "/{{{ SYMBOLS_FILENAME }}}",
+#endif
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+      productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
+      productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
+      matchWebGLToCanvasSize: true,
+      autoSyncPersistentDataPath: true,
+      // Very dense screens would render four times the pixels for little gain.
+      devicePixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
+    };
+    const script = document.createElement("script");
+    script.src = loaderUrl;
+    script.onload = () => {
+      createUnityInstance(canvas, config, (progress) => { fill.style.width = (100 * progress) + "%"; })
+        .then(() => { loading.style.display = "none"; canvas.focus(); })
+        .catch((message) => { hint.textContent = "Could not start: " + message; });
+    };
+    script.onerror = () => { hint.textContent = "Could not load the game files."; };
+    document.body.appendChild(script);
+    canvas.addEventListener("click", () => canvas.focus());
+  </script>
+</body>
+</html>

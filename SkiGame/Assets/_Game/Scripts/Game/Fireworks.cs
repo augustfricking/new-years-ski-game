@@ -55,7 +55,7 @@ namespace Ski.Game
             var lim = ps.limitVelocityOverLifetime; lim.enabled = true; lim.dampen = 0.06f; lim.limit = 3f;
             var r = go.GetComponent<ParticleSystemRenderer>();
             r.sharedMaterial = Mats.Particle(Mats.SoftDot, true, 0f);
-            r.sharedMaterial.SetColor("_BaseColor", new Color(2.4f, 2.4f, 2.4f, 1f)); // bright enough to bloom
+            r.sharedMaterial.SetColor("_BaseColor", new Color(1.7f, 1.7f, 1.7f, 1f)); // bright enough to bloom, still coloured
             r.shadowCastingMode = ShadowCastingMode.Off;
             return ps;
         }
@@ -63,8 +63,8 @@ namespace Ski.Game
         void Build()
         {
             _trail = Make("Trails", 0.5f, 0.7f, 0.05f, 1200);
-            _burst = Make("Bursts", 1.1f, 1.9f, 0.22f, 5000);
-            _glitter = Make("Glitter", 0.45f, 2.6f, 0.5f, 3000);
+            _burst = Make("Bursts", 2.0f, 2.1f, 0.22f, 6000);
+            _glitter = Make("Glitter", 0.8f, 2.8f, 0.5f, 3000);
             var lg = new GameObject("Flash");
             lg.transform.SetParent(transform, false);
             _flash = lg.AddComponent<Light>();
@@ -78,6 +78,9 @@ namespace Ski.Game
             float dt = Time.deltaTime;
             _timeLeft -= dt;
             _next -= dt;
+            // Night falls for the show, then the dusk comes back.
+            var look = WorldLook.Instance;
+            if (look != null) look.Night = Mathf.MoveTowards(look.Night, _timeLeft > 0f ? 0.8f : 0f, dt * 0.45f);
             if (_timeLeft > 0f && _next <= 0f)
             {
                 _next = 0.25f + Rnd() * 0.75f;
@@ -107,7 +110,7 @@ namespace Ski.Game
 
         void Burst(Rocket r)
         {
-            int n = 70 + (int)(Rnd() * 50f);
+            int n = 110 + (int)(Rnd() * 60f);
             float power = 13f + Rnd() * 9f;
             bool ring = Rnd() < 0.25f;
             Color second = Colours[(int)(Rnd() * (Colours.Length - 0.01f))];

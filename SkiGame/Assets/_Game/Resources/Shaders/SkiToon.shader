@@ -160,8 +160,8 @@ Shader "Ski/Toon"
                     half near = saturate(1.0 - dist / 45.0) * _Snow;
                     half groove = smoothstep(0.38, 0.5, abs(frac(IN.positionWS.x * 4.0) - 0.5));
                     col *= 1.0 - 0.045 * groove * near * IN.color.a;
-                    half spark = step(0.9985, Hash21(floor(IN.positionWS.xz * 38.0) + floor(v.xz * 9.0)));
-                    col += spark * saturate(1.0 - dist / 14.0) * lit * 0.6;
+                    half spark = step(0.9988, Hash21(floor(IN.positionWS.xz * 42.0)));
+                    col += spark * saturate(1.0 - dist / 12.0) * lit * 0.45;
                 }
 
                 col += _Emission.rgb;

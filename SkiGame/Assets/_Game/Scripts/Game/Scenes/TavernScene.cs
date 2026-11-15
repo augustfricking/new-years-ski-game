@@ -363,7 +363,7 @@ namespace Ski.Game
 
             // Walk.
             var kb = Keyboard.current; var mouse = Mouse.current;
-            if (mouse != null && UnityEngine.Cursor.lockState == CursorLockMode.Locked)
+            if (mouse != null && (UnityEngine.Cursor.lockState == CursorLockMode.Locked || mouse.rightButton.isPressed))
             {
                 Vector2 d = mouse.delta.ReadValue() * SaveData.MouseSensitivity;
                 _yaw += d.x; _pitch = Mathf.Clamp(_pitch + (SaveData.InvertLook ? -d.y : d.y), -70f, 70f);

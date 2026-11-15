@@ -24,6 +24,7 @@ namespace Ski.Game
         public Action OnLiftReached, OnTavernReached;
 
         ResultsPanel _results;
+        SnowFx _snow;
         bool _left;
         public event Action<RunEvent> OnEvent;
 
@@ -49,6 +50,7 @@ namespace Ski.Game
             if (Session.Crowd != null) Kids = KidView.Create(Session.Crowd, course, transform);
             Rig = PlayerRig.Create(who, transform);
             Rig.Sync(Session.Sim, 0.016f);
+            _snow = SnowFx.Create(transform);
             if (WorldLook.Instance != null) WorldLook.Instance.Follow = Rig.Cam.transform;
             if (Ui.Instance != null)
             {
@@ -154,7 +156,7 @@ namespace Ski.Game
                 if (kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame) _pole = true;
                 if (kb.rKey.wasPressedThisFrame && !Paused) Session.Respawn();
                 var mouse = Mouse.current;
-                if (mouse != null && Cursor.lockState == CursorLockMode.Locked)
+                if (mouse != null && (Cursor.lockState == CursorLockMode.Locked || mouse.rightButton.isPressed))
                 {
                     Vector2 d = mouse.delta.ReadValue() * SaveData.MouseSensitivity;
                     Rig.Look.x = Mathf.Clamp(Rig.Look.x + d.x, -120f, 120f);
@@ -182,9 +184,9 @@ namespace Ski.Game
                 switch (e.Type)
                 {
                     case RunEventType.PolePush: Rig.PolePush(); break;
-                    case RunEventType.HeavyLanding: Rig.Kick(0.12f); break;
-                    case RunEventType.Landed: Rig.Kick(0.05f); break;
-                    case RunEventType.Crash: Rig.Kick(0.3f); break;
+                    case RunEventType.HeavyLanding: Rig.Kick(0.12f); _snow.Puff(Session.Sim.Pos, Session.Sim.Vel, 40, 4f); break;
+                    case RunEventType.Landed: Rig.Kick(0.05f); _snow.Puff(Session.Sim.Pos, Session.Sim.Vel, 22, 3f); break;
+                    case RunEventType.Crash: Rig.Kick(0.3f); _snow.Puff(Session.Sim.Pos, Session.Sim.Vel, 70, 6f); break;
                 }
                 Sound(e);
                 if (e.Type == RunEventType.Finished) Finish();
@@ -193,6 +195,7 @@ namespace Ski.Game
             Session.Events.Clear();
 
             Rig.Sync(Session.Sim, dt);
+            if (!Paused) _snow.Tick(Session.Sim, dt);
             if (Kids != null) Kids.Sync(dt);
             AmbientSounds();
 

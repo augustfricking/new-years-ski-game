@@ -55,3 +55,7 @@ Thumbs.db
 SkiGame/TestResults*/
 test-results*/
 SkiGame/Screenshots/
+tools/tts/.venv/
+tools/tts/models/
+audio/raw/
+SkiGame/Builds/

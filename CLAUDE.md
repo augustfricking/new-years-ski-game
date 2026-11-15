@@ -1,43 +1,61 @@
-# Ski game — agent instructions
+# Ski game ("Last Run") — agent instructions
 
 You are the owner and long-term maintainer of this codebase, and its design is up to you.
 The game design lives in `docs/GAME_SPEC.md` (source of truth). The plan and milestones live in
-`docs/RESEARCH_AND_PLAN.md` and `docs/MILESTONES.md`.
+`docs/RESEARCH_AND_PLAN.md` and `docs/MILESTONES.md`. The look is defined in `docs/ART_BIBLE.md`.
+
+## How the game is built (read this first)
+- **Code-first.** `SkiGame/Assets/_Game/Scenes/Main.unity` is empty. `GameApp` boots after scene
+  load and builds everything at run time: world, characters, UI, audio. There are no prefabs.
+- **Core vs Game.** `Scripts/Core` (assembly `Ski.Core`) is the deterministic simulation: ski
+  physics (`SkiSim`), courses (`PisteCourse`, `OffPisteCourse`), rules (`RunSession`), the kid
+  crowd, the bot, leaderboards, the beer game. `Scripts/Game` (`Ski.Game`) renders and plays it:
+  `TerrainBuilder`, `VillageBuilder`, `PlayerRig`, `Person` (posable procedural skier), scenes
+  (`LiftScene`, `MapScene`, `TavernScene`), UI (UI Toolkit, `Resources/UI/Game.uss`), audio
+  (`Synth` makes every sound from maths; voices are `.ogg` files in `Resources/Voices`).
+- **Look.** `Palette.cs` is the only source of colours. Everything lit uses the `Ski/Toon` shader
+  (`Resources/Shaders`). Meshes come from `MeshBuilder` and `Props`.
+- **Flow.** `GameApp`: lift menu -> cutscene -> ski map -> run -> village -> lift ride or tavern.
+- One MonoBehaviour per file, file named after the class.
 
 ## Layout
 - `SkiGame/` — Unity 6 project (6000.6.9f1, URP, build target WebGL).
-  - `Assets/_Game/Scripts/<Area>/` — runtime C# (one MonoBehaviour per file, file named after class).
-  - `Assets/_Game/Scripts/Core/` — pure C# simulation (ski physics, scoring, traits). No UnityEngine
-    scene dependencies, so EditMode tests can run it quickly and deterministically.
-  - `Assets/_Game/Tests/EditMode`, `Assets/_Game/Tests/PlayMode` — tests.
-  - `Screenshots/` — verification captures (outside Assets, not imported).
-- `art/` — Blender sources (`.blend`), exported `.fbx/.glb` go to `SkiGame/Assets/_Game/Art/`.
-- `audio/` — TTS scripts and raw audio; final `.ogg` files go into the Unity project.
-- `docs/` — spec, plan, milestones.
+  - `Assets/_Game/Scripts/Core`, `Scripts/Game`, `Editor`, `Tests/EditMode`, `Resources`.
+  - `Screenshots/` — verification captures (outside Assets, not in git).
+  - `Builds/WebGL` — web build output (not in git).
+- `tools/` — scripts that drive the Editor; `tools/diag` — one-off C# snippets for `script eval`.
+- `audio/make_voices.py` — generates the cutscene voices with Kokoro TTS (local, free).
+- `docs/` — spec, plan, milestones, art bible.
 
-## Working with Unity (important, learned during setup)
-- Drive the running Editor with the Unity CLI (`unity` = `%LOCALAPPDATA%\Unity\bin\unity.exe`):
-  `unity status`, `unity command ...`, `unity command script eval '<C#>'`,
-  `unity command capture game_view --output-path Screenshots/x.png`. Always pass
-  `--project-path <abs path to SkiGame>` and `--caller plugin --skill <skill>`.
-- Run `unity` commands with the sandbox disabled. Inside the sandbox, Unity cannot start its helper
-  processes (7z, Package Manager), and project creation fails with "path not found".
-- Start the Editor from a Terminal-panel tab (`run_in_terminal`), not from a normal shell call.
-  An Editor started as a child of a shell call is killed when that call ends.
-- `package add` and script changes cause a domain reload, which drops the connection. Send the
-  command without waiting, then `unity status --until-ready` and check `unity command package status`.
+## Working with Unity (learned the hard way)
+- The Editor runs **headless** (batch mode, no `-quit`) in a Terminal-panel tab. Start it with
+  `run_in_terminal`, never from a normal shell call (that Editor is killed when the call ends):
+  `& '<Unity.exe>' -batchmode -projectPath '<abs path to SkiGame>' -logFile '<abs path>/Logs/editor-headless.log'`
+- Drive it with the wrappers in `tools/` (PowerShell tool, sandbox disabled):
+  - `tools/compile.ps1` — refresh, recompile, print compile errors.
+  - `tools/test.ps1 [filter]` — run EditMode tests, print failures and test logs.
+  - `tools/play.ps1 -Slope Green|Blue|Red|Black|OffPiste|None -Who Erik -Seconds 5 -Shot name [-Keep] [-NoBot]`
+    enters Play mode, starts a run with the bot driving (or stays on the menu with `None`) and
+    saves `SkiGame/Screenshots/<name>.png`. Always look at the image afterwards.
+  - `tools/u.ps1 <unity cli args>` — the Unity CLI pinned to this project, for example
+    `tools/u.ps1 command script eval '<C#>'` or `... script eval --file <absolute .cs path>`.
+- Unity commands fail inside the sandbox (helper processes cannot start): disable it for them.
+- Right after a recompile the Editor is briefly unreachable (exit code 12): wait and retry.
+- Batch mode opens no scene: `ProjectSetup.OpenMain()` opens Main and sets a 1280x720 game view.
+  `Ski.EditorTools.ProjectSetup.Run()` re-applies render pipeline, quality and player settings.
 - Never hand-edit `.unity`/`.prefab`/`.asset` YAML or `Packages/manifest.json` while the Editor runs.
 - Only one agent drives the Editor at a time. Subagents may write C# files in their own folders;
   the lead session imports, compiles and runs them.
+- Shell note: put at most one heredoc in a Bash call; use the Write tool for new files.
 
 ## Routine steps that need no approval
 Editing files in this repo; running the Editor, Play mode, tests, screenshots and WebGL builds;
-exporting from Blender; generating TTS audio locally; starting a local web server for testing;
-committing to local branches.
+generating TTS audio locally; starting a local web server for testing; committing and pushing to
+`origin main` (the owner asked for regular pushes).
 
 ## Ask first
-Pushing to GitHub, deploying to GitHub Pages, deleting Blender or audio source files, adding
-paid or online services beyond Unity Gaming Services.
+Deploying to GitHub Pages, deleting audio or art source files, downloading third-party assets
+(fonts, models, sounds). No paid tools or services, ever.
 
 ## Finishing work
 Avoid stopping while you still owe work that was asked for. Diagnose ordinary obstacles (errors,
@@ -45,13 +63,11 @@ timeouts, failed compiles, failing tools) and work through them. Stop only for a
 that needs the owner's decision, and then say plainly what you found.
 
 ## Verification (definition of done for any feature)
-1. EditMode tests for the logic pass. With the Editor open use `unity command test run ...`
-   (read its parameters with `unity command --query "test run"`); `unity test SkiGame` only works
-   when no Editor has the project open.
-2. PlayMode/bot test covers it where relevant (each level must be finishable by the bot).
-3. A screenshot of the feature is captured and looked at.
+1. EditMode tests for the logic pass (`tools/test.ps1`).
+2. The bot can still finish every slope (`LevelTests.BotFinishesTheSlope`).
+3. A screenshot of the feature is captured with `tools/play.ps1` and looked at.
 4. Zero console errors.
-5. Spec AC in `docs/GAME_SPEC.md` ticked in `docs/MILESTONES.md`.
+5. The matching line in `docs/MILESTONES.md` is ticked.
 
 ## Communication
 Before starting, say in one line what you will do. Every few tool calls, give a one-line update.

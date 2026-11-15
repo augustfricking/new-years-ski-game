@@ -68,7 +68,7 @@ namespace Ski.Game
             Ui.Keys(_hints, "SPACE", "jump");
             if (s.ScoreBased) Ui.Keys(_hints, "1 2 3 4 5", "tricks in the air (+ W A S D)");
             Ui.Keys(_hints, "R", "back on course");
-            Ui.Keys(_hints, "MOUSE", "look around");
+            Ui.Keys(_hints, "MOUSE", "look around (click first)");
 
             run.OnEvent += OnEvent;
             _ticker = ui.AddTicker(Tick);

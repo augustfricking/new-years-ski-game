@@ -69,3 +69,15 @@ See `docs/MILESTONES.md` for the checklist.
 - GitHub Pages can't set `Content-Encoding` headers: use Brotli/Gzip with **Decompression
   Fallback** enabled, or disable compression.
 - No threads or local file IO in WebGL; keep per-frame allocations low; stream audio as Vorbis.
+
+## 7. What actually happened (2026-11-15)
+- The whole game was built by one lead session (Fable 5.2, high effort) without subagents.
+  The Unity Editor is a single shared resource and the game is code-first, so the pieces were
+  quicker to write in one context than to brief out. The subagent definitions in
+  `.claude/agents/` remain for later, larger content jobs (Blender characters, playtesting).
+- The Editor runs headless and is driven by scripts in `tools/`. This removed window-focus
+  problems and made every feature checkable with a screenshot.
+- Verification as planned: 32 EditMode tests on the deterministic core (physics, traits, every
+  slope finishable by the bot, gates, kids, dead ends, leaderboards, beer game), screenshots of
+  every screen, and a WebGL smoke test in the built-in browser.
+- Blender was not needed: all meshes are procedural (`MeshBuilder`, `Props`, `Person`).
