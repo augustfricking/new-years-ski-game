@@ -44,7 +44,7 @@ namespace Ski.Game
                 _timer = Ui.Text(panel, "", "h2 outlined");
                 _bar = new ZoneBar();
                 panel.Add(_bar);
-                Ui.Keys(panel, "SPACE", "gulp when the marker is in the green");
+                Ui.Keys(panel, "SPACE", "gulp in green");
             }
             Begin();
         }
@@ -189,8 +189,7 @@ namespace Ski.Game
             var who = SaveData.LastCharacter;
             var res = SaveData.Chug.Submit(who, t);
             bool best = res.PersonalBest;
-            OnlineBoards.Submit(OnlineBoards.ChugBoard, t, "", (int)who);
-            bool beatBar = res.TopOfBoard;
+            bool beatBar = res.PersonalBest && !float.IsNaN(res.PreviousBest);
             if (best) { SaveData.BestChug = t; SaveData.Save(); }
             _tavern.Wobble = Mathf.Min(_tavern.Wobble + 1.6f, 6f);
             // The whole hall cheers an empty stein.
@@ -205,12 +204,30 @@ namespace Ski.Game
             _result = Ui.Div(_ui, "dim");
             _result.pickingMode = PickingMode.Ignore;
             var card = Ui.Div(_result, "card shadowed dialog tilt-left");
-            Ui.Text(card, beatBar ? "SKÅL! NEW HOUSE RECORD!" : best ? "SKÅL! PERSONAL BEST!" : "SKÅL!", "h1");
+            var title = Ui.Text(card, beatBar ? "SKÅL! PERSONAL BEST!" : "SKÅL!", "h1");
             Ui.Text(card, t.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " s", "results-big");
             Ui.Text(card, _game.Spills == 0 ? "Not a drop spilled." : _game.Spills + " spill" + (_game.Spills > 1 ? "s" : "") + " (+" + (_game.Spills * ChugGame.SpillPenalty).ToString("0.0") + " s)", "small");
-            // The board: the regulars and you.
+            // The board: your own times first; the world's fastest once they arrive.
             var list = SaveData.Chug.Entries;
+            var boardTitle = Ui.Text(card, "YOUR TIMES", "tiny");
             var board = Ui.Div(card, "board");
+            OnlineBoards.Submit(OnlineBoards.ChugBoard, t, "", (int)who, world =>
+            {
+                if (world == null || world.Count == 0 || board.parent == null) return;
+                boardTitle.text = "WORLD'S FASTEST";
+                board.Clear();
+                int n = 0;
+                foreach (var e in world)
+                {
+                    if (n >= 8 && !e.Me) continue;
+                    var line = Ui.Div(board, e.Me ? "board-row board-row-me" : "board-row");
+                    Ui.Text(line, (e.Rank + 1) + ".", "board-rank");
+                    Ui.Text(line, e.Name + (e.Me ? " (you)" : ""), "board-name");
+                    Ui.Text(line, e.Score.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " s", "board-value");
+                    n++;
+                }
+                if (world.Count > 1 && world[0].Me && best) { title.text = "SKÅL! HOUSE RECORD!"; _tavern.Cheer(6f); }
+            });
             int shown = 0;
             for (int i = 0; i < list.Count && shown < 8; i++)
             {
@@ -223,8 +240,8 @@ namespace Ski.Game
                 shown++;
             }
             var row = Ui.Div(card);
-            Ui.Keys(row, "SPACE", "another one");
-            Ui.Keys(row, "E", "that's enough");
+            Ui.Keys(row, "SPACE", "again");
+            Ui.Keys(row, "E", "done");
         }
 
         public void Dispose()

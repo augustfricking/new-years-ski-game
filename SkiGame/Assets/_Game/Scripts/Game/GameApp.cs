@@ -46,6 +46,9 @@ namespace Ski.Game
             DontDestroyOnLoad(gameObject);
             Application.targetFrameRate = -1;
             Look = WorldLook.Create(transform);
+            // The inked contour: a touch heavier than the default, as in a comic.
+            var ink = Resources.Load<Material>("Materials/InkEdges");
+            if (ink != null) { ink.SetFloat("_Thickness", 1.6f); ink.SetFloat("_InnerEnd", 28f); }
             AudioDirector.Create(transform);
             Ui.Create(transform);
             SaveData.Load();

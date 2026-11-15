@@ -277,7 +277,8 @@ namespace Ski.Game
                 p.Snap(pose);
                 p.SetGogglesUp(true, true);
                 p.Poles = PoleMode.Lap;
-                p.BoardHangYaw = SeatX(i) < 0f ? -24f : 24f;   // nose away from the neighbours
+                p.BoardHangYaw = SeatX(i) < 0f ? -14f : 14f;
+                p.BoardOnRightFoot = SeatX(i) > 0f;             // hangs from the outer foot, clear of the neighbour
                 p.Smile = 0.35f;
                 p.PoseSpeed = 5f;
                 Friends[i] = p;
@@ -398,7 +399,7 @@ namespace Ski.Game
                 _subBox.style.opacity = 0f;
                 // On the top layer, so it shows on the letterbox bar instead of under it.
                 _skip = Ui.Div(ui.TopLayer, "skip");
-                Ui.Keys(_skip, "SPACE", "skip the ride");
+                Ui.Keys(_skip, "SPACE", "skip");
                 ui.Letterbox(true);
             }
             CutsceneTime = 0f;

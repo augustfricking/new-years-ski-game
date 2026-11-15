@@ -41,7 +41,7 @@ namespace Ski.Game
             new[] { new Vector2(-0.01f, 0.22f), new Vector2(-0.15f, 0.09f), new Vector2(-0.18f, -0.07f), new Vector2(-0.09f, -0.2f), new Vector2(-0.015f, -0.27f) },
             new[] { new Vector2(0.01f, 0.22f), new Vector2(0.09f, 0.1f), new Vector2(0.13f, -0.05f), new Vector2(0.07f, -0.2f), new Vector2(0.015f, -0.27f) },
             new[] { new Vector2(0.02f, 0.22f), new Vector2(0.21f, 0.13f), new Vector2(0.29f, -0.03f), new Vector2(0.18f, -0.19f), new Vector2(0.04f, -0.27f) },
-            new[] { new Vector2(0.03f, 0.225f), new Vector2(0.33f, 0.17f), new Vector2(0.44f, 0.0f), new Vector2(0.33f, -0.2f), new Vector2(0.07f, -0.28f) },
+            new[] { new Vector2(0.03f, 0.225f), new Vector2(0.2f, 0.125f), new Vector2(0.385f, -0.02f), new Vector2(0.33f, -0.2f), new Vector2(0.07f, -0.28f) },
         };
         static readonly string[] Grades = { "EASY", "INTERMEDIATE", "ADVANCED", "EXPERT", "OFF-PISTE - UNMARKED" };
 
@@ -108,6 +108,18 @@ namespace Ski.Game
         /// <summary>Map coordinates (x in -0.5..0.5, y in -0.35..0.35) to metres on the sheet.</summary>
         static Vector3 P(Vector2 m, float lift) => new Vector3(m.x * MapW, m.y * MapW, -lift);
         static Vector3 P(float x, float y, float lift) => new Vector3(x * MapW, y * MapW, -lift);
+
+        /// <summary>The same line moved sideways by a distance (left of the direction of travel when positive).</summary>
+        static List<Vector2> Offset(List<Vector2> line, float d)
+        {
+            var o = new List<Vector2>(line.Count);
+            for (int i = 0; i < line.Count; i++)
+            {
+                Vector2 t = (line[Mathf.Min(i + 1, line.Count - 1)] - line[Mathf.Max(i - 1, 0)]).normalized;
+                o.Add(line[i] + new Vector2(-t.y, t.x) * d);
+            }
+            return o;
+        }
 
         static void Ribbon(MeshBuilder b, List<Vector2> line, float width, Color c, float lift, bool dashed = false)
         {
@@ -222,7 +234,11 @@ namespace Ski.Game
             for (int r = 0; r < 5; r++)
             {
                 var hb = new MeshBuilder();
-                Ribbon(hb, _runs[r], 0.024f, new Color(1f, 0.85f, 0.2f, 1f), 0.0016f, false);
+                // Only the edges of the run light up: a thin line down each side of it.
+                float side = r == 4 ? 0.0062f : 0.0082f;
+                var yellow = new Color(1f, 0.85f, 0.2f, 1f);
+                Ribbon(hb, Offset(_runs[r], side), 0.0034f, yellow, 0.0016f, false);
+                Ribbon(hb, Offset(_runs[r], -side), 0.0034f, yellow, 0.0016f, false);
                 _highlight[r] = hb.ToObject("Highlight " + r, _flat, _map, false, false);
                 _highlight[r].SetActive(false);
             }
@@ -274,7 +290,7 @@ namespace Ski.Game
             _ui = Ui.Div(ui.ScreenLayer, "layer");
             var title = Ui.Div(_ui, "map-title");
             Ui.Text(title, "PICK YOUR LAST RUN", "h1 outlined");
-            Ui.Text(title, "Hover a run on the map, click to drop in  -  or press 1 to 5", "hint");
+            Ui.Text(title, "Click a run  -  or 1 to 5", "hint");
 
             _infoCard = Ui.Div(_ui, "card shadowed map-info");
             var head = Ui.Div(_infoCard, "row");
@@ -284,6 +300,10 @@ namespace Ski.Game
             _infoGoal.style.whiteSpace = WhiteSpace.Normal;
             _infoBest = Ui.Text(_infoCard, "", "small");
             _infoRival = Ui.Text(_infoCard, "", "small");
+            _infoRival.style.whiteSpace = WhiteSpace.Normal;
+            // The world boards, fetched while the map is open, so every run shows who to beat.
+            for (int i = 0; i < 5; i++)
+                OnlineBoards.Fetch(OnlineBoards.BoardId((SlopeId)i), _ => { if (this != null && Hovered >= 0) ShowInfo(Hovered); });
             _infoHint = Ui.Text(_infoCard, "", "tiny");
             _infoCard.style.display = DisplayStyle.None;
 
@@ -310,9 +330,22 @@ namespace Ski.Game
             _infoGoal.text = Grades[r] + "\n" + Courses.Goals[r];
             float best = SaveData.Boards.PersonalBest(id);
             _infoBest.text = float.IsNaN(best) ? "Your best: -" : "Your best: " + Leaderboards.Format(id, best);
-            var board = SaveData.Boards.Board(id);
-            _infoRival.text = "Slope record: " + Leaderboards.Format(id, board[0].Value) + "  (" + board[0].Name + ")";
-            _infoHint.text = "Click to drop in";
+            var world = OnlineBoards.Cached(OnlineBoards.BoardId(id));
+            if (world == null) _infoRival.text = OnlineBoards.Status == OnlineBoards.State.Failed ? "World board: offline" : "World board: loading...";
+            else if (world.Count == 0) _infoRival.text = "World board: nobody yet. Be the first.";
+            else
+            {
+                var sb = new System.Text.StringBuilder("WORLD BOARD");
+                int n = 0;
+                foreach (var e in world)
+                {
+                    if (n >= 5 && !e.Me) continue;
+                    sb.Append('\n').Append(e.Rank + 1).Append(".  ").Append(e.Name).Append(e.Me ? " (you)" : "").Append("   ").Append(Leaderboards.Format(id, (float)e.Score));
+                    n++;
+                }
+                _infoRival.text = sb.ToString();
+            }
+            _infoHint.text = "Click to start";
         }
 
         // ---- frame -------------------------------------------------------------------------

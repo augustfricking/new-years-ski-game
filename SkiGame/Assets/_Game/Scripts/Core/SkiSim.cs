@@ -44,7 +44,8 @@ namespace Ski.Core
         public float Tuck;          // 0..1
         public float Plough;        // 0..1 snowplough
         public bool Grounded = true;
-        public bool Switch;         // riding backwards after a 180
+        public bool Switch;         // riding backwards after a 180: the body faces up the hill, Heading stays the way of travel
+        public bool TakeoffSwitch;  // left the snow riding backwards (worth more)
 
         // Air state.
         public float AirTime, AirHeight, MaxAirHeight;
@@ -227,6 +228,9 @@ namespace Ski.Core
                     }
                 }
 
+                // Nearly stopped: turn round to face down the hill again.
+                if (Switch && Grounded && sH < 1.2f) Switch = false;
+
                 // --- standing still ------------------------------------------------------
                 if (Grounded && Vel.magnitude < 0.3f && !inp.Jump)
                 {
@@ -241,6 +245,7 @@ namespace Ski.Core
                     Grounded = false;
                     jumped = true;
                     AirTime = 0f; MaxAirHeight = 0f;
+                    TakeoffSwitch = Switch;
                     Emit(SkiEventType.Jump);
                 }
 
@@ -303,6 +308,7 @@ namespace Ski.Core
                     Vel.y = vyFree;
                     Pos += Vel * dt;
                     AirTime = 0f; MaxAirHeight = 0f;
+                    TakeoffSwitch = Switch;
                     Emit(SkiEventType.Takeoff);
                 }
                 else
@@ -394,16 +400,18 @@ namespace Ski.Core
             float flipErr = Mathf.Abs(Flip - Mathf.Round(Flip / Full) * Full);
             float corkErr = Mathf.Abs(Cork - Mathf.Round(Cork / Full) * Full);
 
-            if (vn > P.CrashImpact) { Crash(CrashReason.HardLanding); return; }
+            // A landing only fails for being hard when it is really a slam; the park is built softer.
+            float crashAt = P.CrashImpact * Course.ImpactScale, heavyAt = P.HeavyImpact * Mathf.Lerp(1f, Course.ImpactScale, 0.5f);
+            if (vn > crashAt) { Crash(CrashReason.HardLanding); return; }
             if (real && (yawErr > P.LandYawTolerance || flipErr > P.LandFlipTolerance || corkErr > P.LandFlipTolerance))
             {
                 Crash(CrashReason.BadLanding);
                 return;
             }
             if (landing && sw && HorizontalSpeed > 2f) { Heading = M.WrapPi(Heading + Mathf.PI); Switch = !Switch; }
-            if (vn > P.HeavyImpact)
+            if (vn > heavyAt)
             {
-                Vel *= 1f - Mathf.Min(0.45f, (vn - P.HeavyImpact) * 0.075f);
+                Vel *= 1f - Mathf.Min(0.45f, (vn - heavyAt) * 0.075f);
                 Emit(SkiEventType.HeavyLanding, vn);
             }
             if (real)

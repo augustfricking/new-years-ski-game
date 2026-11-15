@@ -222,7 +222,11 @@ namespace Ski.Game
             public float Y, Rx, Rz, OffX, OffZ;
             public Color Colour;
             public bool HasColour;
-            public Ring(float y, float rx, float rz, float offZ = 0f, float offX = 0f) { Y = y; Rx = rx; Rz = rz; OffZ = offZ; OffX = offX; Colour = default; HasColour = false; }
+            /// <summary>Shape of the section: 2 (or 0) is an ellipse, higher is squarer (a jaw, a chest).</summary>
+            public float Sq;
+            public Ring Square(float n) { Sq = n; return this; }
+            public float Exponent => Sq > 0.01f ? 2f / Sq : 1f;
+            public Ring(float y, float rx, float rz, float offZ = 0f, float offX = 0f) { Y = y; Rx = rx; Rz = rz; OffZ = offZ; OffX = offX; Colour = default; HasColour = false; Sq = 0f; }
             public Ring Tint(Color c) { Colour = c; HasColour = true; return this; }
         }
 
@@ -240,7 +244,9 @@ namespace Ski.Game
                 for (int k = 0; k <= sides; k++)
                 {
                     float a = k / (float)sides * Mathf.PI * 2f;
-                    p[i * w + k] = new Vector3(rings[i].OffX + Mathf.Cos(a) * rings[i].Rx, rings[i].Y, rings[i].OffZ + Mathf.Sin(a) * rings[i].Rz);
+                    float cs = Mathf.Cos(a), sn = Mathf.Sin(a), e = rings[i].Exponent;
+                    if (e != 1f) { cs = Mathf.Sign(cs) * Mathf.Pow(Mathf.Abs(cs), e); sn = Mathf.Sign(sn) * Mathf.Pow(Mathf.Abs(sn), e); }
+                    p[i * w + k] = new Vector3(rings[i].OffX + cs * rings[i].Rx, rings[i].Y, rings[i].OffZ + sn * rings[i].Rz);
                 }
             int start = _v.Count;
             Color keep = Col;
@@ -282,6 +288,27 @@ namespace Ski.Game
                 Vector3 c = new Vector3(rings[n - 1].OffX, rings[n - 1].Y, rings[n - 1].OffZ);
                 for (int k = 0; k < sides; k++) Tri(c, p[(n - 1) * w + k + 1], p[(n - 1) * w + k]);
                 Col = keep;
+            }
+        }
+
+        /// <summary>
+        /// A pen stroke lying on a surface: a ribbon through the points, facing along the normals,
+        /// thick in the middle and tapering to nothing at both ends, as a brush pen draws it.
+        /// </summary>
+        public void Stroke(IList<Vector3> pts, IList<Vector3> normals, float width)
+        {
+            int n = pts.Count;
+            if (n < 2) return;
+            Vector3 prevL = default, prevR = default;
+            for (int i = 0; i < n; i++)
+            {
+                Vector3 t = (pts[Mathf.Min(i + 1, n - 1)] - pts[Mathf.Max(i - 1, 0)]).normalized;
+                float u = i / (float)(n - 1);
+                float w = width * 0.5f * Mathf.Pow(Mathf.Sin(Mathf.PI * Mathf.Lerp(0.04f, 0.96f, u)), 0.7f);
+                Vector3 side = Vector3.Cross(normals[i], t).normalized * w;
+                Vector3 l = pts[i] - side, r = pts[i] + side;
+                if (i > 0) Quad(prevL, l, r, prevR);
+                prevL = l; prevR = r;
             }
         }
 

@@ -56,33 +56,31 @@ namespace Ski.Game
             _ringBox = Ui.Div(bottom, "center");
             _ring = new PoleRing();
             _ringBox.Add(_ring);
-            Ui.Keys(_ringBox, "CLICK", SkierInfo.Get(s.Character).Gear == Gear.Snowboard ? "push off when the dot is at the top" : "pole when the dot is at the top");
+            Ui.Keys(_ringBox, "CLICK", "at the top");
             _carveBox = Ui.Div(bottom, "center");
             _carve = new CarveMeter { CarveMin = s.Sim.P.CarveMin, CarveMax = s.Sim.P.CarveMax };
             _carveBox.Add(_carve);
 
             _hints = Ui.Div(_root, "hud-corner hud-bl");
-            Ui.Keys(_hints, "A D", "turn - gently to carve, hard to brake");
-            Ui.Keys(_hints, "W", "hold to tuck");
-            Ui.Keys(_hints, "S", "snowplough brake");
+            Ui.Keys(_hints, "A D", "turn");
+            Ui.Keys(_hints, "W", "tuck");
+            Ui.Keys(_hints, "S", "brake");
             Ui.Keys(_hints, "SPACE", "jump");
-            Ui.Keys(_hints, "CLICK", "pole push (left mouse), in time with the ring");
-            Ui.Keys(_hints, "R", "back on course");
-            Ui.Keys(_hints, "MOUSE", "look around");
-            Ui.Keys(_hints, "C", "switch camera");
+            Ui.Keys(_hints, "CLICK", "push");
+            Ui.Keys(_hints, "R", "reset");
+            Ui.Keys(_hints, "C", "camera");
 
             // The trick list stays up for the whole park run.
             _tricks = Ui.Div(_root, "hud-corner hud-br");
             if (s.ScoreBased)
             {
-                Ui.Text(_tricks, "TRICKS - IN THE AIR", "hint");
-                Ui.Keys(_tricks, "A D", "spin (land straight or switch)");
-                Ui.Keys(_tricks, "1", "safety grab   +W nose   +S tail");
-                Ui.Keys(_tricks, "2", "mute grab   +W japan   +S truck driver");
-                Ui.Keys(_tricks, "3", "backflip   +W frontflip");
-                Ui.Keys(_tricks, "4", "spread eagle   +W daffy   +S backscratcher");
-                Ui.Keys(_tricks, "5", "cork (A or D picks the side)");
-                Ui.Text(_tricks, "Hold grabs longer and combine for more points.", "hint");
+                Ui.Text(_tricks, "IN THE AIR", "hint");
+                Ui.Keys(_tricks, "A D", "spin");
+                Ui.Keys(_tricks, "1 2", "grabs");
+                Ui.Keys(_tricks, "3", "flip");
+                Ui.Keys(_tricks, "4", "spread");
+                Ui.Keys(_tricks, "5", "cork");
+                Ui.Keys(_tricks, "W S", "variants");
             }
 
             run.OnEvent += OnEvent;
@@ -181,6 +179,7 @@ namespace Ski.Game
                 if (Mathf.Abs(sim.Cork) > 0.6f) air = (air.Length > 0 ? air + " + " : "") + "CORK";
             }
             else if (sim.Surface == SurfaceKind.Box && sim.GrindDistance > 1f) air = "GRIND " + sim.GrindDistance.ToString("0") + " m";
+            if (air.Length == 0 && sim.Switch && !sim.Crashed) air = "SWITCH";
             _air.text = air;
 
             // Key hints fade once the run is properly under way.

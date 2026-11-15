@@ -8,7 +8,7 @@ namespace Ski.Game
     public sealed class ResultsPanel
     {
         readonly VisualElement _root, _banner, _board;
-        readonly Label _boardTitle;
+        readonly Label _boardTitle, _verdict;
         readonly SlopeId _slope;
 
         public ResultsPanel(RunSession s, SubmitResult r)
@@ -33,11 +33,12 @@ namespace Ski.Game
             }
             Ui.Text(card, "Top speed " + Mathf.RoundToInt(s.TopSpeed * 3.6f) + " km/h", "small");
 
-            string verdict = r.TopOfBoard ? "NEW SLOPE RECORD!" : r.PersonalBest && !float.IsNaN(r.PreviousBest) ? "NEW PERSONAL BEST!" : "Place " + r.Rank;
-            Ui.Text(card, verdict, "h2" + (r.TopOfBoard || r.PersonalBest && !float.IsNaN(r.PreviousBest) ? " good" : ""));
+            bool improved = r.PersonalBest && !float.IsNaN(r.PreviousBest);
+            string verdict = improved ? "NEW PERSONAL BEST!" : r.PersonalBest ? "FIRST RUN IN THE BOOK" : "Your #" + r.Rank;
+            _verdict = Ui.Text(card, verdict, "h2" + (improved ? " good" : ""));
 
             _slope = s.Slope;
-            _boardTitle = Ui.Text(card, OnlineBoards.Status == OnlineBoards.State.Failed ? "THIS DEVICE AND THE LOCALS" : "THIS DEVICE AND THE LOCALS  -  world board loading...", "tiny");
+            _boardTitle = Ui.Text(card, OnlineBoards.Status == OnlineBoards.State.Failed ? "YOUR RUNS  (offline)" : "YOUR RUNS  -  world board loading...", "tiny");
             var board = _board = Ui.Div(card, "board");
             var list = SaveData.Boards.Board(s.Slope);
             int shown = 0;
@@ -57,19 +58,24 @@ namespace Ski.Game
 
             var hints = Ui.Div(card);
             hints.style.marginTop = 12;
-            Ui.Text(hints, "Ski to the LIFT for another run", "small");
-            Ui.Text(hints, "Ski to the TAVERN door for after-ski", "small");
+            Ui.Text(hints, "LIFT: again     TAVERN: after-ski", "small");
 
             _banner = Ui.Div(_root, "banner");
-            if (r.TopOfBoard) Ui.Text(_banner, "NEW RECORD!", "banner-text");
-            else if (r.PersonalBest && !float.IsNaN(r.PreviousBest)) Ui.Text(_banner, "PERSONAL BEST!", "banner-text");
+            if (improved) Ui.Text(_banner, "PERSONAL BEST!", "banner-text");
         }
 
         /// <summary>Replaces the local list with the world board, once it has arrived. Null: stay local.</summary>
-        public void ShowWorld(System.Collections.Generic.List<OnlineBoards.Entry> list)
+        /// <returns>True when this device now holds the world record among at least two people.</returns>
+        public bool ShowWorld(System.Collections.Generic.List<OnlineBoards.Entry> list)
         {
-            if (_root.parent == null) return;
-            if (list == null || list.Count == 0) { _boardTitle.text = "THIS DEVICE AND THE LOCALS"; return; }
+            if (_root.parent == null) return false;
+            if (list == null || list.Count == 0) { _boardTitle.text = "YOUR RUNS  (world board offline)"; return false; }
+            bool record = list.Count > 1 && list[0].Me;
+            if (record)
+            {
+                _verdict.text = "WORLD RECORD!"; _verdict.AddToClassList("good");
+                _banner.Clear(); Ui.Text(_banner, "WORLD RECORD!", "banner-text");
+            }
             _boardTitle.text = "WORLD BOARD";
             _board.Clear();
             int shown = 0;
@@ -82,6 +88,7 @@ namespace Ski.Game
                 Ui.Text(row, Leaderboards.Format(_slope, (float)e.Score));
                 shown++;
             }
+            return record;
         }
 
         public void Dispose() { _root.RemoveFromHierarchy(); }

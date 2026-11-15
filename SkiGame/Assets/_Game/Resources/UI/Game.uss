@@ -5,7 +5,8 @@
     flex-grow: 1;
     color: rgb(245, 235, 216);
     font-size: 26px;
-    -unity-font-style: bold;
+    -unity-font-definition: resource("Fonts/ComicNeue-Bold");
+    -unity-font-style: normal;
 }
 
 .layer {
@@ -639,4 +640,12 @@
 .name-field {
     width: 300px;
     font-size: 24px;
+}
+
+/* ---- comic lettering: Bangers for anything shouted, Comic Neue (set on .root) for the rest ---- */
+
+.title, .h1, .h2, .btn, .key, .hud-badge, .hud-timer, .hud-speed, .hud-score, .toast, .results-big, .banner-text, .sub-name {
+    -unity-font-definition: resource("Fonts/Bangers-Regular");
+    -unity-font-style: normal;
+    letter-spacing: 2px;
 }

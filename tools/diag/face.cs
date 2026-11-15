@@ -1,7 +1,9 @@
 // Close-up of one friend on the lift: freezes the lift scene's camera work, hides the menu
 // and frames a head. Edit `who`, `dist`, `side` and `fov` before running.
-int who = 3; float dist = 1.1f; float side = 0.45f; float fov = 40f;
 var l = Ski.Game.GameApp.Instance.Lift;
+string[] arg = System.IO.File.ReadAllText(System.IO.Path.Combine(UnityEngine.Application.dataPath, "../Screenshots/pose.txt")).Trim().Split(' ');
+int who = int.Parse(arg[0]); float dist = arg.Length > 1 ? float.Parse(arg[1], System.Globalization.CultureInfo.InvariantCulture) : 0.8f; float side = arg.Length > 2 ? float.Parse(arg[2], System.Globalization.CultureInfo.InvariantCulture) : 0.25f; float fov = 40f;
+if (arg.Length > 3) l.Friends[who].SetGogglesUp(arg[3] != "down", true);
 l.enabled = false;
 Ski.Game.Ui.Instance.ScreenLayer.style.display = UnityEngine.UIElements.DisplayStyle.None;
 var cam = UnityEngine.Camera.main;

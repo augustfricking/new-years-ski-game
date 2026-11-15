@@ -72,6 +72,8 @@ namespace Ski.Core
         public float MuScale = 1f;
         /// <summary>How much speed a skidded turn costs (the park is groomed soft and forgiving).</summary>
         public float SkidScale = 1f;
+        /// <summary>How hard a landing may be before it is a crash, relative to normal (the park's landings are built soft).</summary>
+        public float ImpactScale = 1f;
         /// <summary>0..1: how strongly the skis are steered along the direction of travel here (halfpipe walls).</summary>
         public virtual float AlignAssist(float x, float z) => 0f;
         /// <summary>Extra acceleration while airborne (used by the halfpipe to bring riders back in).</summary>

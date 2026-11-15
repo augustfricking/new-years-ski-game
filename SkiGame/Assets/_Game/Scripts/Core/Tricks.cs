@@ -68,11 +68,14 @@ namespace Ski.Core
             }
 
             float air = 50f * s.AirTime + 35f * s.MaxAirHeight;
-            if (r.Parts.Count == 0) { r.Name = "Air"; pts = air; }
+            if (r.Parts.Count == 0) { r.Name = s.TakeoffSwitch ? "Switch air" : "Air"; pts = air * (s.TakeoffSwitch ? 1.3f : 1f); }
             else
             {
                 pts = (pts + air) * (1f + 0.3f * (r.Parts.Count - 1));
                 r.Name = string.Join(" + ", r.Parts);
+                // Riding in backwards is harder: the same trick is worth more. So is landing backwards.
+                if (s.TakeoffSwitch) { pts *= 1.3f; r.Name = "Switch " + r.Name; }
+                if (s.Switch) { pts *= 1.15f; r.Name += s.TakeoffSwitch ? " (still switch)" : " to switch"; }
             }
 
             r.Clean = yawError < 0.22f && impact < s.P.HeavyImpact * 0.8f;

@@ -21,7 +21,7 @@ namespace Ski.Game
 
         bool _board;
         Vector3 _up = Vector3.up, _heading = Vector3.forward, _tpPos;
-        float _poleAnim = 1f, _shake, _shakeTime, _fov, _crashSpin, _lift, _third;
+        float _poleAnim = 1f, _shake, _shakeTime, _fov, _crashSpin, _lift, _third, _visualYaw, _hopSide = 1f;
         bool _tpInit;
         Pose _pose;
 
@@ -63,7 +63,7 @@ namespace Ski.Game
 
         /// <summary>Adds a camera shake impulse (landing, crash, bump).</summary>
         public void Kick(float amount) { _shake = Mathf.Max(_shake, amount); }
-        public void PolePush() { _poleAnim = 0f; }
+        public void PolePush() { _poleAnim = 0f; _hopSide = -_hopSide; }
         public void SetThirdPerson(bool on) { ThirdPerson = on; }
 
         static Pose BoardBase()
@@ -109,6 +109,13 @@ namespace Ski.Game
             float hands = 1f - tuck;
             p.ArmOutR += lean * 12f * hands; p.ArmFwdR -= lean * 10f * hands;
             p.ArmOutL -= lean * 12f * hands; p.ArmFwdL += lean * 10f * hands;
+            if (_board && _poleAnim < 1f)
+            {
+                // The hop: knees snap up, arms swing for balance.
+                float hopUp = Mathf.Sin(Mathf.PI * Mathf.Clamp01(_poleAnim / 0.8f));
+                p.ThighL += hopUp * 22f; p.KneeL += hopUp * 40f; p.ThighR += hopUp * 22f; p.KneeR += hopUp * 40f;
+                p.ArmOutL += hopUp * 26f; p.ArmOutR += hopUp * 26f; p.TorsoYaw += _hopSide * hopUp * 14f;
+            }
 
             if (!_board && _poleAnim < 1f)
             {
@@ -180,8 +187,15 @@ namespace Ski.Game
             else Body.PoleAim = new Vector3(0f, -0.82f, -0.57f);
             Body.Snap(_pose);
             _lift = Mathf.Lerp(_lift, airTuck * 0.22f, 1f - Mathf.Exp(-12f * dt));
-            Body.transform.localPosition = new Vector3(0f, _lift, 0f);
-            Body.transform.localRotation = Quaternion.Euler(0f, _board ? -plough * 55f : 0f, -lean * 12f);
+            // No poles on a board: the push is a little hop to the side, both feet off the snow.
+            float hop = _board && _poleAnim < 1f ? Mathf.Sin(Mathf.PI * Mathf.Clamp01(_poleAnim / 0.8f)) : 0f;
+            Body.transform.localPosition = new Vector3(_hopSide * hop * 0.14f, _lift + hop * 0.2f, hop * 0.08f);
+            // Riding switch: the body faces up the hill while the travel, the controls and the camera stay as they are.
+            // In the air and on landing this follows the heading exactly; turning back round at a standstill takes a moment.
+            float headingDeg = sim.Heading * Mathf.Rad2Deg;
+            _visualYaw = Mathf.MoveTowardsAngle(_visualYaw, headingDeg + (sim.Switch ? 180f : 0f), 1100f * dt);
+            float turned = Mathf.DeltaAngle(headingDeg, _visualYaw);
+            Body.transform.localRotation = Quaternion.Euler(0f, turned + (_board ? -plough * 55f - _hopSide * hop * 16f : 0f), -lean * 12f * (Mathf.Abs(turned) > 90f ? -1f : 1f));
 
             // --- camera ----------------------------------------------------------------------
             _third = Mathf.MoveTowards(_third, ThirdPerson ? 1f : 0f, dt * 3.2f);

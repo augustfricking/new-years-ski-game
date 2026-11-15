@@ -5,28 +5,25 @@ using UnityEngine;
 namespace Ski.Game
 {
     /// <summary>
-    /// The other skiers you share a run with, all of them ghosts (they cannot be hit):
-    ///  - your own best run on this slope, replayed;
-    ///  - other players' runs from the world board, replayed with their names;
-    ///  - rivals skiing live, to fill the slope when few players are about.
-    /// Never more than the cap from the settings; real players take precedence over rivals.
+    /// The other skiers you share a run with. Every one of them is a real run by a real person,
+    /// replayed as a ghost (ghosts cannot be hit): your own best on this slope, and other players'
+    /// best runs from the world board, each with its name above it. There are no computer skiers.
+    /// Never more than the cap from the settings.
     /// </summary>
     public sealed class GhostCrowd
     {
         sealed class Replay { public GhostView View; public GhostTrack Track; public bool Online; }
-        sealed class Rival { public GhostView View; public RunSession Session; public Bot Bot; public float Done, Delay; }
 
-        static readonly Color Gold = new Color(1f, 0.86f, 0.45f), Ice = new Color(0.72f, 0.88f, 1f), Mist = new Color(0.9f, 0.86f, 1f);
+        static readonly Color Gold = new Color(1f, 0.86f, 0.45f), Ice = new Color(0.72f, 0.88f, 1f);
 
         readonly List<Replay> _replays = new List<Replay>();
-        readonly List<Rival> _rivals = new List<Rival>();
         readonly RunSession _s;
         readonly Transform _parent;
         readonly int _cap;
         float _clock;
         bool _closed;
 
-        public int Count => _replays.Count + _rivals.Count;
+        public int Count => _replays.Count;
 
         public GhostCrowd(RunSession session, Transform parent)
         {
@@ -43,21 +40,6 @@ namespace Ski.Game
             string board = OnlineBoards.BoardId(session.Slope);
             AddOnline(OnlineBoards.Cached(board));
             OnlineBoards.Fetch(board, list => { if (!_closed) AddOnline(list); });
-
-            // Rivals from the local board ski live beside you.
-            int want = Mathf.Min(_cap - Count, 3);
-            var names = new List<string>();
-            foreach (var e in SaveData.Boards.Board(session.Slope)) if (!e.IsPlayer) names.Add(e.Name);
-            for (int i = 0; i < want && i < names.Count; i++)
-            {
-                var who = (CharacterId)(((int)session.Character + 1 + i) % 4);
-                var rs = new RunSession(session.Slope, who, session.Course, false);
-                var bot = new Bot(rs) { Skill = 0.8f - i * 0.12f };
-                bot.SpeedLimit *= 1.03f - i * 0.06f;
-                bot.Lane = (i % 2 == 0 ? 1f : -1f) * (2.2f + i * 0.8f);
-                // They leave the gate one after another, like an interval start.
-                _rivals.Add(new Rival { Session = rs, Bot = bot, Delay = 1.2f + i * 1.6f, View = GhostView.Create(_parent, names[i], who, Mist) });
-            }
         }
 
         void AddOnline(List<OnlineBoards.Entry> list)
@@ -65,58 +47,34 @@ namespace Ski.Game
             if (list == null) return;
             foreach (var e in list)
             {
+                if (Count >= _cap) break;
                 if (e.Me || string.IsNullOrEmpty(e.Ghost)) continue;
                 bool have = false;
                 foreach (var r in _replays) if (r.Online && r.View.Label == e.Name) { have = true; break; }
                 if (have) continue;
                 var track = GhostTrack.Decode(e.Ghost);
                 if (track == null) continue;
-                // A real player always gets a place: a rival makes way if the slope is full.
-                if (Count >= _cap)
-                {
-                    if (_rivals.Count == 0) break;
-                    var last = _rivals[_rivals.Count - 1];
-                    Object.Destroy(last.View.gameObject);
-                    _rivals.RemoveAt(_rivals.Count - 1);
-                }
                 var who = e.Character >= 0 && e.Character < 4 ? (CharacterId)e.Character : CharacterId.Erik;
                 _replays.Add(new Replay { Track = track, Online = true, View = GhostView.Create(_parent, e.Name, who, Ice) });
             }
         }
 
         /// <summary>One simulation step. Only called once the player has left the start gate.</summary>
-        public void Step(float dt)
-        {
-            _clock += dt;
-            foreach (var r in _rivals)
-            {
-                if (r.Done > 8f || _clock < r.Delay) continue;
-                r.Session.Step(r.Bot.Decide(), dt);
-                r.Session.Events.Clear();
-                if (r.Session.Phase == RunPhase.Finished) r.Done += dt;
-            }
-        }
+        public void Step(float dt) { _clock += dt; }
 
         /// <summary>Places every ghost for this frame.</summary>
         public void Sync(Camera cam, float dt)
         {
             var c = _s.Course;
             Vector3 me = _s.Sim.Pos;
-            // Nobody stands inside you: a ghost only appears once it is clear of the player.
-            bool Crowding(Vector3 p) => (p - me).sqrMagnitude < 9f;
             foreach (var r in _replays)
             {
                 bool live = r.Track.At(_clock, out Vector3 p, out float air, out float heading, out float speed);
                 if (!live && _clock > r.Track.Duration + 6f || _clock <= 0f) { r.View.Hide(); continue; }
                 p.y = c.Height(p.x, p.z) + air;
-                if (Crowding(p)) { r.View.Hide(); continue; }
+                // Nobody stands inside you: a ghost only appears once it is clear of the player.
+                if ((p - me).sqrMagnitude < 9f) { r.View.Hide(); continue; }
                 r.View.Show(p, heading, live ? speed : 0f, air, speed > 22f ? 1f : 0f, 0f, cam, dt);
-            }
-            foreach (var r in _rivals)
-            {
-                var sim = r.Session.Sim;
-                if (r.Done > 8f || _clock < r.Delay || Crowding(sim.Pos)) { r.View.Hide(); continue; }
-                r.View.Show(sim.Pos, sim.Heading, sim.Speed, sim.Contact ? 0f : 1f, sim.Tuck, sim.Plough, cam, dt);
             }
         }
 

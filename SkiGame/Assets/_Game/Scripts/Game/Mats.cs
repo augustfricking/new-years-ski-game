@@ -45,16 +45,16 @@ namespace Ski.Game
             get
             {
                 if (Cache.TryGetValue("character", out var m) && m != null) return m;
-                m = NewToon(Color.white, 2.1f);
+                m = NewToon(Color.white, 2.9f);
                 m.name = "Character";
-                m.SetFloat("_InkShadow", 0.26f);
+                m.SetFloat("_InkShadow", 0.36f);
                 m.SetFloat("_BackRim", 0.55f);
                 m.SetColor("_BackRimColor", new Color(0.5f, 0.78f, 1f));
                 m.SetFloat("_RimStrength", 0.3f);
                 m.SetFloat("_Paint", 0.35f);
                 m.SetFloat("_Wobble", 0.45f);
                 m.SetFloat("_MidBand", 0.3f);
-                m.SetColor("_ShadowTint", new Color(0.6f, 0.54f, 0.76f));
+                m.SetColor("_ShadowTint", new Color(0.56f, 0.42f, 0.66f));
                 Cache["character"] = m;
                 return m;
             }

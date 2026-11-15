@@ -95,6 +95,9 @@ namespace Ski.Game
         public float SideStance;
         /// <summary>How the board hangs from the front foot when seated on the lift (yaw in degrees).</summary>
         public float BoardHangYaw = -24f;
+        /// <summary>On the lift the board hangs from this foot (the one away from the neighbour).</summary>
+        public bool BoardOnRightFoot { get => _boardRight; set { _boardRight = value; if (_board != null) _board.SetParent(value ? _footR : _footL, false); } }
+        bool _boardRight;
 
         /// <summary>Kept for older callers: poles pointing at the ground.</summary>
         public bool PolesHang { get => Poles == PoleMode.Hang; set => Poles = value ? PoleMode.Hang : PoleMode.Ski; }
@@ -201,6 +204,41 @@ namespace Ski.Game
             return 0f;
         }
 
+        /// <summary>A point on a loft's skin: y along it, the angle round it from the front (+Z) toward +X.</summary>
+        static Vector3 OnLoft(Ring[] r, float y, float deg, out Vector3 normal)
+        {
+            int i = 0;
+            while (i < r.Length - 2 && y > r[i + 1].Y) i++;
+            float t = Mathf.InverseLerp(r[i].Y, r[i + 1].Y, y);
+            float rx = Mathf.Lerp(r[i].Rx, r[i + 1].Rx, t), rz = Mathf.Lerp(r[i].Rz, r[i + 1].Rz, t);
+            float e = Mathf.Lerp(r[i].Exponent, r[i + 1].Exponent, t);
+            float a = deg * Mathf.Deg2Rad, sn = Mathf.Sin(a), cs = Mathf.Cos(a);
+            float sx = Mathf.Sign(sn) * Mathf.Pow(Mathf.Abs(sn), e), cz = Mathf.Sign(cs) * Mathf.Pow(Mathf.Abs(cs), e);
+            normal = new Vector3(sn / Mathf.Max(rx, 1e-4f), 0f, cs / Mathf.Max(rz, 1e-4f)).normalized;
+            return new Vector3(Mathf.Lerp(r[i].OffX, r[i + 1].OffX, t) + rx * sx, y, Mathf.Lerp(r[i].OffZ, r[i + 1].OffZ, t) + rz * cz);
+        }
+
+        static readonly List<Vector3> StrokePts = new List<Vector3>(), StrokeNrm = new List<Vector3>();
+
+        /// <summary>
+        /// Draws one pen stroke on a loft, from (y0, angle0) to (y1, angle1): the creases, folds and
+        /// face lines that a comic artist inks over the colour. Sag bends the line up or down.
+        /// </summary>
+        void Ink(MeshBuilder b, Ring[] r, float y0, float d0, float y1, float d1, float width, float sag = 0f, int n = 7)
+        {
+            StrokePts.Clear(); StrokeNrm.Clear();
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)(n - 1);
+                Vector3 p = OnLoft(r, Mathf.Lerp(y0, y1, t) + sag * Mathf.Sin(Mathf.PI * t), Mathf.Lerp(d0, d1, t), out Vector3 nrm);
+                StrokePts.Add(p + nrm * (0.0035f * _s)); StrokeNrm.Add(nrm);
+            }
+            Color keep = b.Col;
+            b.Col = Palette.Ink;
+            b.Stroke(StrokePts, StrokeNrm, width);
+            b.Col = keep;
+        }
+
         void Build(PersonLook look)
         {
             Look = look;
@@ -254,6 +292,17 @@ namespace Ski.Game
             }
             if (look.Hero)
             {
+                // Inked folds: the cloth pulls from the armpits to the zip and bunches at the waist.
+                float w = 0.011f * s;
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    Ink(b, tr, 0.37f * s, side * 62f, 0.28f * s, side * 20f, w, -0.012f * s);
+                    Ink(b, tr, 0.31f * s, side * 74f, 0.215f * s, side * 34f, w * 0.85f, -0.01f * s);
+                    Ink(b, tr, 0.115f * s, side * 18f, 0.1f * s, side * 62f, w, 0.014f * s);
+                    Ink(b, tr, 0.07f * s, side * 30f, 0.062f * s, side * 78f, w * 0.8f, 0.01f * s);
+                    Ink(b, tr, 0.2f * s, side * 96f, 0.11f * s, side * 112f, w * 0.9f, 0f);
+                    Ink(b, tr, 0.3f * s, side * 150f, 0.18f * s, side * 168f, w, 0f);              // down the back
+                }
                 // Chest pocket and a lift pass.
                 float px = -0.095f * s, py = 0.33f * s;
                 b.Col = look.Trim;
@@ -286,22 +335,48 @@ namespace Ski.Game
             Color low = look.Stubble ? Color.Lerp(look.Skin, look.Hair, 0.3f) : look.Skin;
             b.Col = look.Skin;
             b.Cylinder(new Vector3(0, -0.11f * s, -0.008f * s), 0.052f * s * (look.Female ? 0.86f : 1f), 0.046f * s * (look.Female ? 0.86f : 1f), 0.14f * s, 8, true, false); // neck
-            // An egg that narrows to the chin, the chin pushed forward.
-            b.Loft(new[]
+            // An egg that narrows to the chin, the chin pushed forward; the jaw is squared off, more so on men.
+            float sq = look.Female || look.Kid ? 2.2f : 2.7f;
+            var hd = new[]
             {
                 R(-0.25f, 0f, 0f, 0.36f).Tint(low),
-                R(-0.2f, 0.2f * j, 0.2f, 0.34f).Tint(low),
-                R(-0.08f, 0.4f * j, 0.42f, 0.24f).Tint(low),
-                R(0.1f, 0.56f * j, 0.6f, 0.14f).Tint(low),
-                R(0.3f, 0.66f * (0.4f + 0.6f * j), 0.74f, 0.07f).Tint(low),
-                R(0.55f, 0.74f, 0.84f, 0.03f),
+                R(-0.2f, 0.22f * j, 0.2f, 0.34f).Tint(low).Square(sq),
+                R(-0.08f, 0.42f * j, 0.42f, 0.24f).Tint(low).Square(sq),
+                R(0.1f, 0.57f * j, 0.6f, 0.14f).Tint(low).Square(sq),
+                R(0.3f, 0.67f * (0.4f + 0.6f * j), 0.74f, 0.07f).Tint(low).Square(sq),
+                R(0.55f, 0.76f, 0.84f, 0.03f).Square(2.3f),
                 R(0.85f, 0.79f, 0.9f),
                 R(1.1f, 0.81f, 0.93f, -0.02f),
                 R(1.4f, 0.79f, 0.91f, -0.04f),
                 R(1.65f, 0.66f, 0.79f, -0.05f),
                 R(1.84f, 0.4f, 0.5f, -0.05f),
                 R(1.93f, 0f, 0f, -0.05f),
-            }, hs, false, false);
+            };
+            b.Loft(hd, hs, false, false);
+            if (look.Hero)
+            {
+                // The lines an inker puts on a face: jaw, the fold from nose to mouth, under the eyes, the chin.
+                float fw = 0.03f * hr;
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    Ink(b, hd, 0.3f * hr, side * 68f, -0.12f * hr, side * 26f, fw * 1.25f, -0.03f * hr);          // jaw
+                    Ink(b, hd, 0.5f * hr, side * 14f, 0.2f * hr, side * 25f, fw * (look.Female ? 0.6f : 1f), 0f);   // nose to mouth
+                    Ink(b, hd, 0.735f * hr, side * 12f, 0.71f * hr, side * 34f, fw * 0.7f, -0.018f * hr);          // under the eye
+                    if (!look.Female) Ink(b, hd, 0.62f * hr, side * 50f, 0.36f * hr, side * 41f, fw, 0f);          // cheekbone
+                }
+                Ink(b, hd, 0.02f * hr, -11f, 0.02f * hr, 11f, fw * 0.9f, -0.02f * hr);                              // under the lip
+                if (look.Stubble)
+                {
+                    // Stubble: a scatter of short pen ticks over the jaw and lip.
+                    var rng = new Rng(91);
+                    for (int i = 0; i < 90; i++)
+                    {
+                        float y = rng.Range(-0.16f, 0.42f) * hr, deg = rng.Range(-66f, 66f);
+                        if (y > 0.12f * hr && y < 0.3f * hr && Mathf.Abs(deg) < 17f) continue;   // not across the mouth
+                        Ink(b, hd, y, deg, y + 0.035f * hr, deg + rng.Range(-1.5f, 1.5f), 0.016f * hr, 0f, 2);
+                    }
+                }
+            }
 
             // Nose: a flat-sided wedge, which the ink lines pick out.
             float n = look.NoseSize;
@@ -309,6 +384,14 @@ namespace Ski.Game
             Vector3 inside = V(0, 0.7f, 0.4f);
             TriOut(b, bridge, nl, tip, inside); TriOut(b, bridge, tip, nr, inside);
             TriOut(b, tip, nl, under, inside); TriOut(b, tip, under, nr, inside);
+            if (look.Hero)
+            {
+                Color skinCol = b.Col;
+                b.Col = Palette.Ink;
+                b.Sphere(V(-0.075f * n, 0.475f, 0.86f), V(0.04f, 0.022f, 0.03f), 5, 3);   // nostrils
+                b.Sphere(V(0.075f * n, 0.475f, 0.86f), V(0.04f, 0.022f, 0.03f), 5, 3);
+                b.Col = skinCol;
+            }
 
             bool bare = !look.HasHelmet && !look.Beanie;
             if (bare)
@@ -316,7 +399,7 @@ namespace Ski.Game
                 b.Sphere(V(-0.8f, 0.82f, -0.05f), V(0.09f, 0.2f, 0.13f), 6, 4);
                 b.Sphere(V(0.8f, 0.82f, -0.05f), V(0.09f, 0.2f, 0.13f), 6, 4);
             }
-            Color lip = Color.Lerp(look.Skin, Palette.Hex("#B4485A"), look.Female ? 0.55f : 0.22f);
+            Color lip = Color.Lerp(look.Skin, Palette.Hex("#C0392B"), look.Female ? 0.82f : 0.24f);
             if (!look.Hero)
             {
                 // A simple face baked into the head, for people seen from a distance.
@@ -334,16 +417,22 @@ namespace Ski.Game
             }
             else
             {
-                // Upper lip (the lower one moves with the mouth).
+                // Upper lip: two lobes with a dip between them (the lower one moves with the mouth).
                 b.Col = lip;
-                b.Sphere(V(0, 0.262f, 0.762f), V(0.17f, 0.03f, 0.05f), 8, 4);
+                float lw = look.Female ? 1f : 0.8f;
+                if (look.Female)
+                {
+                    b.Sphere(V(-0.07f, 0.27f, 0.762f), V(0.105f, 0.04f, 0.05f), 7, 4);
+                    b.Sphere(V(0.07f, 0.27f, 0.762f), V(0.105f, 0.04f, 0.05f), 7, 4);
+                }
+                else b.Sphere(V(0, 0.262f, 0.76f), V(0.16f, 0.026f * lw, 0.046f), 8, 4);
             }
 
             // --- headwear and hair -----------------------------------------------------------
             if (look.HasHelmet)
             {
                 b.Col = look.Helmet;
-                b.Loft(new[]
+                var hm = new[]
                 {
                     R(1.27f, 0.99f, 1.1f, -0.03f).Tint(Palette.Ink),
                     R(1.315f, 1.02f, 1.13f, -0.03f).Tint(Palette.Ink),
@@ -353,7 +442,14 @@ namespace Ski.Game
                     R(1.92f, 0.64f, 0.72f, -0.05f),
                     R(2.05f, 0.34f, 0.38f, -0.05f),
                     R(2.1f, 0f, 0f, -0.05f),
-                }, hs, true, false);
+                };
+                b.Loft(hm, hs, true, false);
+                if (look.Hero)
+                {
+                    // Shell seams and vent slots, inked.
+                    Ink(b, hm, 1.56f * hr, -150f, 1.56f * hr, 150f, 0.035f * hr, 0.03f * hr, 17);
+                    for (int v = -1; v <= 1; v++) Ink(b, hm, 1.8f * hr, v * 24f - 7f, 1.98f * hr, v * 30f - 5f, 0.06f * hr, 0f, 4);
+                }
                 // Ear pads and the shell round the back of the head.
                 b.Sphere(V(-0.82f, 0.82f, -0.08f), V(0.22f, 0.54f, 0.44f), 8, 5);
                 b.Sphere(V(0.82f, 0.82f, -0.08f), V(0.22f, 0.54f, 0.44f), 8, 5);
@@ -367,7 +463,7 @@ namespace Ski.Game
             {
                 // Hair cap: sits back from the face, with a hairline above the brows.
                 b.Col = look.Hair;
-                b.Loft(new[]
+                var hc = new[]
                 {
                     R(0.5f, 0.72f, 0.66f, -0.34f),
                     R(0.9f, 0.87f, 0.8f, -0.25f),
@@ -377,7 +473,19 @@ namespace Ski.Game
                     R(1.9f, 0.58f, 0.68f, -0.06f),
                     R(2.03f, 0.26f, 0.3f, -0.06f),
                     R(2.07f, 0f, 0f, -0.06f),
-                }, hs, true, false);
+                };
+                b.Loft(hc, hs, true, false);
+                if (look.Hero && !look.Beanie)
+                {
+                    // Strands: long pen lines sweeping back from the hairline and down the sides.
+                    for (int k = -3; k <= 3; k++) Ink(b, hc, 1.5f * hr, k * 21f + 4f, 1.98f * hr, k * 34f, 0.03f * hr, 0f, 6);
+                    for (int side = -1; side <= 1; side += 2)
+                    {
+                        Ink(b, hc, 1.4f * hr, side * 82f, 0.62f * hr, side * 96f, 0.03f * hr, 0f, 6);
+                        Ink(b, hc, 1.5f * hr, side * 118f, 0.6f * hr, side * 132f, 0.03f * hr, 0f, 6);
+                        Ink(b, hc, 1.6f * hr, side * 158f, 0.56f * hr, side * 166f, 0.03f * hr, 0f, 6);
+                    }
+                }
                 // A side-swept fringe.
                 b.Sphere(V(-0.26f, 1.5f, 0.8f), V(0.56f, 0.2f, 0.22f), 7, 4);
                 if (look.Beanie)
@@ -404,7 +512,10 @@ namespace Ski.Game
                 else
                 {
                     // Loose hair falling over the shoulders.
-                    b.Loft(new[] { R(-1.4f, 0.32f, 0.12f, -0.82f), R(-0.9f, 0.54f, 0.2f, -0.82f), R(-0.3f, 0.68f, 0.26f, -0.72f), R(0.4f, 0.78f, 0.3f, -0.6f), R(0.9f, 0.8f, 0.3f, -0.52f) }, 9, true, true);
+                    var lh = new[] { R(-1.4f, 0.32f, 0.12f, -0.82f), R(-0.9f, 0.54f, 0.2f, -0.82f), R(-0.3f, 0.68f, 0.26f, -0.72f), R(0.4f, 0.78f, 0.3f, -0.6f), R(0.9f, 0.8f, 0.3f, -0.52f) };
+                    b.Loft(lh, 9, true, true);
+                    if (look.Hero)
+                        for (int k = -2; k <= 2; k++) Ink(b, lh, -1.25f * hr, 180f + k * 26f, 0.8f * hr, 180f + k * 30f, 0.03f * hr, 0f, 6);
                 }
                 for (int side = -1; side <= 1; side += 2)   // strands beside the face
                     b.Loft(new[] { new Ring(-0.75f * hr, 0f, 0f, 0.36f * hr, side * 0.7f * hr), new Ring(-0.3f * hr, 0.07f * hr, 0.1f * hr, 0.3f * hr, side * 0.76f * hr), new Ring(0.4f * hr, 0.09f * hr, 0.15f * hr, 0.24f * hr, side * 0.8f * hr), new Ring(1.0f * hr, 0.08f * hr, 0.16f * hr, 0.22f * hr, side * 0.8f * hr) }, 8, false, true);
@@ -417,20 +528,80 @@ namespace Ski.Game
             _goggles = Node("Goggles", _head, Vector3.zero);
             if (look.HasGoggles)
             {
-                b.Col = Palette.Ink;
-                b.Sphere(Vector3.zero, V(0.7f, 0.34f, 0.2f), 12, 6);
-                b.Col = look.Goggles;
-                b.Sphere(V(0, 0, 0.06f), V(0.62f, 0.27f, 0.17f), 12, 6);
-                b.Col = Color.Lerp(look.Goggles, Palette.White, 0.65f);
-                b.Push(V(-0.22f, 0.1f, 0.2f), Quaternion.Euler(0, -14f, 18f));
-                b.Sphere(Vector3.zero, V(0.24f, 0.045f, 0.03f), 6, 3);       // sheen
-                b.Pop();
-                b.Col = Color.Lerp(look.Goggles, Palette.Ink, 0.55f);
-                b.Loft(new[] { R(-0.11f, 1.07f, 1.3f, -1.05f), R(0.11f, 1.07f, 1.3f, -1.05f) }, hs, false, false);
+                BuildGoggles(b, look, hr, look.Hero ? 26 : 14);
+                // The strap: from one outrigger round the back of the head to the other (never across the lens).
+                b.Col = Color.Lerp(look.Goggles, Palette.Ink, 0.35f);
+                const int seg = 18;
+                for (int i = 0; i < seg; i++)
+                {
+                    float a0 = Mathf.Lerp(48f, 312f, i / (float)seg) * Mathf.Deg2Rad, a1 = Mathf.Lerp(48f, 312f, (i + 1) / (float)seg) * Mathf.Deg2Rad;
+                    Vector3 p0 = V(Mathf.Sin(a0) * 1.07f, 0f, Mathf.Cos(a0) * 1.16f - 1.02f), p1 = V(Mathf.Sin(a1) * 1.07f, 0f, Mathf.Cos(a1) * 1.16f - 1.02f);
+                    Vector3 up = V(0f, 0.13f, 0f);
+                    b.DoubleQuad(p0 - up, p0 + up, p1 + up, p1 - up);
+                }
                 _headParts.Add(Skin(b, _goggles, "Goggles", Mats.Props));
             }
             _goggleUp = _goggleUpTarget = look.GogglesDown ? 0f : 1f;
             PlaceGoggles();
+        }
+
+        /// <summary>
+        /// Ski goggles as they are: one wide lens wrapped round the face, flat on top, and along the
+        /// bottom two rounded lobes with a notch between them for the nose (a "B" lying on its back).
+        /// A foam-backed frame runs round it; the lens carries a tint that shifts from top to bottom.
+        /// </summary>
+        void BuildGoggles(MeshBuilder b, PersonLook look, float hr, int cols)
+        {
+            const float halfW = 0.76f, halfH = 0.3f, wrap = 62f * Mathf.Deg2Rad;
+            float radius = halfW / Mathf.Sin(wrap);
+            // Outline at u (-1 left .. +1 right), scaled by k (1 = frame, less = lens inside it).
+            Vector3 Edge(float u, bool top, float k, float forward)
+            {
+                float au = Mathf.Abs(u);
+                float round = Mathf.Pow(Mathf.Max(0f, 1f - Mathf.Pow(au, 7f)), 0.42f);            // rounded outer corners
+                float notch = Mathf.Exp(-(u * u) / (0.19f * 0.19f));                              // the nose
+                float y = top ? halfH * (1f - 0.16f * au * au) * round
+                              : -halfH * (0.96f + 0.2f * Mathf.Sin(Mathf.PI * Mathf.Min(au * 1.15f, 1f))) * round + halfH * 1.05f * notch;
+                // Wrapped round the face: the depth follows from how far out the point is, so the lens
+                // (drawn smaller) stays just in front of the frame all the way across.
+                float x = radius * Mathf.Sin(u * wrap) * k;
+                float z = Mathf.Sqrt(Mathf.Max(radius * radius - x * x, 0f)) - radius + forward;
+                return new Vector3(x, y * (top ? k : Mathf.Lerp(1f, k, 0.9f)), z) * hr;
+            }
+            Color frame = Color.Lerp(look.Helmet, Palette.Ink, 0.72f);
+            Color lensTop = Color.Lerp(look.Goggles, Palette.White, 0.18f), lensLow = Color.Lerp(look.Goggles, Palette.Ink, 0.38f);
+            for (int i = 0; i < cols; i++)
+            {
+                float u0 = Mathf.Lerp(-1f, 1f, i / (float)cols), u1 = Mathf.Lerp(-1f, 1f, (i + 1) / (float)cols);
+                // Frame face, then its walls going back to the foam on the face.
+                Vector3 t0 = Edge(u0, true, 1f, 0f), t1 = Edge(u1, true, 1f, 0f), b0 = Edge(u0, false, 1f, 0f), b1 = Edge(u1, false, 1f, 0f);
+                b.Col = frame;
+                b.DoubleQuad(b0, t0, t1, b1);
+                Vector3 back = new Vector3(0f, 0f, -0.17f * hr);
+                b.DoubleQuad(t0, t0 * 0.97f + back, t1 * 0.97f + back, t1);
+                b.DoubleQuad(b0 * 0.97f + back, b0, b1, b1 * 0.97f + back);
+                // Lens, a little proud of the frame, darker toward the bottom.
+                float l0 = u0 * 0.9f, l1 = u1 * 0.9f;
+                Vector3 lt0 = Edge(l0, true, 0.84f, 0.03f), lt1 = Edge(l1, true, 0.84f, 0.03f), lb0 = Edge(l0, false, 0.84f, 0.03f), lb1 = Edge(l1, false, 0.84f, 0.03f);
+                Vector3 lm0 = (lt0 + lb0) * 0.5f, lm1 = (lt1 + lb1) * 0.5f;
+                b.Col = lensTop; b.DoubleQuad(lm0, lt0, lt1, lm1);
+                b.Col = lensLow; b.DoubleQuad(lb0, lm0, lm1, lb1);
+            }
+            // Reflections: two slanted streaks of light across one lobe.
+            b.Col = Color.Lerp(look.Goggles, Palette.White, 0.75f);
+            for (int k = 0; k < 2; k++)
+            {
+                float u = -0.62f + k * 0.2f, wid = k == 0 ? 0.09f : 0.045f;
+                Vector3 p0 = Edge(u, false, 0.62f, 0.04f), p1 = Edge(u + 0.2f, true, 0.7f, 0.04f), p2 = Edge(u + 0.2f + wid, true, 0.7f, 0.04f), p3 = Edge(u + wid, false, 0.62f, 0.04f);
+                b.DoubleQuad(p0, p1, p2, p3);
+            }
+            // Outriggers: where the strap takes hold of the frame.
+            b.Col = frame;
+            for (int side = -1; side <= 1; side += 2)
+            {
+                Vector3 at = Edge(side * 0.97f, true, 1f, 0f); at.y = 0f;
+                b.Box(at + new Vector3(side * 0.04f * hr, 0f, -0.12f * hr), new Vector3(0.1f, 0.3f, 0.26f) * hr);
+            }
         }
 
         void BuildFace(MeshBuilder b, PersonLook look, Color lip)
@@ -443,16 +614,21 @@ namespace Ski.Game
                 // Eye: white, coloured iris, pupil and a highlight.
                 var eye = Node(side < 0 ? "EyeL" : "EyeR", _head, V(side * EyeX, EyeY, EyeZ));
                 b.Col = Palette.White;
-                b.Sphere(Vector3.zero, V(0.175f, 0.125f, 0.06f), 10, 6);
+                b.Sphere(Vector3.zero, V(0.185f, 0.125f, 0.06f), 10, 6);
+                b.Col = Palette.Ink;                                                    // dark rim round the iris
+                b.Sphere(V(0, -0.005f, 0.03f), V(0.108f, 0.116f, 0.038f), 10, 5);
                 b.Col = look.Eyes;
-                b.Sphere(V(0, -0.005f, 0.034f), V(0.09f, 0.1f, 0.038f), 8, 5);
+                b.Sphere(V(0, -0.005f, 0.04f), V(0.09f, 0.098f, 0.036f), 10, 5);
+                b.Col = Color.Lerp(look.Eyes, Palette.White, 0.45f);                    // lighter lower half, as painted eyes have
+                b.Sphere(V(0, -0.04f, 0.048f), V(0.06f, 0.045f, 0.03f), 6, 4);
                 b.Col = Palette.Ink;
-                b.Sphere(V(0, -0.005f, 0.056f), V(0.044f, 0.05f, 0.024f), 6, 4);
+                b.Sphere(V(0, -0.005f, 0.06f), V(0.042f, 0.048f, 0.024f), 6, 4);
                 b.Col = Palette.White;
-                b.Sphere(V(0.036f, 0.032f, 0.074f), V(0.02f, 0.02f, 0.011f), 4, 3);
-                // Lower lash line.
-                b.Col = Color.Lerp(look.Skin, Palette.Ink, 0.45f);
-                b.Box(V(0, -0.118f, 0.03f), V(0.26f, 0.016f, 0.04f));
+                b.Sphere(V(0.036f, 0.034f, 0.078f), V(0.022f, 0.022f, 0.011f), 4, 3);
+                // Lower lash line and the corner of the eye.
+                b.Col = Palette.Ink;
+                b.Box(V(side * 0.03f, -0.118f, 0.03f), V(0.24f, look.Female ? 0.022f : 0.016f, 0.04f));
+                b.Box(V(side * 0.165f, -0.02f, 0.02f), V(0.03f, 0.1f, 0.04f));
                 _headParts.Add(Skin(b, eye, "Eye", Mats.PropsNoOutline));
 
                 // Upper lid: slides down over the eye to blink, lifts when surprised.
@@ -460,17 +636,24 @@ namespace Ski.Game
                 b.Col = Color.Lerp(look.Skin, Palette.SkinDark, 0.25f);
                 b.Sphere(Vector3.zero, V(0.2f, 0.14f, 0.082f), 10, 6);
                 b.Col = Palette.Ink;
-                b.Box(V(0, -0.09f, 0.06f), V(look.Female ? 0.4f : 0.36f, look.Female ? 0.042f : 0.028f, 0.04f));
-                if (look.Female) { b.Push(V(side * 0.21f, -0.06f, 0.05f), Quaternion.Euler(0, 0, side * 28f)); b.Box(Vector3.zero, V(0.14f, 0.035f, 0.03f)); b.Pop(); }
+                b.Box(V(0, -0.09f, 0.06f), V(look.Female ? 0.42f : 0.38f, look.Female ? 0.06f : 0.04f, 0.04f));     // lash line
+                b.Push(V(side * 0.22f, -0.06f, 0.05f), Quaternion.Euler(0, 0, side * 30f));                             // its outer flick
+                b.Box(Vector3.zero, V(look.Female ? 0.17f : 0.1f, look.Female ? 0.045f : 0.03f, 0.03f));
+                b.Pop();
+                b.Box(V(0, 0.075f, 0.075f), V(0.3f, 0.016f, 0.03f));                                                    // crease of the lid
                 _headParts.Add(Skin(b, lid, "Lid", Mats.PropsNoOutline));
                 if (side < 0) _lidL = lid; else _lidR = lid;
 
                 var brow = Node(side < 0 ? "BrowL" : "BrowR", _head, Vector3.zero);
-                b.Col = browCol;
-                float th = look.Female ? 0.05f : 0.075f;
-                b.Box(V(-side * 0.07f, 0, 0), V(0.22f, th, 0.05f));
-                b.Push(V(side * 0.16f, -0.015f, -0.015f), Quaternion.Euler(0, side * 16f, -side * 12f));
-                b.Box(Vector3.zero, V(0.18f, th * 0.7f, 0.045f));
+                // Brows drawn like brush strokes: heavy at the nose, arching, thinning to a point.
+                b.Col = Color.Lerp(look.Hair, Palette.Ink, 0.82f);
+                float th = look.Female ? 0.06f : 0.11f;
+                b.Push(V(-side * 0.13f, -0.01f, 0.005f), Quaternion.Euler(0, 0, side * 10f));
+                b.Box(Vector3.zero, V(0.16f, th, 0.05f));
+                b.Pop();
+                b.Box(V(side * 0.01f, 0.012f, 0), V(0.16f, th * 0.85f, 0.05f));
+                b.Push(V(side * 0.15f, -0.012f, -0.02f), Quaternion.Euler(0, side * 18f, -side * 20f));
+                b.Box(Vector3.zero, V(0.17f, th * 0.55f, 0.045f));
                 b.Pop();
                 _headParts.Add(Skin(b, brow, "Brow", Mats.PropsNoOutline));
                 if (side < 0) _browL = brow; else _browR = brow;
@@ -478,13 +661,13 @@ namespace Ski.Game
             // Mouth: a dark interior with teeth that opens downward, and a lower lip that follows it.
             _mouth = Node("Mouth", _head, V(0, MouthY, MouthZ));
             b.Col = Palette.Hex("#4A1A2A");
-            b.Sphere(V(0, -0.13f, 0), V(0.18f, 0.13f, 0.05f), 10, 6);
+            b.Sphere(V(0, -0.13f, 0), V(0.2f, 0.13f, 0.05f), 10, 6);
             b.Col = Palette.White;
-            b.Box(V(0, -0.045f, 0.032f), V(0.22f, 0.055f, 0.03f));
+            b.Box(V(0, -0.05f, 0.018f), V(0.16f, 0.05f, 0.03f));
             _headParts.Add(Skin(b, _mouth, "Mouth", Mats.PropsNoOutline));
             _lipLow = Node("LipLow", _head, Vector3.zero);
             b.Col = lip;
-            b.Sphere(Vector3.zero, V(0.145f, 0.036f, 0.05f), 8, 4);
+            b.Sphere(Vector3.zero, V(0.15f, look.Female ? 0.052f : 0.04f, 0.055f), 8, 4);
             _headParts.Add(Skin(b, _lipLow, "Lip", Mats.PropsNoOutline));
             AnimateFace(0f);
         }
@@ -493,9 +676,9 @@ namespace Ski.Game
         {
             float hr = _hr, k = _goggleUp;
             bool hard = Look.HasHelmet;
-            Vector3 up = hard ? new Vector3(0, hr * 1.62f, hr * 1.02f) : new Vector3(0, hr * 1.58f, hr * 0.94f);
-            _goggles.localPosition = Vector3.Lerp(new Vector3(0, hr * 0.85f, hr * 0.88f), up, k);
-            _goggles.localRotation = Quaternion.Euler(Mathf.Lerp(0f, -30f, k), 0f, 0f);
+            Vector3 up = hard ? new Vector3(0, hr * 1.6f, hr * 1.1f) : new Vector3(0, hr * 1.56f, hr * 1.03f);
+            _goggles.localPosition = Vector3.Lerp(new Vector3(0, hr * 0.86f, hr * 0.99f), up, k);
+            _goggles.localRotation = Quaternion.Euler(Mathf.Lerp(0f, -26f, k), 0f, 0f);
         }
 
         // ---- limbs -----------------------------------------------------------------------------
@@ -507,13 +690,20 @@ namespace Ski.Game
             {
                 var sh = Node(side < 0 ? "ShoulderL" : "ShoulderR", _torso, new Vector3(side * shx, 0.43f * s, 0));
                 b.Col = look.Jacket;
-                b.Loft(new[]
+                var ua = new[]
                 {
                     new Ring(-_upperArm, 0.054f * s, 0.056f * s),
                     new Ring(-_upperArm * 0.6f, 0.062f * s, 0.064f * s),
                     new Ring(-_upperArm * 0.22f, 0.072f * s, 0.073f * s),
                     new Ring(0f, 0.07f * s, 0.07f * s),
-                }, sides, false, false);
+                };
+                b.Loft(ua, sides, false, false);
+                if (look.Hero)
+                {
+                    Ink(b, ua, -_upperArm * 0.86f, -60f, -_upperArm * 0.86f, 60f, 0.011f * s, 0.016f * s);
+                    Ink(b, ua, -_upperArm * 0.74f, -40f, -_upperArm * 0.76f, 50f, 0.009f * s, 0.012f * s);
+                    Ink(b, ua, -_upperArm * 0.3f, side * 80f, -_upperArm * 0.62f, side * 30f, 0.01f * s, 0f);
+                }
                 b.Sphere(new Vector3(0, -_upperArm, 0), 0.056f * s, sides, 5);            // elbow
                 b.Col = look.Trim;
                 b.Sphere(Vector3.zero, new Vector3(0.078f, 0.074f, 0.08f) * s, sides, 5);   // shoulder cap
@@ -521,12 +711,18 @@ namespace Ski.Game
 
                 var el = Node(side < 0 ? "ElbowL" : "ElbowR", sh, new Vector3(0, -_upperArm, 0));
                 b.Col = look.Jacket;
-                b.Loft(new[]
+                var fa = new[]
                 {
                     new Ring(-_forearm, 0.047f * s, 0.049f * s),
                     new Ring(-_forearm * 0.55f, 0.057f * s, 0.058f * s),
                     new Ring(0f, 0.055f * s, 0.056f * s),
-                }, sides, false, false);
+                };
+                b.Loft(fa, sides, false, false);
+                if (look.Hero)
+                {
+                    Ink(b, fa, -_forearm * 0.12f, -70f, -_forearm * 0.14f, 70f, 0.011f * s, -0.014f * s);
+                    Ink(b, fa, -_forearm * 0.3f, side * 100f, -_forearm * 0.72f, side * 60f, 0.009f * s, 0f);
+                }
                 b.Col = look.Trim;                                                           // cuff
                 b.Loft(new[] { new Ring(-_forearm - 0.02f * s, 0.052f * s, 0.054f * s), new Ring(-_forearm + 0.012f * s, 0.057f * s, 0.058f * s), new Ring(-_forearm + 0.04f * s, 0.055f * s, 0.056f * s) }, sides, true, false);
                 Skin(b, el, "Forearm");
@@ -558,26 +754,42 @@ namespace Ski.Game
             {
                 var hip = Node(side < 0 ? "HipL" : "HipR", _hips, new Vector3(side * 0.095f * s, -0.04f * s, 0));
                 b.Col = look.Pants;
-                b.Loft(new[]
+                var th = new[]
                 {
                     new Ring(-_thigh, 0.07f * s, 0.075f * s),
                     new Ring(-_thigh * 0.55f, 0.083f * s, 0.087f * s),
                     new Ring(-_thigh * 0.15f, 0.093f * s, 0.096f * s),
                     new Ring(0f, 0.088f * s, 0.092f * s),
-                }, sides, false, false);
+                };
+                b.Loft(th, sides, false, false);
+                if (look.Hero)
+                {
+                    Ink(b, th, -_thigh * 0.88f, -70f, -_thigh * 0.88f, 70f, 0.012f * s, 0.02f * s);
+                    Ink(b, th, -_thigh * 0.76f, -45f, -_thigh * 0.78f, 55f, 0.01f * s, 0.016f * s);
+                    Ink(b, th, -_thigh * 0.1f, side * 85f, -_thigh * 0.3f, side * 5f, 0.012f * s, 0f);
+                    Ink(b, th, -_thigh * 0.3f, -side * 60f, -_thigh * 0.62f, -side * 20f, 0.01f * s, 0f);
+                }
                 b.Sphere(Vector3.zero, 0.09f * s, sides, 5);
                 b.Sphere(new Vector3(0, -_thigh, 0.004f * s), 0.074f * s, sides, 5);   // knee
                 Skin(b, hip, "Thigh");
 
                 var knee = Node(side < 0 ? "KneeL" : "KneeR", hip, new Vector3(0, -_thigh, 0));
                 b.Col = look.Pants;
-                b.Loft(new[]
+                var sh = new[]
                 {
                     new Ring(-_shin + 0.03f * s, 0.083f * s, 0.092f * s, 0.012f * s),   // flares over the boot
                     new Ring(-_shin + 0.14f * s, 0.071f * s, 0.077f * s, 0.002f * s),
                     new Ring(-_shin * 0.5f, 0.069f * s, 0.076f * s, -0.006f * s),
                     new Ring(0f, 0.071f * s, 0.074f * s),
-                }, sides, true, false);
+                };
+                b.Loft(sh, sides, true, false);
+                if (look.Hero)
+                {
+                    Ink(b, sh, -_shin * 0.14f, -70f, -_shin * 0.14f, 70f, 0.012f * s, -0.018f * s);
+                    Ink(b, sh, -_shin + 0.12f * s, -80f, -_shin + 0.13f * s, 80f, 0.011f * s, 0.014f * s);
+                    Ink(b, sh, -_shin + 0.2f * s, -50f, -_shin + 0.22f * s, 60f, 0.009f * s, 0.012f * s);
+                    Ink(b, sh, -_shin * 0.35f, side * 110f, -_shin * 0.8f, side * 80f, 0.01f * s, 0f);
+                }
                 Skin(b, knee, "Shin");
 
                 var foot = Node(side < 0 ? "FootL" : "FootR", knee, new Vector3(0, -_shin, 0));
@@ -704,7 +916,7 @@ namespace Ski.Game
                 // foot, pointing ahead, most of it under the rider's own seat.
                 var rot = Quaternion.Euler(0f, Mathf.Lerp(90f, BoardHangYaw, p.Seated), 0f);
                 _board.localRotation = rot;
-                _board.localPosition = new Vector3(0, -_ankle - 0.025f, 0) + rot * new Vector3(0, 0, Mathf.Lerp(0.095f * _s + (_thigh + _shin) * Mathf.Sin(p.LegOut * Mathf.Deg2Rad), -0.26f, p.Seated));
+                _board.localPosition = new Vector3(0, -_ankle - 0.025f, 0) + rot * new Vector3(0, 0, (_boardRight ? -1f : 1f) * Mathf.Lerp(0.095f * _s + (_thigh + _shin) * Mathf.Sin(p.LegOut * Mathf.Deg2Rad), -0.26f * (_boardRight ? -1f : 1f), p.Seated));
             }
             if (_poleMode == PoleMode.Lap && Poles != PoleMode.Lap)
                 foreach (var pole in _poles) { pole.localPosition = new Vector3(0, -0.06f * _s, 0.02f * _s); pole.localRotation = Quaternion.Euler(-62f, 0f, 0f); }

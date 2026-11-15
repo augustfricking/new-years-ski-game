@@ -224,14 +224,15 @@ namespace Ski.Game
             go.transform.SetParent(parent, false);
             go.transform.SetPositionAndRotation(position, rotation);
             var tm = go.AddComponent<TextMesh>();
-            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            var font = Resources.Load<Font>("Fonts/ComicNeue-Bold");
+            if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             tm.font = font;
             tm.text = text;
             tm.fontSize = 96;
             tm.characterSize = height * 0.105f;
             tm.anchor = TextAnchor.MiddleCenter;
             tm.alignment = TextAlignment.Center;
-            tm.fontStyle = FontStyle.Bold;
+            tm.fontStyle = FontStyle.Normal;
             tm.color = colour;
             go.GetComponent<MeshRenderer>().sharedMaterial = Mats.Text(font);
             return tm;

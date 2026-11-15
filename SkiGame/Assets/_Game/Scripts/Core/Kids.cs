@@ -24,6 +24,8 @@ namespace Ski.Core
         internal float Phase, Rate, Amp, Lane, Down, Pause;
         internal int Dir = 1;
         internal bool Turns;
+        /// <summary>Past the finish: gliding across the plaza to the lift.</summary>
+        public bool Exiting;
     }
 
     /// <summary>
@@ -154,6 +156,7 @@ namespace Ski.Core
                 var k = Kids[i];
                 if (!k.Active) continue;
                 if (k.FallTimer > 0f) { k.FallTimer -= dt; k.Speed = 0f; continue; }
+                if (k.Exiting) { Exit(k, dt); continue; }
                 float cx = _c.CenterX(k.Z), hw = _c.HalfWidth(k.Z) - 2.5f;
                 float px = k.X, pz = k.Z;
                 switch (k.Kind)
@@ -222,8 +225,27 @@ namespace Ski.Core
                     k.Heading = Mathf.Atan2(mx, mz);
                     if (k.Kind != KidKind.Bomber) k.Speed = Mathf.Sqrt(mx * mx + mz * mz) / dt;
                 }
-                if (k.Z > end) k.Active = false;
+                if (k.Z > end)
+                {
+                    // Through the finish and on to the lift; whoever belongs together goes together.
+                    k.Exiting = true;
+                    foreach (var o in Kids) if (o.Group == k.Group && o.Group != 0 && o.Active) o.Exiting = true;
+                }
             }
+        }
+
+        void Exit(Kid k, float dt)
+        {
+            // Each heads for their own spot in the lift queue and is gone once they reach it.
+            float tx = _c.LiftZone.X + 3f + (k.Id % 5) * 0.9f, tz = _c.LiftZone.Z - 3f + (k.Id % 3) * 1.4f;
+            float dx = tx - k.X, dz = tz - k.Z;
+            float dist = Mathf.Sqrt(dx * dx + dz * dz);
+            if (dist < 2.2f) { k.Active = false; return; }
+            float speed = Mathf.Lerp(k.Speed, Mathf.Clamp(dist * 0.35f, 1.4f, 4.5f), 1f - Mathf.Exp(-1.5f * dt));
+            k.Speed = speed;
+            float want = Mathf.Atan2(dx, dz);
+            k.Heading = Mathf.LerpAngle(k.Heading * Mathf.Rad2Deg, want * Mathf.Rad2Deg, 1f - Mathf.Exp(-2.5f * dt)) * Mathf.Deg2Rad;
+            k.X += Mathf.Sin(k.Heading) * speed * dt; k.Z += Mathf.Cos(k.Heading) * speed * dt;
         }
 
         /// <summary>Returns the person hit by a body of the given radius at (x, z), or null.</summary>

@@ -47,7 +47,7 @@ namespace Ski.Game
                 case "trick": d = Mallet(new[] { 659f, 784f, 988f }, 0.075f, 0.45f, 0.26f); break;
                 case "trick_big": d = Mallet(new[] { 659f, 784f, 988f, 1175f, 1319f }, 0.075f, 0.6f, 0.28f); break;
                 case "finish": d = Mallet(new[] { 523f, 659f, 784f, 1047f, 784f, 1047f, 1319f }, 0.13f, 0.9f, 0.3f); break;
-                case "scream": d = Scream(0.85f); break;
+                case "scream": d = Whoosh(0.55f, 500f, 2100f, 0.3f); break;   // somebody swishing past (the old wail sounded eerie)
                 case "fw_launch": d = Whistle(0.9f); break;
                 case "fw_boom": d = Boom(1.6f); break;
                 case "fw_crackle": d = Crackle(1.2f); break;
@@ -337,42 +337,31 @@ namespace Ski.Game
         /// <summary>A room full of people going "wooo!" with clapping.</summary>
         static float[] Cheer(float sec)
         {
+            // A room clapping and roaring: dense claps over a swell of breathy noise. No pitched
+            // voices: sliding synthetic "wooo"s sound like ghosts.
             var d = Buf(sec);
-            for (int v = 0; v < 18; v++)
+            float y = 0f, y2 = 0f;
+            for (int i = 0; i < d.Length; i++)
             {
-                float f = 260f + Rnd01() * 420f, start = Rnd01() * 0.35f, ph = 0f, vib = 4f + Rnd01() * 5f, y = 0f;
-                float len = sec - start - Rnd01() * 0.6f;
-                for (int i = (int)(start * Rate); i < d.Length; i++)
-                {
-                    float t = (i / (float)Rate - start) / len;
-                    if (t > 1f) break;
-                    // "Wooo": the pitch swoops up and settles, the vowel opens.
-                    ph += f * (0.75f + 0.45f * Mathf.Sin(Mathf.Clamp01(t * 2.2f) * Mathf.PI * 0.5f) + 0.03f * Mathf.Sin(i * vib * 6.28f / Rate)) / Rate;
-                    float formant = 500f + 500f * Mathf.Clamp01(t * 3f);
-                    float a = 1f - Mathf.Exp(-2f * Mathf.PI * formant / Rate);
-                    y += a * (Saw(ph) - y);
-                    d[i] += y * Mathf.Sin(Mathf.Clamp01(t) * Mathf.PI) * 0.22f;
-                }
+                float t = i / (float)d.Length;
+                float swell = Mathf.Sin(Mathf.Clamp01(t * 1.15f) * Mathf.PI);
+                float a = 1f - Mathf.Exp(-2f * Mathf.PI * (900f + 700f * swell) / Rate);
+                y += a * (Rnd() - y); y2 += a * (y - y2);
+                d[i] = y2 * swell * 0.55f;
             }
-            // Clapping: lots of little bursts.
-            for (int cl = 0; cl < 70; cl++)
+            for (int cl = 0; cl < 260; cl++)
             {
-                int at = (int)(Rnd01() * (sec - 0.1f) * Rate);
-                float vol = 0.15f + Rnd01() * 0.2f;
-                for (int i = 0; i < 260 && at + i < d.Length; i++) d[at + i] += Rnd() * (1f - i / 260f) * vol * Mathf.Sin(Mathf.Clamp01(at / (sec * Rate)) * Mathf.PI);
+                float when = Rnd01();
+                int at = (int)(when * (sec - 0.1f) * Rate);
+                float vol = (0.2f + Rnd01() * 0.3f) * Mathf.Sin(Mathf.Clamp01(when * 1.1f) * Mathf.PI);
+                int len = 150 + (int)(Rnd01() * 160f);
+                for (int i = 0; i < len && at + i < d.Length; i++) d[at + i] += Rnd() * (1f - i / (float)len) * vol;
             }
-            LowPass(d, 3600f); HighPass(d, 280f);
+            LowPass(d, 4200f); HighPass(d, 320f);
             Normalise(d, 0.6f);
             return d;
         }
 
-        // ---- loops ---------------------------------------------------------------------------
-
-        /// <summary>
-        /// Wind: filtered noise whose brightness and loudness wander at random, so no gust repeats
-        /// in an obvious rhythm. Two of these with different lengths are layered and modulated again
-        /// at run time.
-        /// </summary>
         static float[] WindLoop(float sec, float centre, float gustiness)
         {
             var d = Buf(sec + 1.5f);
@@ -381,7 +370,7 @@ namespace Ski.Game
             {
                 float t = i / (float)Rate;
                 float gust = Drift(t * 0.55f, seed) * 0.6f + Drift(t * 1.9f, seed + 3f) * 0.4f;
-                float cutoff = centre * (0.45f + 1.3f * gust);
+                float cutoff = centre * (0.85f + 0.4f * gust);   // a narrow sweep: rushing air, not a howl
                 float a = 1f - Mathf.Exp(-2f * Mathf.PI * cutoff / Rate);
                 y1 += a * (Rnd() - y1); y2 += a * (y1 - y2);
                 d[i] = y2 * (1f - gustiness + gustiness * (0.25f + 0.75f * Drift(t * 0.8f, seed + 9f)));
@@ -609,7 +598,7 @@ namespace Ski.Game
             const float beat = 0.6f;
             int bars = 8;
             var d = Buf(bars * 4 * beat + 0.4f);
-            int[][] chords = { new[] { 0, 3, 7 }, new[] { -4, 0, 3 }, new[] { -9, -5, -2 }, new[] { -2, 2, 5 } }; // Am F C G
+            int[][] chords = { new[] { -9, -5, -2 }, new[] { -2, 2, 5 }, new[] { 0, 3, 7 }, new[] { -4, 0, 3 } }; // C G Am F: opens in the major, so it reads warm, not eerie
             for (int bar = 0; bar < bars; bar++)
             {
                 var ch = chords[bar % 4];

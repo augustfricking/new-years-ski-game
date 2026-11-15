@@ -305,7 +305,8 @@ namespace Ski.Tests
             var lb = new Leaderboards(store);
             var first = lb.Submit(SlopeId.Red, CharacterId.Erik, 70f);
             Assert.IsTrue(first.PersonalBest);
-            Assert.IsFalse(first.TopOfBoard);
+            Assert.IsTrue(float.IsNaN(first.PreviousBest), "a first run improves on nothing");
+            Assert.AreEqual(1, lb.Board(SlopeId.Red).Count, "no made-up rivals on the board");
             var worse = lb.Submit(SlopeId.Red, CharacterId.Erik, 80f);
             Assert.IsFalse(worse.PersonalBest);
             var best = lb.Submit(SlopeId.Red, CharacterId.Maja, 30f);

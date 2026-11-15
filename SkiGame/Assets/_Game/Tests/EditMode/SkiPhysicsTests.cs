@@ -242,5 +242,49 @@ namespace Ski.Tests
             float linn = PoleSpeed(CharacterId.Linn, 0.61f, 6), erik = PoleSpeed(CharacterId.Erik, 0.61f, 6);
             Assert.That(linn, Is.GreaterThan(erik * 1.2f));
         }
+
+        [Test]
+        public void LandingBackwardsIsRidingSwitchAndIsWorthMore()
+        {
+            var s = new SkiSim(new RampCourse(12f, 0f), SkiParams.For(CharacterId.Linn));
+            // Drop in from a couple of metres, moving down the hill but facing up it, after half a turn.
+            TrickResult Drop(bool spin)
+            {
+                s.Events.Clear();
+                s.Grounded = false;
+                s.Pos += Vector3.up * 2.2f;
+                s.Vel = new Vector3(0f, 0f, 11f);
+                if (spin) { s.Heading = Mathf.Atan2(s.Vel.x, s.Vel.z) + Mathf.PI; s.AirYaw = Mathf.PI; }
+                s.TakeoffSwitch = s.Switch;
+                TrickResult got = null;
+                for (int i = 0; i < 400 && got == null; i++)
+                {
+                    s.Step(default, SkiSim.FixedDt);
+                    foreach (var e in s.Events) if (e.Type == SkiEventType.Landed) got = e.Trick;
+                }
+                return got;
+            }
+            var first = Drop(true);
+            Assert.NotNull(first, "the landing counts");
+            Assert.IsFalse(s.Crashed, "landing backwards is allowed");
+            Assert.IsTrue(s.Switch, "and now we ride switch");
+            Assert.That(Mathf.Abs(M.WrapPi(s.Heading - Mathf.Atan2(s.Vel.x, s.Vel.z))), Is.LessThan(0.3f), "controls still follow the direction of travel");
+            StringAssert.Contains("to switch", first.Name);
+            // The same half turn again, this time starting backwards: lands forwards, scores more.
+            var second = Drop(true);
+            Assert.NotNull(second);
+            Assert.IsFalse(s.Switch, "half a turn from switch is forwards again");
+            StringAssert.StartsWith("Switch", second.Name);
+            Assert.That(second.Points, Is.GreaterThan(first.Points));
+        }
+
+        [Test]
+        public void PolesOnlyHelpWhenSlow()
+        {
+            var s = Sim(CharacterId.Erik);
+            s.Vel = new Vector3(0f, 0f, 7.5f);   // 27 km/h
+            s.Step(default, SkiSim.FixedDt);
+            Assert.IsFalse(s.PoleAvailable, "no poling at speed");
+        }
     }
 }

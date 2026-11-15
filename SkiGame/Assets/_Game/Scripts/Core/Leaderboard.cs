@@ -33,21 +33,16 @@ namespace Ski.Core
         public float PreviousBest;  // NaN if none
     }
 
-    /// <summary>The tavern's chugging board: fastest stein wins. Seeded with the regulars.</summary>
+    /// <summary>This device's chugging results: fastest stein wins. Other people's times come from the world board.</summary>
     public sealed class ChugBoard
     {
         readonly IKeyValueStore _store;
         readonly List<BoardEntry> _list = new List<BoardEntry>();
-        static readonly string[] Regulars = { "Berit (bar)", "Sigge", "Tuva", "Olle", "Freja", "Viggo", "Ebba", "Nisse" };
-        static readonly float[] Times = { 8.9f, 9.8f, 10.9f, 12.2f, 13.6f, 15.2f, 17.5f, 20.5f };
-        public const float HouseRecord = 8.9f;
-
         public IReadOnlyList<BoardEntry> Entries => _list;
 
         public ChugBoard(IKeyValueStore store)
         {
             _store = store;
-            for (int i = 0; i < Regulars.Length; i++) _list.Add(new BoardEntry { Name = Regulars[i], Value = Times[i] });
             string raw = store.Get("board_chug");
             if (string.IsNullOrEmpty(raw)) return;
             foreach (var part in raw.Split(';'))
@@ -94,24 +89,14 @@ namespace Ski.Core
     }
 
     /// <summary>
-    /// Local leaderboards, one per slope. Seeded with rival skiers so a first run has something to
-    /// beat. Lower is better for times; higher is better for park points.
+    /// This device's results, one list per slope. There are no made-up rivals: other people's
+    /// results come from the world board (<c>OnlineBoards</c>). Lower is better for times; higher is
+    /// better for park points.
     /// </summary>
     public sealed class Leaderboards
     {
         readonly IKeyValueStore _store;
         readonly List<BoardEntry>[] _boards = new List<BoardEntry>[5];
-
-        static readonly string[] Rivals = { "Sigge", "Ebba", "Olle", "Tuva", "Viggo", "Alva", "Nisse", "Freja" };
-        // Rival results per slope: (best, step). Tuned so a decent first run lands mid-table.
-        static readonly float[,] RivalRange =
-        {
-            { 44f, 3.2f },     // green, seconds
-            { 9500f, -950f },  // blue, points
-            { 49f, 3.0f },     // red
-            { 44f, 2.2f },     // black
-            { 88f, 7f },       // off-piste
-        };
 
         public Leaderboards(IKeyValueStore store)
         {
@@ -143,7 +128,7 @@ namespace Ski.Core
             list.Insert(pos, entry);
             r.Rank = pos + 1;
             r.TopOfBoard = pos == 0;
-            // Keep the rivals and the player's best five.
+            // Keep the best five.
             int mine = 0;
             for (int i = 0; i < list.Count; i++)
                 if (list[i].IsPlayer && ++mine > 5) { list.RemoveAt(i); i--; }
@@ -155,8 +140,6 @@ namespace Ski.Core
         {
             var list = _boards[(int)slope] = new List<BoardEntry>();
             int s = (int)slope;
-            for (int i = 0; i < Rivals.Length; i++)
-                list.Add(new BoardEntry { Name = Rivals[(i + s * 3) % Rivals.Length], Value = RivalRange[s, 0] + RivalRange[s, 1] * i });
             string raw = _store.Get("board_" + s);
             if (!string.IsNullOrEmpty(raw))
             {

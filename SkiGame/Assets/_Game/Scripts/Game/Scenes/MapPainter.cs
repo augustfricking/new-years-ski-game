@@ -185,25 +185,26 @@ namespace Ski.Game
                                     c = border ? ink : hy > 0f ? new Vector3(0.96f, 0.96f, 0.99f) : new Vector3(0.5f, 0.3f, 0.2f);
                                 }
                             }
+                        }
 
-                            // Lift: a black line with pylon ticks.
-                            float dl = dLift[k];
-                            float tick = Mathf.Abs(alongLift[k] % 0.045f - 0.0225f) < 0.0016f ? 0.0052f : 0.0016f;
-                            c = Mix(ink, c, Smooth(tick - pix, tick + pix * 0.6f, dl));
+                        // Printed over everything, sky included.
+                        // Lift: a black line with pylon ticks.
+                        float dl = dLift[k];
+                        float tick = Mathf.Abs(alongLift[k] % 0.045f - 0.0225f) < 0.0016f ? 0.0052f : 0.0016f;
+                        c = Mix(ink, c, Smooth(tick - pix, tick + pix * 0.6f, dl));
 
-                            // Off-piste: a dashed orange line.
-                            if (alongOff[k] % 0.022f < 0.014f)
-                            {
-                                c = Mix(ink, c, Smooth(0.0042f - pix, 0.0042f + pix * 0.6f, dOff[k]));
-                                c = Mix(offCol, c, Smooth(0.0027f - pix, 0.0027f + pix * 0.6f, dOff[k]));
-                            }
-                            // Pistes: a coloured line with a dark edge.
-                            float dp = dPiste[k];
-                            if (dp < 0.008f)
-                            {
-                                c = Mix(ink, c, Smooth(0.0056f - pix, 0.0056f + pix * 0.6f, dp));
-                                c = Mix(runCol[who[k]], c, Smooth(0.004f - pix, 0.004f + pix * 0.6f, dp));
-                            }
+                        // Off-piste: a dashed orange line.
+                        if (alongOff[k] % 0.022f < 0.014f)
+                        {
+                            c = Mix(ink, c, Smooth(0.0042f - pix, 0.0042f + pix * 0.6f, dOff[k]));
+                            c = Mix(offCol, c, Smooth(0.0027f - pix, 0.0027f + pix * 0.6f, dOff[k]));
+                        }
+                        // Pistes: a coloured line with a dark edge.
+                        float dp = dPiste[k];
+                        if (dp < 0.008f)
+                        {
+                            c = Mix(ink, c, Smooth(0.0056f - pix, 0.0056f + pix * 0.6f, dp));
+                            c = Mix(runCol[who[k]], c, Smooth(0.004f - pix, 0.004f + pix * 0.6f, dp));
                         }
 
                         // Legend panel with a soft shadow.

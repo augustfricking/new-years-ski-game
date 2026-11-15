@@ -30,6 +30,7 @@ namespace Ski.Core
             Id = SlopeId.Blue; Name = "Parken"; Seed = 23;
             BaseHalfWidth = 25f; NoiseAmp = 0.02f;
             SkidScale = 0.45f; // soft park snow: hard turns cost less
+            ImpactScale = 1.6f; // and a clean landing from big air holds, even past the sweet spot
             BuildProfile(1190f, (30f, 12f), (110f, 15f), (470f, 14.5f), (500f, 17f), (690f, 17f), (730f, 15.5f), (1080f, 15.5f));
 
             // Section 1: warm-up. Jumps on the left, boxes and rollers on the right.
@@ -153,11 +154,11 @@ namespace Ski.Core
         public static readonly string[] Names = { "Barnbacken", "Parken", "Slalombacken", "Svarta Väggen", "Ravinen" };
         public static readonly string[] Goals =
         {
-            "Fastest time. Don't hit the kids!",
-            "Most points: big air, tricks, clean landings.",
-            "Fastest time through every gate.",
-            "Fastest time. Tuck hard, dodge the pits.",
-            "Fastest time. Three ways down, many that are not.",
+            "Fastest time. Mind the kids.",
+            "Most trick points.",
+            "Fastest time. Every gate.",
+            "Fastest time. Dodge the pits.",
+            "Fastest time. Find a way down.",
         };
         public static bool ScoreBased(SlopeId id) => id == SlopeId.Blue;
     }

@@ -25,6 +25,7 @@ namespace Ski.Game
 
         ResultsPanel _results;
         GhostCrowd _ghosts;
+        VillageLife _village;
         readonly GhostTrack _track = new GhostTrack();
         SnowFx _snow;
         bool _left;
@@ -57,6 +58,7 @@ namespace Ski.Game
             Rig.Sync(Session.Sim, 0.016f);
             _snow = SnowFx.Create(transform);
             _ghosts = new GhostCrowd(Session, transform);
+            _village = VillageLife.Create(course, transform);
             if (WorldLook.Instance != null) WorldLook.Instance.Follow = Rig.Cam.transform;
             if (Ui.Instance != null)
             {
@@ -75,16 +77,22 @@ namespace Ski.Game
             string recording = _track.Encode();
             if (r.PersonalBest) SaveData.SetGhost(Session.Slope, recording);
             var panel = _results;
-            OnlineBoards.Submit(OnlineBoards.BoardId(Session.Slope), Session.ResultValue, recording, (int)Session.Character, list => panel?.ShowWorld(list));
-            // New Year's fireworks for a new best.
+            // New Year's fireworks for a new best; the big show if it is the best in the world.
             bool improved = r.PersonalBest && !float.IsNaN(r.PreviousBest);
-            if (r.TopOfBoard || improved)
+            if (improved) Celebrate(10f);
+            OnlineBoards.Submit(OnlineBoards.BoardId(Session.Slope), Session.ResultValue, recording, (int)Session.Character, list =>
             {
-                var c = Session.Course;
-                Vector3 origin = c.PointOnSurface(c.VillageX, c.FinishZ + Course.PlazaLength + 16f);
-                Fireworks.Launch(transform, origin, 36f, r.TopOfBoard ? 20f : 10f);
-                AudioDirector.Sfx("cheer", 0.8f);
-            }
+                if (Session == null || panel == null) return;
+                if (panel.ShowWorld(list) && r.PersonalBest) Celebrate(20f);
+            });
+        }
+
+        void Celebrate(float seconds)
+        {
+            var c = Session.Course;
+            Vector3 origin = c.PointOnSurface(c.VillageX, c.FinishZ + Course.PlazaLength + 16f);
+            Fireworks.Launch(transform, origin, 36f, seconds);
+            AudioDirector.Sfx("cheer", 0.8f);
         }
 
         /// <summary>Removes the run's UI and sound, then destroys the run. Call instead of Destroy.</summary>
@@ -225,6 +233,7 @@ namespace Ski.Game
 
             Rig.Sync(Session.Sim, dt);
             _ghosts.Sync(Rig.Cam, dt);
+            _village.Tick(Session.Sim.Pos.z, dt);
             if (!Paused) _snow.Tick(Session.Sim, dt);
             if (Kids != null) { Kids.ViewerZ = Session.Sim.Pos.z; Kids.Sync(dt); }
             AmbientSounds();

@@ -73,7 +73,7 @@ namespace Ski.Core
         public float PloughDecel = 6.2f;
 
         // Pole pushes (or skate pushes on the board).
-        public float PoleMaxSpeed = 9f;     // no pushing above this speed
+        public float PoleMaxSpeed = 6.2f;   // no pushing above this speed (about 22 km/h)
         public float PolePeriodSlow = 1.05f, PolePeriodFast = 0.5f;
         public float PoleSweetSpot = 0.75f; // phase of the perfect moment
         public float PoleWindow = 0.11f;    // half-width of the perfect window (in phase)

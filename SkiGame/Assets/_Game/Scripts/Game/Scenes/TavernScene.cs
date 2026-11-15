@@ -30,8 +30,16 @@ namespace Ski.Game
         static readonly Vector3[] Tables = { new Vector3(-1.6f, 0, 3.5f), new Vector3(-1.6f, 0, 6.7f), new Vector3(-1.8f, 0, -3.6f), new Vector3(-1.8f, 0, -6.8f) };
         const float TableLen = 4.4f;
 
-        enum Act { SitTalk, SitDrink, SitSway, Dance, BarDrink, Stand }
-        sealed class Guest { public Person P; public Act Kind; public int Table; public float Phase; public Pose Base; }
+        enum Act { SitTalk, SitDrink, SitSway, Dance, BarDrink, Stand, Bartender }
+        enum Knock { None, Flying, Down, GettingUp, WalkingBack }
+        sealed class Guest
+        {
+            public Person P; public Act Kind; public int Table; public float Phase; public Pose Base;
+            // Being punched: thrown, lying there, getting up, walking back to where they were.
+            public Knock State; public Vector3 Centre, Vel, SpinAxis, Home; public Quaternion Rot, HomeRot;
+            public float SpinRate, Timer, WalkPhase; public int Bounces;
+            public Transform Tag;
+        }
         struct Flame { public Transform T; public float Phase, Speed, Lean; }
 
         readonly List<Rect> _blocks = new List<Rect>();
@@ -42,7 +50,10 @@ namespace Ski.Game
         Person _bartender;
         Light _fireLight;
         Vector3 _pos = new Vector3(-6.6f, 0f, 0f);
-        float _yaw = 90f, _pitch = 4f, _time, _bob, _cheer;
+        float _yaw = 90f, _pitch = 4f, _time, _bob, _cheer, _punch = 1f, _powLeft;
+        Transform _fist;
+        Label _pow;
+        public int Knockouts { get; private set; }
         VisualElement _ui;
         Label _prompt;
         CharacterId _who;
@@ -103,6 +114,8 @@ namespace Ski.Game
 
             BuildCrowd(rng);
             BuildPainting();
+            NameTheRegulars(null);
+            OnlineBoards.Fetch(OnlineBoards.ChugBoard, NameTheRegulars);
 
             // --- you ---------------------------------------------------------------------------
             var camGo = new GameObject("Camera") { tag = "MainCamera" };
@@ -115,6 +128,20 @@ namespace Ski.Game
             data.antialiasing = AntialiasingMode.FastApproximateAntialiasing;
             camGo.AddComponent<AudioListener>();
             if (WorldLook.Instance != null) WorldLook.Instance.Follow = null;
+            // Your fist, out of sight until you swing.
+            _fist = new GameObject("Fist").transform;
+            _fist.SetParent(camGo.transform, false);
+            var fistB = new MeshBuilder();
+            var style = CharacterStyle.Get(_who);
+            fistB.Col = style.Gloves;
+            fistB.Sphere(Vector3.zero, new Vector3(0.062f, 0.058f, 0.075f), 10, 6);
+            fistB.Sphere(new Vector3(-0.045f, 0.012f, 0.02f), new Vector3(0.026f, 0.03f, 0.04f), 6, 4);
+            fistB.Col = style.JacketTrim;
+            fistB.Cylinder(new Vector3(0f, 0f, -0.1f), 0.058f, 0.058f, 0.04f, 10);
+            fistB.Col = style.Jacket;
+            fistB.Capsule(new Vector3(0f, -0.01f, -0.1f), new Vector3(0.05f, -0.1f, -0.5f), 0.055f, 0.07f, 10);
+            fistB.ToObject("Glove", Mats.Props, _fist, false);
+            _fist.gameObject.SetActive(false);
 
             if (AudioDirector.I != null)
             {
@@ -129,10 +156,12 @@ namespace Ski.Game
                 _ui = Ui.Div(ui.ScreenLayer, "layer");
                 var box = Ui.Div(_ui, "prompt");
                 _prompt = Ui.Text(box, "", "h2 outlined");
+                _pow = Ui.Text(Ui.Div(_ui, "hud-centre"), "", "toast toast-hidden");
                 var keys = Ui.Div(_ui, "hud-corner hud-bl");
                 Ui.Keys(keys, "W A S D", "walk");
                 Ui.Keys(keys, "MOUSE", "look");
                 Ui.Keys(keys, "E", "use");
+                Ui.Keys(keys, "CLICK", "punch");
             }
             UnityEngine.Cursor.lockState = CursorLockMode.Locked;
             PlaceCamera(0f);
@@ -493,12 +522,8 @@ namespace Ski.Game
             Add(new Vector3(-4.2f, 0f, 9.4f), 200f, Act.Dance);
             // Standing about with a glass.
             foreach (float z in new[] { -4.4f, -2.9f, 2.7f, 4.6f })
-            {
-                var g = Add(new Vector3(3.75f, 0, z + rng.Range(-0.2f, 0.2f)), 90f + rng.Range(-25f, 25f), Act.BarDrink);
-                _blocks.Add(new Rect(g.P.transform.localPosition.x - 0.3f, g.P.transform.localPosition.z - 0.3f, 0.6f, 0.6f));
-            }
+                Add(new Vector3(3.75f, 0, z + rng.Range(-0.2f, 0.2f)), 90f + rng.Range(-25f, 25f), Act.BarDrink);
             Add(new Vector3(-0.2f, 0f, -9.3f), 250f, Act.Stand);   // warming up by the fire
-            _blocks.Add(new Rect(-0.5f, -9.6f, 0.6f, 0.6f));
 
             var barLook = Partygoer();
             barLook.Jacket = Palette.White; barLook.Trim = Palette.SignalRed; barLook.Beanie = false; barLook.HasGoggles = false; barLook.Hood = false;
@@ -507,6 +532,8 @@ namespace Ski.Game
             _bartender.transform.localRotation = Quaternion.Euler(0, -90, 0);
             _bartender.Snap(Pose.Stand.WithArms(40, 10, 70, 40, 10, 70));
             _bartender.Smile = 0.6f;
+            _guests.Add(new Guest { P = _bartender, Kind = Act.Bartender, Table = -1, Base = Pose.Stand.WithArms(40, 10, 70, 40, 10, 70) });
+            foreach (var g in _guests) { g.Home = g.P.transform.localPosition; g.HomeRot = g.P.transform.localRotation; }
         }
 
         void AnimateCrowd(float dt)
@@ -516,6 +543,9 @@ namespace Ski.Game
             foreach (var g in _guests)
             {
                 var p = g.P;
+                if (g.Tag != null && Cam != null) g.Tag.rotation = Quaternion.LookRotation(g.Tag.position - Cam.transform.position, Vector3.up);
+                if (g.State != Knock.None) { AnimateKnocked(g, dt); continue; }
+                if (g.Kind == Act.Bartender) continue;   // the beer game directs the bartender
                 float t = _time + g.Phase;
                 Pose pose = g.Base;
                 bool seated = g.Kind == Act.SitTalk || g.Kind == Act.SitDrink || g.Kind == Act.SitSway;
@@ -587,6 +617,186 @@ namespace Ski.Game
                 }
                 p.Target = pose;
             }
+        }
+
+        // ---- punching ----------------------------------------------------------------------------
+
+        /// <summary>
+        /// Guests named after real players from the world boards, so the people you meet in here are
+        /// not all strangers. (They are not connected live: nobody else sees your punch.)
+        /// </summary>
+        void NameTheRegulars(List<OnlineBoards.Entry> ignored)
+        {
+            if (this == null) return;
+            var names = new List<string>();
+            var boards = new List<string> { OnlineBoards.ChugBoard };
+            for (int i = 0; i < 5; i++) boards.Add(OnlineBoards.BoardId((SlopeId)i));
+            foreach (var b in boards)
+            {
+                var list = OnlineBoards.Cached(b);
+                if (list == null) continue;
+                foreach (var e in list) if (!e.Me && !names.Contains(e.Name)) names.Add(e.Name);
+            }
+            int n = 0;
+            foreach (var g in _guests)
+            {
+                if (n >= names.Count || n >= 8) break;
+                if (g.Kind == Act.Bartender || g.Tag != null) continue;
+                var tm = VillageBuilder.Sign(g.P.Head, names[n++], Vector3.zero, Quaternion.identity, 0.14f, Palette.White);
+                g.Tag = tm.transform;
+                g.Tag.localPosition = new Vector3(0f, 0.42f, 0f);
+            }
+        }
+
+        void Punch()
+        {
+            _punch = 0f;
+            AudioDirector.Sfx("jump", 0.5f, 1.5f);
+            // Whoever is nearest in front of the fist takes it.
+            Vector3 eye = _pos + Vector3.up * 1.3f;
+            Vector3 fwd = Quaternion.Euler(0f, _yaw, 0f) * Vector3.forward;
+            Guest hit = null; float best = float.MaxValue;
+            foreach (var g in _guests)
+            {
+                if (g.State == Knock.Flying) continue;
+                Vector3 to = g.P.Hips.position - transform.position - eye;
+                to.y = 0f;
+                float d = to.magnitude, reach = g.Kind == Act.Bartender ? 2.7f : 2.0f;
+                if (d > reach || d > 0.2f && Vector3.Dot(to / d, fwd) < 0.72f) continue;
+                if (d < best) { best = d; hit = g; }
+            }
+            if (hit == null) return;
+            Launch(hit, fwd, 1f);
+            Knockouts++;
+            AudioDirector.Sfx("land_heavy", 1f, 1.25f);
+            AudioDirector.Sfx("crash", 0.6f, 1.2f);
+            if (_pow != null)
+            {
+                string[] words = { "POW!", "WHAM!", "BONK!", "KAPOW!", "SMACK!" };
+                _pow.text = words[Knockouts % words.Length];
+                _pow.RemoveFromClassList("toast-hidden");
+                _powLeft = 0.55f;
+            }
+        }
+
+        /// <summary>Sends a guest flying: up and away, tumbling head over heels.</summary>
+        void Launch(Guest g, Vector3 dir, float power)
+        {
+            var p = g.P;
+            g.Centre = transform.InverseTransformPoint(p.Hips.position);
+            g.Rot = p.transform.localRotation;
+            g.State = Knock.Flying; g.Timer = 0f; g.Bounces = 0;
+            g.Vel = dir * (9.5f * power) + Vector3.up * (5.2f * power + 1.2f);
+            g.SpinAxis = Vector3.Cross(Vector3.up, dir).normalized;
+            g.SpinRate = -620f * power;   // head goes back first
+            p.Talking = false; p.MouthOpen = 1f; p.BrowRaise = 1f; p.Smile = 0f; p.PoseSpeed = 14f;
+            var flail = Pose.Cheer;
+            flail.LegOut = 26f; flail.ThighL = 40f; flail.ThighR = -10f; flail.KneeL = 50f; flail.KneeR = 30f; flail.TorsoPitch = -14f; flail.HeadPitch = -20f;
+            p.Snap(flail);
+        }
+
+        float FloorAt(Vector3 c)
+        {
+            foreach (var t in Tables)
+                if (Mathf.Abs(c.x - t.x) < TableLen * 0.5f && Mathf.Abs(c.z - t.z) < 0.42f) return TableTop;   // you can land on a table
+            return 0f;
+        }
+
+        void AnimateKnocked(Guest g, float dt)
+        {
+            var p = g.P;
+            g.Timer += dt;
+            const float body = 0.32f, hipHeight = 0.9f;
+            switch (g.State)
+            {
+                case Knock.Flying:
+                {
+                    g.Vel += Vector3.down * 15f * dt;
+                    g.Centre += g.Vel * dt;
+                    g.Rot = Quaternion.AngleAxis(g.SpinRate * dt, g.SpinAxis) * g.Rot;
+                    // Walls: bounce back into the room.
+                    if (Mathf.Abs(g.Centre.x) > HalfX - 0.5f) { g.Centre.x = Mathf.Sign(g.Centre.x) * (HalfX - 0.5f); g.Vel.x *= -0.55f; g.SpinRate *= -0.6f; Thud(0.5f); }
+                    if (Mathf.Abs(g.Centre.z) > HalfZ - 0.5f) { g.Centre.z = Mathf.Sign(g.Centre.z) * (HalfZ - 0.5f); g.Vel.z *= -0.55f; g.SpinRate *= -0.6f; Thud(0.5f); }
+                    if (g.Centre.y > Ceiling - 0.6f) { g.Centre.y = Ceiling - 0.6f; g.Vel.y = -Mathf.Abs(g.Vel.y) * 0.4f; }
+                    float floor = FloorAt(g.Centre) + body;
+                    if (g.Centre.y < floor && g.Vel.y < 0f)
+                    {
+                        g.Centre.y = floor;
+                        g.Bounces++;
+                        Thud(Mathf.Clamp01(-g.Vel.y / 8f));
+                        g.Vel = new Vector3(g.Vel.x * 0.62f, -g.Vel.y * 0.42f, g.Vel.z * 0.62f);
+                        g.SpinRate *= 0.55f;
+                        if (g.Bounces >= 3 || g.Vel.magnitude < 1.6f)
+                        {
+                            // Flat on their back, head the way they were going.
+                            Vector3 along = new Vector3(g.Vel.x, 0f, g.Vel.z);
+                            if (along.sqrMagnitude < 0.01f) along = g.Rot * Vector3.up;
+                            along.y = 0f;
+                            g.Rot = Quaternion.LookRotation(Vector3.up, along.sqrMagnitude > 1e-4f ? along.normalized : Vector3.forward);
+                            g.Centre.y = FloorAt(g.Centre) + 0.2f;
+                            g.State = Knock.Down; g.Timer = 0f;
+                            var flat = Pose.Stand;
+                            flat.ArmOutL = 70f; flat.ArmOutR = 55f; flat.LegOut = 14f; flat.KneeL = 20f; flat.HeadYaw = 30f;
+                            p.Target = flat; p.MouthOpen = 0.3f; p.EyesClosed = true;
+                        }
+                    }
+                    // Anybody in the way goes down too.
+                    if (g.Vel.sqrMagnitude > 12f)
+                        foreach (var o in _guests)
+                        {
+                            if (o == g || o.State != Knock.None) continue;
+                            if ((transform.InverseTransformPoint(o.P.Hips.position) - g.Centre).sqrMagnitude > 0.75f * 0.75f) continue;
+                            Vector3 d = g.Vel; d.y = 0f;
+                            Launch(o, d.normalized, 0.62f);
+                            g.Vel *= 0.7f;
+                            Thud(0.8f);
+                        }
+                    p.transform.localRotation = g.Rot;
+                    p.transform.localPosition = g.Centre - g.Rot * new Vector3(0f, hipHeight * p.Scale, 0f);
+                    break;
+                }
+                case Knock.Down:
+                    p.transform.localRotation = g.Rot;
+                    p.transform.localPosition = g.Centre - g.Rot * new Vector3(0f, hipHeight * p.Scale, 0f);
+                    if (g.Timer > 2.4f) { g.State = Knock.GettingUp; g.Timer = 0f; p.EyesClosed = false; p.MouthOpen = 0f; p.BrowRaise = -0.6f; p.Target = Pose.Stand; }
+                    break;
+                case Knock.GettingUp:
+                {
+                    // Back on their feet where they landed (down off the table if that is where they ended up).
+                    float k = Mathf.SmoothStep(0f, 1f, g.Timer / 0.9f);
+                    Vector3 feet = new Vector3(g.Centre.x, 0f, g.Centre.z);
+                    Vector3 home = g.Home - feet; home.y = 0f;
+                    Quaternion upright = Quaternion.LookRotation(home.sqrMagnitude > 0.01f ? home.normalized : Vector3.forward, Vector3.up);
+                    p.transform.localRotation = Quaternion.Slerp(g.Rot, upright, k);
+                    p.transform.localPosition = Vector3.Lerp(g.Centre - g.Rot * new Vector3(0f, hipHeight * p.Scale, 0f), feet, k);
+                    if (g.Timer >= 0.9f) { g.State = Knock.WalkingBack; g.Timer = 0f; g.Centre = feet; p.PoseSpeed = 9f; }
+                    break;
+                }
+                case Knock.WalkingBack:
+                {
+                    Vector3 to = g.Home - g.Centre; to.y = 0f;
+                    float d = to.magnitude;
+                    if (d < 0.25f || g.Timer > 14f)
+                    {
+                        // Home: sit back down, pick the evening up where it left off.
+                        p.transform.localPosition = g.Home; p.transform.localRotation = g.HomeRot;
+                        p.Snap(g.Base); p.PoseSpeed = 7f; p.BrowRaise = 0f; p.Smile = 0.5f;
+                        g.State = Knock.None;
+                        break;
+                    }
+                    g.Centre += to / d * Mathf.Min(1.9f * dt, d);
+                    g.WalkPhase += dt * 8f;
+                    p.Target = VillageLife.Walk(g.WalkPhase);
+                    p.transform.localPosition = g.Centre;
+                    p.transform.localRotation = Quaternion.Slerp(p.transform.localRotation, Quaternion.LookRotation(to / d, Vector3.up), 1f - Mathf.Exp(-8f * dt));
+                    break;
+                }
+            }
+        }
+
+        void Thud(float strength)
+        {
+            if (strength > 0.15f) AudioDirector.Sfx("land", Mathf.Clamp01(strength) * 0.8f, 0.9f + strength * 0.3f);
         }
 
         // ---- the painting ----------------------------------------------------------------------
@@ -735,8 +945,21 @@ namespace Ski.Game
             AnimateCrowd(dt);
             if (WorldLook.Instance != null) WorldLook.Instance.Indoors = true;
 
+            // The fist: out, and back.
+            if (_punch < 1f)
+            {
+                _punch = Mathf.Min(1f, _punch + dt / 0.3f);
+                float jab = Mathf.Sin(Mathf.PI * Mathf.Pow(_punch, 0.6f));
+                _fist.gameObject.SetActive(true);
+                _fist.localPosition = Vector3.Lerp(new Vector3(0.24f, -0.34f, 0.3f), new Vector3(0.06f, -0.1f, 0.78f), jab);
+                _fist.localRotation = Quaternion.Euler(Mathf.Lerp(-18f, 0f, jab), Mathf.Lerp(-22f, -4f, jab), 0f);
+            }
+            else if (_fist.gameObject.activeSelf) _fist.gameObject.SetActive(false);
+            if (_powLeft > 0f) { _powLeft -= dt; if (_powLeft <= 0f) _pow.AddToClassList("toast-hidden"); }
+
             if (Game != null) { Game.Tick(dt); PlaceCameraForGame(dt); return; }
             if (Dialogs.Open) return;
+            if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame && _punch >= 1f && _time > 0.6f) Punch();
 
             // Walk.
             var kb = Keyboard.current; var mouse = Mouse.current;

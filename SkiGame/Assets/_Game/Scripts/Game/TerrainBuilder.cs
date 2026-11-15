@@ -253,7 +253,7 @@ namespace Ski.Game
                 }
                 else if (f is Pit || f is Roller)
                 {
-                    // Orange warning poles either side, as on a real black run.
+                    // Crossed orange poles either side, as on a real black run. No flags.
                     float halfW = f is Pit pit ? pit.Radius + 0.9f : Mathf.Min(((Roller)f).Width * 0.5f + 1f, c.HalfWidth(f.Z0) - 0.6f);
                     float zc = (f.Z0 + f.Z1) * 0.5f;
                     for (int s = -1; s <= 1; s += 2)
@@ -261,7 +261,9 @@ namespace Ski.Game
                         float x = f.X + s * halfW;
                         if (Mathf.Abs(x - c.CenterX(zc)) > c.HalfWidth(zc) + 1.5f) continue;
                         b.Push(new Vector3(x, c.Height(x, zc), zc));
-                        Props.GatePole(b, Palette.SafetyOrange, -s, true);
+                        b.Col = Palette.SafetyOrange;
+                        b.Tube(new Vector3(-0.42f, 0f, 0f), new Vector3(0.42f, 1.55f, 0f), 0.024f, 5);
+                        b.Tube(new Vector3(0.42f, 0f, 0f), new Vector3(-0.42f, 1.55f, 0f), 0.024f, 5);
                         b.Pop();
                     }
                 }
