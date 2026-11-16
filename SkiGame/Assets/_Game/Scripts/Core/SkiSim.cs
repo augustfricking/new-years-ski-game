@@ -145,8 +145,14 @@ namespace Ski.Core
             Plough = Mathf.MoveTowards(Plough, brake ? 1f : 0f, (brake ? P.PloughIn : P.PloughOut) * dt);
             if (contact)
             {
-                bool returning = steer == 0f || (Lean != 0f && Mathf.Sign(steer) != Mathf.Sign(Lean));
-                Lean = Mathf.MoveTowards(Lean, steer, (returning ? P.LeanOut : P.LeanIn) * dt);
+                bool counter = steer != 0f && Lean != 0f && Mathf.Sign(steer) != Mathf.Sign(Lean);
+                float absLean = Mathf.Abs(Lean);
+                bool inBand = absLean >= P.CarveMin && absLean < P.CarveMax;
+                float rate;
+                if (counter) rate = P.LeanOut;                                    // the other way: quick
+                else if (steer == 0f) rate = inBand ? P.LeanHold : P.LeanOut;      // let go: inside the band the edge eases off, so taps hold a carve
+                else rate = inBand ? P.LeanInCarve : P.LeanIn;                     // holding: slower through the carve band
+                Lean = Mathf.MoveTowards(Lean, steer, rate * dt);
             }
             else Lean = Mathf.MoveTowards(Lean, 0f, P.LeanOut * dt);
 

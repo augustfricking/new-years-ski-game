@@ -229,6 +229,36 @@ namespace Ski.Tests
         }
 
         [Test]
+        public void ACarveLastsAndTappingHoldsIt()
+        {
+            // Held: the edge stays in the carve band for well over half a second, then still over-turns.
+            var s = Make(10f, CharacterId.Linn);
+            Run(s, 6f, default);
+            float inBand = 0f, t = 0f;
+            bool over = false;
+            while (t < 3f)
+            {
+                Run(s, SkiSim.FixedDt, new SkiInput { Steer = 1f });
+                t += SkiSim.FixedDt;
+                if (s.CarveQuality > 0f) inBand += SkiSim.FixedDt;
+                if (s.OverLean > 0.2f) { over = true; break; }
+            }
+            Assert.That(inBand, Is.GreaterThan(0.6f), "a held turn carves for a while");
+            Assert.IsTrue(over, "holding on too long still over-turns");
+
+            // Tapped: on and off every 0.2 s keeps the skis carving the whole time.
+            s = Make(10f, CharacterId.Linn);
+            Run(s, 6f, default);
+            Run(s, 0.4f, new SkiInput { Steer = 1f });
+            float carving = 0f, total = 0f;
+            for (int i = 0; i < 15; i++)
+            {
+                for (float k = 0f; k < 0.2f; k += SkiSim.FixedDt) { Run(s, SkiSim.FixedDt, new SkiInput { Steer = i % 2 == 0 ? 0f : 1f }); total += SkiSim.FixedDt; if (s.CarveQuality > 0f) carving += SkiSim.FixedDt; }
+            }
+            Assert.That(carving / total, Is.GreaterThan(0.9f), "tapping keeps the carve");
+        }
+
+        [Test]
         public void ErikGainsMoreFromCarving()
         {
             float erik = SpeedAfterWiggle(CharacterId.Erik, 0.42f, 8f), linn = SpeedAfterWiggle(CharacterId.Linn, 0.42f, 8f);

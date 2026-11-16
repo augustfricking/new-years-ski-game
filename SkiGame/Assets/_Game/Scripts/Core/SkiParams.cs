@@ -55,9 +55,11 @@ namespace Ski.Core
 
         // Turning. Lean ramps toward the steer key; yaw rate is lean * max rate.
         public float LeanIn = 1.45f;        // 1/s while the key is held
-        public float LeanOut = 3.6f;        // 1/s when released
-        public float TurnRateLow = 1.9f;    // rad/s cap at low speed
-        public float LatAccelMax = 13.5f;   // m/s^2, limits yaw rate at speed
+        public float LeanInCarve = 0.72f;   // 1/s while held inside the carve band: the carve lasts, then still over-turns
+        public float LeanOut = 3.6f;        // 1/s when released, or steering the other way
+        public float LeanHold = 0.55f;      // 1/s when released inside the carve band: tapping keeps the edge
+        public float TurnRateLow = 2.15f;   // rad/s cap at low speed
+        public float LatAccelMax = 15.5f;   // m/s^2, limits yaw rate at speed
         public float TuckTurnFactor = 0.7f; // turn-rate multiplier in a full tuck
         public float Grip = 11f;            // 1/s, how fast sideways slip is killed
         public float GripPlough = 5f;
@@ -109,8 +111,8 @@ namespace Ski.Core
                 case Trait.TightTurns:
                     p.LatAccelMax *= 1.09f;
                     p.TurnRateLow *= 1.08f;
-                    p.SkidDecel *= 0.82f;
-                    p.SkidLossFactor = 0.8f;
+                    p.SkidDecel *= 0.88f;
+                    p.SkidLossFactor = 0.84f;
                     p.CarveMax = 0.75f;
                     break;
                 case Trait.Carver:

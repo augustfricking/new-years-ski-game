@@ -59,6 +59,8 @@ namespace Ski.Core
                 bool sameSide = Mathf.Sign(sim.Lean) == dir && sim.Lean != 0f;
                 float maxLean = Mathf.Abs(err) > 0.3f ? 1f : Mathf.Abs(err) > 0.12f ? 0.66f : 0.42f;
                 if (!sameSide || Mathf.Abs(sim.Lean) < maxLean) inp.Steer = dir;
+                // Too much edge on: a dab the other way takes it off (letting go only eases it).
+                else if (Mathf.Abs(sim.Lean) > maxLean + 0.16f) inp.Steer = -dir;
             }
 
             // --- speed ------------------------------------------------------------------

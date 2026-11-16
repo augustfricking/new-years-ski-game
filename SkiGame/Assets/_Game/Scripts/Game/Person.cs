@@ -189,7 +189,7 @@ namespace Ski.Game
             t.gameObject.AddComponent<MeshFilter>().sharedMesh = b.Build(name);
             var r = t.gameObject.AddComponent<MeshRenderer>();
             // Close-up people get the inked comic shading; the crowd stays light and readable.
-            r.sharedMaterial = mat != null ? mat : Look.Hero ? Mats.Character : Mats.Props;
+            r.sharedMaterial = mat != null ? mat : Look.Hero ? Mats.Character : Mats.People;
             b.Clear();
             return r;
         }
@@ -461,7 +461,7 @@ namespace Ski.Game
                     Vector3 up = V(0f, 0.13f, 0f);
                     b.DoubleQuad(p0 - up, p0 + up, p1 + up, p1 - up);
                 }
-                _headParts.Add(Skin(b, _goggles, "Goggles", Mats.Props));
+                _headParts.Add(Skin(b, _goggles, "Goggles", Mats.People));
             }
             _eyeLocal = new Vector3(0f, hr * EyeY, hr * 0.55f);
             _gogDown = new Vector3(0, hr * 0.86f, hr * 0.99f);
@@ -969,7 +969,7 @@ namespace Ski.Game
                     Vector3 up = new Vector3(0f, 0.13f * hr, 0f);
                     b.DoubleQuad(p0 - up, p0 + up, p1 + up, p1 - up);
                 }
-                _headParts.Add(Skin(b, _goggles, "Goggles", Mats.Props));
+                _headParts.Add(Skin(b, _goggles, "Goggles", Mats.People));
             }
             _goggleUp = _goggleUpTarget = look.GogglesDown ? 0f : 1f;
             PlaceGoggles();

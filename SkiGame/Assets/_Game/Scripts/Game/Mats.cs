@@ -29,6 +29,8 @@ namespace Ski.Game
         /// <summary>Vertex-coloured toon material with an ink outline. Most props share this one.</summary>
         public static Material Props => Toon("props", Color.white, 2f);
         public static Material PropsNoOutline => Toon("props_flat", Color.white, 0f);
+        /// <summary>People seen from further off: one screen-space ink line, no outline shell (that turns small figures into blobs).</summary>
+        public static Material People => Toon("people", Color.white, 0f);
         public static Material Trees
         {
             get
@@ -45,7 +47,8 @@ namespace Ski.Game
             get
             {
                 if (Cache.TryGetValue("character", out var m) && m != null) return m;
-                m = NewToon(Color.white, 2.9f);
+                // No outline shell: the screen-space ink draws one crisp line round people.
+                m = NewToon(Color.white, 0f);
                 m.name = "Character";
                 m.SetFloat("_InkShadow", 0.36f);
                 m.SetFloat("_BackRim", 0.55f);
@@ -95,15 +98,17 @@ namespace Ski.Game
             m = new Material(like) { name = key };
             m.SetFloat("_InkNear", near);
             m.SetFloat("_InkFar", far);
-            m.SetFloat("_Paint", 0.12f);      // painted variation is fixed in space: keep it faint on bodies that bend
+            m.SetFloat("_Paint", 0.05f);      // painted variation is fixed in space: keep it faint on bodies that bend
             // A sculpt has far more small forms than the simple shapes had. Kept clean: only the
             // strong folds and features are drawn, the shadow is a clear coloured shape, not black.
             bool skin = key.EndsWith("skin");
             m.SetFloat("_InkSoft", skin ? 0.5f : 0.42f);
             m.SetFloat("_InkShadow", 0f);
-            m.SetFloat("_OutlineWidth", Mathf.Min(m.GetFloat("_OutlineWidth"), 2.1f));
+            m.SetFloat("_OutlineWidth", 0f);
+            m.SetShaderPassEnabled("SRPDefaultUnlit", false);
             m.SetFloat("_MidBand", skin ? 0.12f : 0.2f);
-            m.SetFloat("_Wobble", 0.25f);
+            m.SetFloat("_Wobble", 0f);
+            m.SetFloat("_BandSoft", 0.008f);     // shadow shapes with a hard edge, as painted
             m.SetColor("_ShadowTint", skin ? new Color(0.8f, 0.64f, 0.74f) : new Color(0.66f, 0.58f, 0.8f));
             Cache[key] = m;
             return m;
