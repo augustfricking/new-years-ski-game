@@ -465,7 +465,7 @@ namespace Ski.Game
             }
             _eyeLocal = new Vector3(0f, hr * EyeY, hr * 0.55f);
             _gogDown = new Vector3(0, hr * 0.86f, hr * 0.99f);
-            _gogUp = look.HasHelmet ? new Vector3(0, hr * 1.6f, hr * 1.1f) : new Vector3(0, hr * 1.56f, hr * 1.03f);
+            _gogUp = look.HasHelmet ? new Vector3(0, hr * 1.62f, hr * 0.97f) : new Vector3(0, hr * 1.56f, hr * 1.03f);
             _goggleUp = _goggleUpTarget = look.GogglesDown ? 0f : 1f;
             PlaceGoggles();
         }
@@ -476,36 +476,7 @@ namespace Ski.Game
             Ring R(float y, float rx, float rz, float oz = 0f) => new Ring(y * hr, rx * hr, rz * hr, oz * hr);
             Vector3 V(float x, float y, float z) => new Vector3(x * hr, y * hr, z * hr);
             // --- headwear and hair -----------------------------------------------------------
-            if (look.HasHelmet)
-            {
-                b.Col = look.Helmet;
-                var hm = new[]
-                {
-                    R(1.27f, 0.99f, 1.1f, -0.03f).Tint(Palette.Ink),
-                    R(1.315f, 1.02f, 1.13f, -0.03f).Tint(Palette.Ink),
-                    R(1.32f, 1.02f, 1.13f, -0.03f),
-                    R(1.5f, 1.0f, 1.11f, -0.04f),
-                    R(1.72f, 0.88f, 0.99f, -0.05f),
-                    R(1.92f, 0.64f, 0.72f, -0.05f),
-                    R(2.05f, 0.34f, 0.38f, -0.05f),
-                    R(2.1f, 0f, 0f, -0.05f),
-                };
-                b.Loft(hm, hs, true, false);
-                if (look.Hero)
-                {
-                    // Shell seams and vent slots, inked.
-                    Ink(b, hm, 1.56f * hr, -150f, 1.56f * hr, 150f, 0.035f * hr, 0.03f * hr, 17);
-                    for (int v = -1; v <= 1; v++) Ink(b, hm, 1.8f * hr, v * 24f - 7f, 1.98f * hr, v * 30f - 5f, 0.06f * hr, 0f, 4);
-                }
-                // Ear pads and the shell round the back of the head.
-                b.Sphere(V(-0.82f, 0.82f, -0.08f), V(0.22f, 0.54f, 0.44f), 8, 5);
-                b.Sphere(V(0.82f, 0.82f, -0.08f), V(0.22f, 0.54f, 0.44f), 8, 5);
-                b.Sphere(V(0, 0.98f, -0.4f), V(0.96f, 0.66f, 0.76f), look.Hero ? 12 : 8, 5);
-                b.Col = Palette.Ink;
-                b.Tube(V(-0.78f, 0.42f, 0.14f), V(-0.24f, -0.2f, 0.36f), 0.028f * hr, 4);  // chin strap
-                b.Tube(V(0.78f, 0.42f, 0.14f), V(0.24f, -0.2f, 0.36f), 0.028f * hr, 4);
-                b.Tube(V(-0.24f, -0.2f, 0.36f), V(0.24f, -0.2f, 0.36f), 0.028f * hr, 4);
-            }
+            if (look.HasHelmet) BuildHelmet(b, look, hr, hs);
             else
             {
                 // Hair cap: sits back from the face, with a hairline above the brows.
@@ -836,6 +807,81 @@ namespace Ski.Game
             BuildSkinnedHead(b, look, k);
         }
 
+        /// <summary>
+        /// A ski helmet as they are made: one smooth hard shell, high over the brow where the
+        /// goggles sit, sweeping down over the ears and low at the back of the head, with a dark
+        /// rim along its edge, vents on top and only the soft ear padding showing underneath.
+        /// In head radii, like the head itself.
+        /// </summary>
+        void BuildHelmet(MeshBuilder b, PersonLook look, float hr, int sides)
+        {
+            const float Yc = 1.05f, Ry = 1.06f, Rx = 1.04f, Rz = 1.14f, OffZ = -0.05f;
+            // How low the shell comes at each angle round the head (0 = the front).
+            float Edge(float deg)
+            {
+                float a = Mathf.Abs(Mathf.DeltaAngle(0f, deg));
+                return 1.34f - 0.82f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(34f, 84f, a)) + 0.2f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(112f, 172f, a));
+            }
+            // Down the shell from the crown: an ellipsoid above its middle, then nearly straight down.
+            float PhiOf(float y) => y >= Yc ? Mathf.Acos(Mathf.Clamp((y - Yc) / Ry, -1f, 1f)) : Mathf.PI * 0.5f + (Yc - y) / Ry;
+            Vector3 On(float deg, float phi, float grow = 1f)
+            {
+                float y, k;
+                if (phi <= Mathf.PI * 0.5f) { y = Yc + Ry * Mathf.Cos(phi); k = Mathf.Sin(phi); }
+                else { float below = (phi - Mathf.PI * 0.5f) * Ry; y = Yc - below; k = 1f - 0.07f * Mathf.Pow(below / 0.55f, 2f); }
+                float t = deg * Mathf.Deg2Rad;
+                return new Vector3(Mathf.Sin(t) * Rx * k * grow, y, Mathf.Cos(t) * Rz * k * grow + OffZ) * hr;
+            }
+            int cols = Mathf.Max(sides * 2, 16), rows = look.Hero ? 14 : 8;
+            var outer = new Vector3[rows + 1, cols];
+            var inner = new Vector3[2, cols];
+            var cOut = new Color[rows + 1, cols];
+            var cIn = new Color[2, cols];
+            Color shell = look.Helmet, rim = Color.Lerp(look.Helmet, Palette.Ink, 0.78f);
+            for (int j = 0; j < cols; j++)
+            {
+                float deg = j * 360f / cols;
+                float phiEdge = PhiOf(Edge(deg));
+                for (int i = 0; i <= rows; i++)
+                {
+                    float f = i / (float)rows;
+                    outer[i, j] = On(deg, phiEdge * f);
+                    // The last stretch above the edge is the rubber rim.
+                    cOut[i, j] = phiEdge * (1f - f) < 0.07f ? rim : shell;
+                }
+                // The rim turns in under the shell: a band of thickness you see from below.
+                inner[0, j] = outer[rows, j];
+                inner[1, j] = On(deg, phiEdge - 0.02f, 0.9f);
+                cIn[0, j] = cIn[1, j] = rim;
+            }
+            Vector3 centre = new Vector3(0f, Yc * 0.9f, OffZ) * hr;
+            b.Surface(outer, cOut, centre, true);
+            b.Surface(inner, cIn, centre + Vector3.down * hr, true);
+            if (look.Hero)
+            {
+                // Vent slots along the top.
+                b.Col = rim;
+                foreach (float deg in new[] { -24f, 0f, 24f })
+                {
+                    Vector3 a0 = On(deg - 3.5f, 0.36f, 1.008f), a1 = On(deg + 3.5f, 0.36f, 1.008f), b0 = On(deg - 3.5f, 0.76f, 1.008f), b1 = On(deg + 3.5f, 0.76f, 1.008f);
+                    b.DoubleQuad(a0, b0, b1, a1);
+                }
+            }
+            // Soft ear padding, mostly inside the shell, a little showing under its edge.
+            b.Col = Color.Lerp(look.Helmet, Palette.Ink, 0.55f);
+            for (int side = -1; side <= 1; side += 2)
+                b.Sphere(new Vector3(side * 0.9f, 0.5f, -0.06f) * hr, new Vector3(0.1f, 0.2f, 0.27f) * hr, 8, 5);
+            // The goggle clip at the back.
+            b.Col = rim;
+            b.Box(On(180f, PhiOf(1.1f), 1.01f), new Vector3(0.24f, 0.09f, 0.05f) * hr);
+            // Chin strap, from under each ear to below the chin.
+            b.Col = Palette.Ink;
+            float ear = PhiOf(Edge(90f)) - 0.05f;
+            Vector3 l = On(-90f, ear, 0.97f), r = On(90f, ear, 0.97f);
+            Vector3 cl = new Vector3(-0.24f, -0.2f, 0.36f) * hr, cr = new Vector3(0.24f, -0.2f, 0.36f) * hr;
+            b.Tube(l, cl, 0.028f * hr, 4); b.Tube(r, cr, 0.028f * hr, 4); b.Tube(cl, cr, 0.028f * hr, 4);
+        }
+
         /// <summary>The simple head at a few heights, in head radii: height, half width, half depth, offset forward.</summary>
         static readonly float[,] Egg = { { 0.55f, 0.76f, 0.84f, 0.03f }, { 0.85f, 0.79f, 0.9f, 0f }, { 1.1f, 0.81f, 0.93f, -0.02f }, { 1.4f, 0.79f, 0.91f, -0.04f }, { 1.65f, 0.66f, 0.79f, -0.05f } };
 
@@ -900,7 +946,7 @@ namespace Ski.Game
             float eyeHr = eyeY / hr;
             float faceHalf = m.HalfWidth(eyeHr * m.HeadRadius) * k, faceFront = m.Front(eyeHr * m.HeadRadius) * k;
             _gogDown = new Vector3(0f, eyeY + 0.02f * hr, faceFront + 0.075f * hr);
-            _gogUp = fit.MultiplyPoint3x4(look.HasHelmet ? new Vector3(0, hr * 1.7f, hr * 1.08f) : new Vector3(0, hr * 1.64f, hr * 1.0f));
+            _gogUp = fit.MultiplyPoint3x4(look.HasHelmet ? new Vector3(0, hr * 1.62f, hr * 0.97f) : new Vector3(0, hr * 1.64f, hr * 1.0f));
             if (look.HasGoggles)
             {
                 float gw = faceHalf / (0.76f * hr);

@@ -125,14 +125,31 @@ Ghosts and boards
 - [x] Sounds: the wailing "scream", the sliding "wooo" cheer and the howling wind are gone
       (a swish, applause and a steadier rush instead); the menu music opens in the major
 
+## M9 Sculpted characters, live players, replays (playtest round 2, part 2)
+- [x] Bodies sculpted in Blender from Blender Studio's Human Base Meshes (CC0), by script
+      (`tools/blender/build_hero.py`), pushed into comic proportions per character: bigger
+      head, eyes and hands, harder jaw and cheekbones, a nose with a clear shape
+- [x] Clothes lifted off the body: puffer for the crowd; Jonte baggy (loose anorak, kangaroo
+      pocket, wide pants), Erik eighties (diagonal stripes), Linn futuristic (moulded panels,
+      offset zip, knee panels), Maja a one-piece suit with a belt
+- [x] Closed fists that hold the poles; face expressions as blend shapes (blink, talk, smile, brows)
+- [x] `SkinModel` loads the models; `Person` wears them on its own joints, so every pose works
+- [x] Cleaner ink on sculpted surfaces: fine forms only get lines up close, lighter shadows
+- [x] Helmets: one hard shell over the ears, rim, vents, padding just showing underneath
+- [x] Live players (`LiveRooms`, `LiveCrowd`): everyone on a slope or in the tavern shares a
+      room; others ski past as named ghosts and are their solid selves once past the finish.
+      Played back three seconds late from small updates every two seconds.
+- [x] Tavern: other players walk about; punches send them flying on every screen, and you get
+      knocked flat when someone hits you
+- [x] Replays: rows on the world boards can be watched (WATCH on the map card, number keys on
+      the results card). No replay ghosts on the slopes any more.
+- [x] Verified against the real room service with a second signed-in player in the Editor
+      (`tools/diag/live_standin.cs`), in a private test room
+
 ## Known gaps and ideas
-- One bogus row ("BrainyEnhancedTurnip", 0.01 s on slope_green) was sent by a development
-  session before the Editor guard existed. The game hides it; the owner can delete it in the
-  Unity Dashboard (Leaderboards > slope_green).
-- Ghosts of other players are their recorded runs, not a live connection: truly simultaneous
-  play would need a relay service.
+- Live players cost room-service traffic: about 10 GiB a month is free. A full room of 16
+  for an hour is roughly 0.3 GiB. If the game grows, watch the Unity Dashboard.
 - Rival times and trick values are tuned from bot runs, not from human play.
-- The default UI font is used; a comic display font would lift the look (needs a download).
 - Cameras are hand-written (player rig, cutscene shots). Cinemachine was tried on paper and left
   out: every camera here is driven by the simulation each frame, which a few lines do directly.
 - The new sounds and voices were checked by analysis, not by ear.

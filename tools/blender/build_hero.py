@@ -39,17 +39,21 @@ BASE = dict(head=1.1, hands=1.14, eyes=1.1, nose=1.0, nose_w=1.0, legs=1.04, sho
             cheek=0.003, hollow=0.002, brow=0.0, lips=0.0, neck=1.0, detail=0.72)
 PROFILES = {
     # The leading man: square jaw, strong chin, straight nose.
-    "erik": dict(sex="male", shoulders=0.012, jaw=0.0055, chin=(0.004, 0.003, 1.1), brow=0.0025, nose=1.06, hollow=0.0035),
+    "erik": dict(sex="male", style="retro", shoulders=0.012, jaw=0.0055, chin=(0.004, 0.003, 1.1), brow=0.0025, nose=1.06, hollow=0.0035),
     # The snowboarder: broad, soft face, big nose, heavy brow, thick neck.
-    "jonte": dict(sex="male", shoulders=0.016, jaw=0.008, chin=(0.001, -0.002, 1.25), brow=0.004, nose=1.2, nose_w=1.22, cheek=0.001, hollow=0.0, neck=1.12, eyes=1.05),
+    "jonte": dict(sex="male", style="baggy", shoulders=0.016, jaw=0.008, chin=(0.001, -0.002, 1.25), brow=0.004, nose=1.2, nose_w=1.22, cheek=0.001, hollow=0.0, neck=1.12, eyes=1.05),
     # Heart-shaped face, big eyes, small nose.
-    "maja": dict(sex="female", jaw=-0.003, chin=(0.001, 0.001, 0.82), cheek=0.0045, nose=0.9, nose_w=0.9, eyes=1.17, lips=0.002, hollow=0.0015),
+    "maja": dict(sex="female", style="onepiece", jaw=-0.003, chin=(0.001, 0.001, 0.82), cheek=0.0045, nose=0.9, nose_w=0.9, eyes=1.17, lips=0.002, hollow=0.0015),
     # Longer and sharper: high cheekbones, pointed chin, straight nose.
-    "linn": dict(sex="female", jaw=0.001, chin=(0.003, 0.004, 0.9), cheek=0.0035, hollow=0.0035, nose=1.03, nose_w=0.92, eyes=1.12, lips=0.001),
+    "linn": dict(sex="female", style="sleek", jaw=0.001, chin=(0.003, 0.004, 0.9), cheek=0.0035, hollow=0.0035, nose=1.03, nose_w=0.92, eyes=1.12, lips=0.001),
     "male": dict(sex="male", shoulders=0.01, jaw=0.004, chin=(0.002, 0.001, 1.08), brow=0.002, detail=0.3),
     "female": dict(sex="female", chin=(0.001, 0.001, 0.9), eyes=1.12, lips=0.001, detail=0.3),
 }
+# Outfits: puffer (the crowd), baggy (snowboarder), retro (eighties ski suit), sleek (futuristic
+# shell), onepiece (an all-in-one suit with a belt).
+BASE["style"] = "puffer"
 P = dict(BASE); P.update(PROFILES[NAME])
+STYLE = P["style"]
 SEX = P["sex"]
 BODY = "GEO-body_%s_realistic" % SEX
 
@@ -473,6 +477,23 @@ def split_at(ob, z):
     bm.free()
 
 
+def split_plane(ob, co, no):
+    """Cuts a clean edge loop along any plane, so a colour change there is a crisp line."""
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    geom = bm.verts[:] + bm.edges[:] + bm.faces[:]
+    bmesh.ops.bisect_plane(bm, geom=geom, plane_co=co, plane_no=no)
+    bm.to_mesh(ob.data)
+    bm.free()
+
+
+def band(ob, co, no, half):
+    """Two cuts either side of a plane: a band of width 2*half that can take its own colour."""
+    n = Vector(no).normalized()
+    split_plane(ob, Vector(co) + n * half, n)
+    split_plane(ob, Vector(co) - n * half, n)
+
+
 def build(detail):
     """detail 1 = close-up characters, 0.4 = the crowd."""
     parts = []
@@ -488,44 +509,125 @@ def build(detail):
     parts.append(skin)
 
     # --- jacket ---
-    hem = J["Hips"].z - 0.07
+    hips, chest = J["Hips"].z, J["ShoulderL"].z
+    hem = hips - {"baggy": 0.075, "onepiece": 0.02}.get(STYLE, 0.07)
     collar_top = CHIN_Z - 0.012
     jacket_sets = {CHEST, BELLY, *UPPER_ARM, *FOREARM}
-    jacket = extract(mid, "jacket", lambda s, c: s in jacket_sets or (s == PELVIS and c.z > hem) or (s == HEAD and neck_cut - 0.03 < c.z < collar_top))
-    jacket = smooth(jacket, 34)                               # a down jacket hides the muscles under it
+    long_sets = {PELVIS}
+    jacket = extract(mid, "jacket", lambda s, c: s in jacket_sets or (s in long_sets and c.z > hem) or (s == HEAD and neck_cut - 0.03 < c.z < collar_top))
+    # A loose coat hides the muscles under it; a fitted shell shows a little more of the body.
+    jacket = smooth(jacket, {"puffer": 34, "baggy": 40, "retro": 30, "sleek": 24, "onepiece": 30}[STYLE])
+    loft, arm_less, collar_less = {"puffer": (0.05, 0.012, 0.03), "baggy": (0.078, 0.004, 0.05), "retro": (0.03, 0.008, 0.02),
+                                   "sleek": (0.02, 0.004, 0.012), "onepiece": (0.034, 0.008, 0.022)}[STYLE]
+    hood = Vector((0, EAR.y + 0.07, CHIN_Z - 0.05))
     def puff(co):
         arm = smoothstep(0.2, 0.3, abs(co.x))
         collar = smoothstep(CHIN_Z - 0.11, CHIN_Z - 0.07, co.z)
-        return 0.05 - 0.012 * arm - 0.03 * collar
+        out = loft - arm_less * arm - collar_less * collar
+        if STYLE == "baggy":
+            # The hood, bunched up behind the neck, and a hem that hangs loose.
+            d = co - hood
+            out += 0.075 * math.exp(-(d.x / 0.1) ** 2 - (d.y / 0.07) ** 2 - (d.z / 0.06) ** 2)
+            out += 0.02 * smoothstep(hips, hips - 0.2, co.z)
+        if STYLE == "sleek":
+            # Moulded panels: shallow grooves along the seams of a technical shell.
+            seam = min(abs(abs(co.x) - 0.115), abs(co.z - (chest - 0.13 - 0.35 * abs(co.x))), abs(co.z - (hips + 0.09)))
+            out -= 0.004 * math.exp(-(seam / 0.005) ** 2) * (1 - smoothstep(0.2, 0.26, abs(co.x)))
+        return out
     inflate(jacket, puff)
-    jacket = smooth(jacket, 10)
-    def quilt(co):
-        arm = smoothstep(0.21, 0.3, abs(co.x))
-        along = co.z if arm < 0.5 else (co.z * 0.95 - abs(co.x) * 0.32)
-        seam = abs(math.sin(math.pi * along / 0.092)) ** 0.3
-        collar = smoothstep(CHIN_Z - 0.12, CHIN_Z - 0.09, co.z)
-        return -0.012 * (1 - seam) * (1 - collar)
-    inflate(jacket, quilt)
+    jacket = smooth(jacket, 10 if STYLE != "sleek" else 4)
+    if STYLE == "puffer":
+        def quilt(co):
+            arm = smoothstep(0.21, 0.3, abs(co.x))
+            along = co.z if arm < 0.5 else (co.z * 0.95 - abs(co.x) * 0.32)
+            seam = abs(math.sin(math.pi * along / 0.092)) ** 0.3
+            collar = smoothstep(CHIN_Z - 0.12, CHIN_Z - 0.09, co.z)
+            return -0.012 * (1 - seam) * (1 - collar)
+        inflate(jacket, quilt)
     jacket = rim(jacket, 0.014)
     jacket = decimate(jacket, 0.42 * detail)
-    # A yoke in the second colour: collar, shoulders and the tops of the sleeves.
-    yoke = J["ShoulderL"].z - 0.085
-    split_at(jacket, yoke)
-    split_at(jacket, yoke - 0.003)
-    set_slots(jacket, lambda co: TRIM if co.z > yoke - 0.0005 else JACKET)
-    zip_line(jacket, hem + 0.01, collar_top - 0.004)
+
+    collar = CHIN_Z - 0.095
+    front = J["Torso"].y - 0.04
+    if STYLE == "puffer":
+        # A yoke in the second colour: collar, shoulders and the tops of the sleeves.
+        yoke = chest - 0.085
+        split_at(jacket, yoke)
+        split_at(jacket, yoke - 0.003)
+        set_slots(jacket, lambda co: TRIM if co.z > yoke - 0.0005 else JACKET)
+    elif STYLE == "baggy":
+        # One colour, a big front pocket and the collar in the second.
+        pocket = (hips + 0.0, hips + 0.15)
+        for z in pocket: split_at(jacket, z)
+        for x in (-0.1, 0.1): split_plane(jacket, Vector((x, 0, 0)), Vector((1, 0, 0)))
+        split_at(jacket, collar)
+        def baggy_slot(co):
+            if co.z > collar - 0.0005 and abs(co.x) < 0.12: return TRIM
+            if pocket[0] < co.z < pocket[1] and abs(co.x) < 0.1 and co.y < front: return TRIM
+            return JACKET
+        set_slots(jacket, baggy_slot)
+    elif STYLE == "retro":
+        # Eighties: two diagonal stripes from the left shoulder across the chest, the collar to match.
+        n = Vector((0.5, 0, 1)).normalized()
+        c1, c2 = chest - 0.17, chest - 0.27
+        band(jacket, Vector((0, 0, c1)), n, 0.03)
+        band(jacket, Vector((0, 0, c2)), n, 0.014)
+        split_at(jacket, collar)
+        def retro_slot(co):
+            d = Vector(co).dot(n) - Vector((0, 0, c1)).dot(n)
+            d2 = Vector(co).dot(n) - Vector((0, 0, c2)).dot(n)
+            if abs(d) < 0.0302 or abs(d2) < 0.0142: return TRIM
+            if co.z > collar - 0.0005 and abs(co.x) < 0.12: return TRIM
+            return JACKET
+        set_slots(jacket, retro_slot)
+    elif STYLE == "sleek":
+        # Side panels and the shoulders in the second colour, a high collar.
+        for x in (-0.2, -0.115, 0.115, 0.2): split_plane(jacket, Vector((x, 0, 0)), Vector((1, 0, 0)))
+        shoulder = chest - 0.05
+        split_at(jacket, shoulder)
+        split_at(jacket, collar)
+        def sleek_slot(co):
+            ax = abs(co.x)
+            if co.z > collar - 0.0005 and ax < 0.12: return TRIM
+            if 0.115 < ax < 0.2 and co.z < chest - 0.08: return TRIM
+            if ax > 0.17 and co.z > shoulder: return TRIM
+            return JACKET
+        set_slots(jacket, sleek_slot)
+    else:  # onepiece
+        belt = (hips + 0.03, hips + 0.075)
+        for z in belt: split_at(jacket, z)
+        split_at(jacket, collar)
+        def suit_slot(co):
+            if belt[0] < co.z < belt[1] and abs(co.x) < 0.2: return TRIM
+            if co.z > collar - 0.0005 and abs(co.x) < 0.12: return TRIM
+            return JACKET
+        set_slots(jacket, suit_slot)
+    zip_from = {"baggy": chest - 0.2, "onepiece": hips + 0.08}.get(STYLE, hem + 0.01)
+    zip_line(jacket, zip_from, collar_top - 0.004, 0.035 if STYLE == "sleek" else 0.0)
     parts.append(jacket)
 
     # --- pants ---
     ankle = J["FootL"].z + 0.035
+    knee = J["KneeL"]
     pants_sets = {PELVIS, *THIGH, *SHIN}
-    pants = extract(mid, "pants", lambda s, c: (s in pants_sets or s == BELLY and c.z < J["Hips"].z + 0.06) and c.z > ankle)
-    pants = smooth(pants, 16)
-    inflate(pants, lambda co: 0.026 + 0.03 * smoothstep(J["KneeL"].z - 0.1, ankle, co.z))
+    pants = extract(mid, "pants", lambda s, c: (s in pants_sets or s == BELLY and c.z < hips + 0.06) and c.z > ankle)
+    pants = smooth(pants, {"baggy": 26, "retro": 10, "sleek": 10}.get(STYLE, 16))
+    base_in, flare = {"puffer": (0.026, 0.03), "baggy": (0.062, 0.05), "retro": (0.012, 0.008), "sleek": (0.016, 0.012), "onepiece": (0.03, 0.022)}[STYLE]
+    def legs(co):
+        out = base_in + flare * smoothstep(knee.z - 0.1, ankle, co.z)
+        if STYLE == "baggy":
+            out += 0.025 * smoothstep(hips - 0.05, hips - 0.3, co.z) * smoothstep(knee.z - 0.05, knee.z + 0.15, co.z)   # loose round the seat
+        return out
+    inflate(pants, legs)
     pants = smooth(pants, 4)
     pants = rim(pants, 0.012)
     pants = decimate(pants, 0.32 * detail)
-    set_slots(pants, PANTS)
+    if STYLE == "sleek":
+        # Armoured knee panels.
+        for z in (knee.z - 0.06, knee.z + 0.07): split_at(pants, z)
+        set_slots(pants, lambda co: TRIM if knee.z - 0.06 < co.z < knee.z + 0.07 and co.y < knee.y else PANTS)
+    else:
+        set_slots(pants, JACKET if STYLE == "onepiece" else PANTS)
     parts.append(pants)
 
     # --- gloves ---
@@ -547,7 +649,7 @@ def build(detail):
     return parts
 
 
-def zip_line(ob, z0, z1):
+def zip_line(ob, z0, z1, x0=0.0):
     """The zip: a dark ribbon down the front, lying on the jacket."""
     me = ob.data
     bm = bmesh.new()
@@ -565,7 +667,7 @@ def zip_line(ob, z0, z1):
     n = 26
     for i in range(n + 1):
         z = z0 + (z1 - z0) * i / n
-        hit, nrm, _, _ = bvh.ray_cast(Vector((0, -1.0, z)), Vector((0, 1, 0)))
+        hit, nrm, _, _ = bvh.ray_cast(Vector((x0, -1.0, z)), Vector((0, 1, 0)))
         if hit is None:
             prev = None
             continue

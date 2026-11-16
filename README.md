@@ -45,17 +45,13 @@ In the tavern: W A S D to walk, mouse to look, E to use, Space to gulp.
 | Erik | carving skis | gains more speed from a clean carve |
 | Linn | twin-tips | easier push timing and stronger pushes |
 
-## World boards and ghosts
+## World boards, live players and replays
 
-Every result is kept on this device. The game also signs in anonymously to Unity Gaming Services
-(free tier, no account): one profile per browser or device, with the name set under Settings.
-Other players' best runs then appear on the results card and as ghosts on the slope.
-
-Boards and ghosts hold real people only: there are no computer rivals. The six boards
-(`slope_green`, `slope_blue`, `slope_red`, `slope_black`, `slope_offpiste`, `chug`) live in the
-Unity cloud project; their settings are also kept as files in `SkiGame/Assets/_Game/Cloud`.
-
-In the tavern, left click throws a punch.
+Results go to six world boards (Unity Gaming Services, anonymous sign-in: no account needed).
+Everyone skiing the same slope at the same time shares a room: the others ski past as named
+ghosts, become their solid selves once past the finish, and walk about the tavern, where you can
+punch each other. Rows on the boards can be watched as replays. Boards, ghosts and replays hold
+real people only: there are no computer rivals. Nothing is ever sent from the Unity Editor.
 
 ## For developers
 See `CLAUDE.md` for how the project is put together and `docs/` for the design, plan and

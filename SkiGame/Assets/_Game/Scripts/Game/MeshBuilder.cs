@@ -181,6 +181,41 @@ namespace Ski.Game
 
         public void Sphere(Vector3 centre, float r, int segments = 10, int rings = 6) => Sphere(centre, new Vector3(r, r, r), segments, rings);
 
+        /// <summary>
+        /// A smooth sheet through a grid of points (rows, columns) with a colour per point. Normals
+        /// come from the grid and face away from <paramref name="inside"/>. <paramref name="wrap"/>
+        /// joins the last column to the first.
+        /// </summary>
+        public void Surface(Vector3[,] p, Color[,] col, Vector3 inside, bool wrap)
+        {
+            int rows = p.GetLength(0), cols = p.GetLength(1), start = _v.Count;
+            Color keep = Col;
+            for (int i = 0; i < rows; i++)
+                for (int j = 0; j < cols; j++)
+                {
+                    Vector3 du = p[i, wrap ? (j + 1) % cols : Mathf.Min(j + 1, cols - 1)] - p[i, wrap ? (j - 1 + cols) % cols : Mathf.Max(j - 1, 0)];
+                    Vector3 dv = p[Mathf.Min(i + 1, rows - 1), j] - p[Mathf.Max(i - 1, 0), j];
+                    Vector3 n = Vector3.Cross(du, dv);
+                    if (n.sqrMagnitude < 1e-12f) n = p[i, j] - inside;
+                    if (Vector3.Dot(n, p[i, j] - inside) < 0f) n = -n;
+                    Col = col[i, j];
+                    Vert(p[i, j], n.normalized, new Vector2(j / (float)Mathf.Max(cols - 1, 1), i / (float)Mathf.Max(rows - 1, 1)));
+                }
+            Col = keep;
+            int last = wrap ? cols : cols - 1;
+            for (int i = 0; i < rows - 1; i++)
+                for (int j = 0; j < last; j++)
+                {
+                    int a = start + i * cols + j, b = start + i * cols + (j + 1) % cols, c = a + cols, d = b + cols;
+                    // Wind each triangle so it faces the way its normal does.
+                    Vector3 pa = _v[a], pb = _v[b], pc = _v[c], pd = _v[d];
+                    Vector3 nsum = _n[a] + _n[b] + _n[c] + _n[d];
+                    Vector3 face = Vector3.Cross(pb - pa, pc - pa) + Vector3.Cross(pd - pb, pc - pb);
+                    if (Vector3.Dot(face, nsum) < 0f) { _t.Add(a); _t.Add(c); _t.Add(b); _t.Add(b); _t.Add(c); _t.Add(d); }
+                    else { _t.Add(a); _t.Add(b); _t.Add(c); _t.Add(b); _t.Add(d); _t.Add(c); }
+                }
+        }
+
         /// <summary>Rounded limb between two points: a tapered tube with a ball at each end.</summary>
         public void Capsule(Vector3 a, Vector3 b, float ra, float rb, int sides = 8)
         {

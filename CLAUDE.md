@@ -19,12 +19,20 @@ The game design lives in `docs/GAME_SPEC.md` (source of truth). The plan and mil
   from `MeshBuilder` (`Loft` for organic shapes) and `Props`. People are `Person` (poses are joint
   angles in `Pose`); the player is a `Person` driven by `PlayerRig`.
 - **Around a run.** `TerrainBuilder` (snow, forest, gates), `MountainBuilder` (flanks with the
-  other runs, lift line, off-piste tracks), `VillageBuilder`, `GhostCrowd` (other skiers).
+  other runs, lift line, off-piste tracks), `VillageBuilder`, `LiveCrowd` (other players).
+- **Characters.** Bodies are sculpted in Blender by script (`tools/blender/`, see its README) and
+  stored as `Resources/Models/<name>.bytes`; `SkinModel` reads them and `Person` wears them. Kids
+  still use the simple shapes. Rebuild with `sh tools/blender/build_all.sh` after changing the
+  script; the CC0 base meshes are downloaded into `tools/blender/_downloads` (not in git).
 - **Online.** `OnlineBoards` (Unity Gaming Services, anonymous sign-in, free tier). It must never
   block or break local play: every call falls back to the local boards. The world boards are
   live and hold real players' results: nothing is sent from the Editor (`SendFromEditor` stays
   false), from the bot, or with an implausible value (`Courses.Plausible`). Never teleport a
   player past the finish with submissions enabled. No seeded rivals, no bot ghosts.
+- **Live players.** `LiveRooms` (Multiplayer sessions used as rooms, player data only, no game
+  networking). Nothing is sent from the Editor or the bot (`LiveRooms.SendFromEditor`). Test
+  only in the private room `test` with `tools/diag/live_test.cs` + `live_standin.cs` (a second
+  signed-in player inside the Editor). Replays of board rows are watched, never raced.
 - **Hints and labels** are one to three words. The owner finds longer ones over-explained.
 - **Flow.** `GameApp`: lift menu -> cutscene -> ski map -> run -> village -> lift ride or tavern.
 - One MonoBehaviour per file, file named after the class.
@@ -50,7 +58,8 @@ The game design lives in `docs/GAME_SPEC.md` (source of truth). The plan and mil
     saves `SkiGame/Screenshots/<name>.png`. Always look at the image afterwards.
   - `tools/pose.ps1 -Slope X -What brake|carve|air|kids|park|pipe|offpiste -Shot name` freezes a
     situation; `tools/cutshots.ps1 -Beats 9,11` captures cutscene beats; `tools/diag/*.cs` are
-    one-off views (face close-up, tavern, pits, the look back up the mountain, ghosts).
+    one-off views (face close-up, tavern, pits, the look back up the mountain, ghosts);
+    `tools/diag.ps1 -File <view> -With "<args>" -Shot name` runs one on the menu scene.
   - WebGL build: `tools/u.ps1 command build run -- --target WebGL --output-path "Builds/WebGL" --confirm true`,
     then poll `tools/u.ps1 command build status` (it takes ten minutes or more).
   - `tools/u.ps1 <unity cli args>` — the Unity CLI pinned to this project, for example
