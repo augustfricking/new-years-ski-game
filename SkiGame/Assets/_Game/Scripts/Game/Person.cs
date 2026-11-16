@@ -21,6 +21,8 @@ namespace Ski.Game
         public Color Eyes = Palette.Bark;
         public bool HasHelmet = true, GogglesDown = true, HasGoggles = true, LongHair, Braid, Beanie, Stubble, Hood = true;
         public float JawWidth = 1f, NoseSize = 1f;
+        /// <summary>The sculpted body in Resources/Models to wear (null: simple shapes, as for kids).</summary>
+        public string Model;
         public GearKind Gear = GearKind.Skis;
         public float GearLength = 1.6f;
         public bool TwinTip, Poles = true;
@@ -32,7 +34,7 @@ namespace Ski.Game
             var info = SkierInfo.Get(id);
             var look = new PersonLook
             {
-                Height = 1.75f * st.Height, Hero = true,
+                Height = 1.75f * st.Height, Hero = true, Model = id.ToString().ToLowerInvariant(),
                 Jacket = st.Jacket, Trim = st.JacketTrim, Pants = st.Pants, Gloves = st.Gloves, Boots = st.Boots,
                 Helmet = st.Helmet, Goggles = st.Goggles, Hair = st.Hair, Skin = st.Skin,
                 LongHair = st.LongHair, GogglesDown = false,
@@ -59,6 +61,7 @@ namespace Ski.Game
             return new PersonLook
             {
                 Height = (kid ? 1.75f * size : female ? rng.Range(1.6f, 1.76f) : rng.Range(1.7f, 1.9f)), Kid = kid, Female = female,
+                Model = kid ? null : female ? "female" : "male",
                 Jacket = jacket, Trim = rng.Chance(0.5f) ? Palette.Mul(jacket, 0.7f) : other, Pants = rng.Chance(0.6f) ? Palette.Pants[rng.Range(0, Palette.Pants.Length)] : other,
                 Gloves = Palette.Ink, Boots = Palette.Pants[rng.Range(0, Palette.Pants.Length)], Helmet = rng.Chance(0.5f) ? other : Palette.White,
                 Goggles = Palette.Jackets[rng.Range(0, Palette.Jackets.Length)], Hair = Palette.Hairs[rng.Range(0, Palette.Hairs.Length)],
@@ -113,10 +116,17 @@ namespace Ski.Game
         public Transform GogglesPivot => _goggles;
         public float Scale => _s;
         /// <summary>Where the eyes are, for a first-person camera.</summary>
-        public Vector3 EyeWorld => _head.TransformPoint(new Vector3(0f, _hr * EyeY, _hr * 0.55f));
+        public Vector3 EyeWorld => _head.TransformPoint(_eyeLocal);
 
         Pose _pose = Pose.Stand;
-        float _s, _thigh, _shin, _ankle, _torsoLen, _upperArm, _forearm, _hr;
+        float _s, _thigh, _shin, _ankle, _torsoLen, _upperArm, _forearm, _hr, _hipX, _hipDrop;
+        SkinModel _model;
+        SkinnedMeshRenderer _face;
+        int _kBlink, _kMouth, _kSmile, _kBrowUp, _kBrowDown;
+        float _blinkW;
+        Vector3 _eyeLocal, _gogDown, _gogUp;
+        readonly List<Vector3> _poleHome = new List<Vector3>();
+        readonly List<Mesh> _ownMeshes = new List<Mesh>();
         Transform _hips, _torso, _head, _shL, _elL, _handL, _shR, _elR, _handR, _hipL, _kneeL, _footL, _hipR, _kneeR, _footR, _board;
         Transform _lidL, _lidR, _browL, _browR, _mouth, _lipLow, _goggles;
         readonly List<Transform> _poles = new List<Transform>();
@@ -161,7 +171,7 @@ namespace Ski.Game
         public float LegOutForPlough(in Pose p)
         {
             float footX = SkiHalfWidth + 0.02f + 0.56f * Look.GearLength * Mathf.Sin(p.FootIn * Mathf.Deg2Rad);
-            float sin = (footX - 0.095f * _s) / Mathf.Max(LegExtent(p), 0.1f);
+            float sin = (footX - _hipX) / Mathf.Max(LegExtent(p), 0.1f);
             return Mathf.Asin(Mathf.Clamp(sin, 0f, 0.75f)) * Mathf.Rad2Deg;
         }
 
@@ -242,7 +252,10 @@ namespace Ski.Game
         void Build(PersonLook look)
         {
             Look = look;
+            _model = look.Kid ? null : SkinModel.Load(look.Model);
+            if (_model != null) { BuildSkinned(look); Apply(); return; }
             float s = _s = look.Height / 1.75f;
+            _hipX = 0.095f * s; _hipDrop = 0.04f * s;
             _ankle = 0.1f * s; _shin = 0.41f * s; _thigh = 0.42f * s; _torsoLen = 0.5f * s;
             _upperArm = 0.28f * s; _forearm = 0.26f * s;
             _hr = look.Kid ? Mathf.Lerp(0.118f * s, 0.125f, 0.75f) : 0.118f * s * (look.Hero ? 1.1f : 1.04f);
@@ -428,6 +441,40 @@ namespace Ski.Game
                 else b.Sphere(V(0, 0.262f, 0.76f), V(0.16f, 0.026f * lw, 0.046f), 8, 4);
             }
 
+            BuildHeadwear(b, look, hs, hr);
+            _headParts.Add(Skin(b, _head, "Head"));
+
+            if (look.Hero) BuildFace(b, look, lip);
+
+            // Goggles: a frame, a lens and a strap; over the eyes or pushed up on the helmet.
+            _goggles = Node("Goggles", _head, Vector3.zero);
+            if (look.HasGoggles)
+            {
+                BuildGoggles(b, look, hr, look.Hero ? 26 : 14);
+                // The strap: from one outrigger round the back of the head to the other (never across the lens).
+                b.Col = Color.Lerp(look.Goggles, Palette.Ink, 0.35f);
+                const int seg = 18;
+                for (int i = 0; i < seg; i++)
+                {
+                    float a0 = Mathf.Lerp(48f, 312f, i / (float)seg) * Mathf.Deg2Rad, a1 = Mathf.Lerp(48f, 312f, (i + 1) / (float)seg) * Mathf.Deg2Rad;
+                    Vector3 p0 = V(Mathf.Sin(a0) * 1.07f, 0f, Mathf.Cos(a0) * 1.16f - 1.02f), p1 = V(Mathf.Sin(a1) * 1.07f, 0f, Mathf.Cos(a1) * 1.16f - 1.02f);
+                    Vector3 up = V(0f, 0.13f, 0f);
+                    b.DoubleQuad(p0 - up, p0 + up, p1 + up, p1 - up);
+                }
+                _headParts.Add(Skin(b, _goggles, "Goggles", Mats.Props));
+            }
+            _eyeLocal = new Vector3(0f, hr * EyeY, hr * 0.55f);
+            _gogDown = new Vector3(0, hr * 0.86f, hr * 0.99f);
+            _gogUp = look.HasHelmet ? new Vector3(0, hr * 1.6f, hr * 1.1f) : new Vector3(0, hr * 1.56f, hr * 1.03f);
+            _goggleUp = _goggleUpTarget = look.GogglesDown ? 0f : 1f;
+            PlaceGoggles();
+        }
+
+        /// <summary>Helmet or hair (and a beanie, long hair, a braid), in head radii round the head joint.</summary>
+        void BuildHeadwear(MeshBuilder b, PersonLook look, int hs, float hr)
+        {
+            Ring R(float y, float rx, float rz, float oz = 0f) => new Ring(y * hr, rx * hr, rz * hr, oz * hr);
+            Vector3 V(float x, float y, float z) => new Vector3(x * hr, y * hr, z * hr);
             // --- headwear and hair -----------------------------------------------------------
             if (look.HasHelmet)
             {
@@ -520,29 +567,6 @@ namespace Ski.Game
                 for (int side = -1; side <= 1; side += 2)   // strands beside the face
                     b.Loft(new[] { new Ring(-0.75f * hr, 0f, 0f, 0.36f * hr, side * 0.7f * hr), new Ring(-0.3f * hr, 0.07f * hr, 0.1f * hr, 0.3f * hr, side * 0.76f * hr), new Ring(0.4f * hr, 0.09f * hr, 0.15f * hr, 0.24f * hr, side * 0.8f * hr), new Ring(1.0f * hr, 0.08f * hr, 0.16f * hr, 0.22f * hr, side * 0.8f * hr) }, 8, false, true);
             }
-            _headParts.Add(Skin(b, _head, "Head"));
-
-            if (look.Hero) BuildFace(b, look, lip);
-
-            // Goggles: a frame, a lens and a strap; over the eyes or pushed up on the helmet.
-            _goggles = Node("Goggles", _head, Vector3.zero);
-            if (look.HasGoggles)
-            {
-                BuildGoggles(b, look, hr, look.Hero ? 26 : 14);
-                // The strap: from one outrigger round the back of the head to the other (never across the lens).
-                b.Col = Color.Lerp(look.Goggles, Palette.Ink, 0.35f);
-                const int seg = 18;
-                for (int i = 0; i < seg; i++)
-                {
-                    float a0 = Mathf.Lerp(48f, 312f, i / (float)seg) * Mathf.Deg2Rad, a1 = Mathf.Lerp(48f, 312f, (i + 1) / (float)seg) * Mathf.Deg2Rad;
-                    Vector3 p0 = V(Mathf.Sin(a0) * 1.07f, 0f, Mathf.Cos(a0) * 1.16f - 1.02f), p1 = V(Mathf.Sin(a1) * 1.07f, 0f, Mathf.Cos(a1) * 1.16f - 1.02f);
-                    Vector3 up = V(0f, 0.13f, 0f);
-                    b.DoubleQuad(p0 - up, p0 + up, p1 + up, p1 - up);
-                }
-                _headParts.Add(Skin(b, _goggles, "Goggles", Mats.Props));
-            }
-            _goggleUp = _goggleUpTarget = look.GogglesDown ? 0f : 1f;
-            PlaceGoggles();
         }
 
         /// <summary>
@@ -672,12 +696,244 @@ namespace Ski.Game
             AnimateFace(0f);
         }
 
+        // ---- sculpted bodies -------------------------------------------------------------------
+
+        void OnDestroy()
+        {
+            foreach (var m in _ownMeshes) if (m != null) Destroy(m);
+        }
+
+        /// <summary>
+        /// The body from Blender: skin, jacket, pants and gloves bound to the same joints the simple
+        /// figure uses, so every pose works on both. Headwear, goggles, boots, skis and poles are
+        /// still built here and fitted to the sculpted head and hands.
+        /// </summary>
+        void BuildSkinned(PersonLook look)
+        {
+            var m = _model;
+            var J = m.Joints;
+            float k = look.Height / m.Height;
+            float s = _s = look.Height / 1.75f;
+            _hr = m.HeadRadius * k;
+            _ankle = 0.1f * s;
+            _upperArm = (J[SkinModel.ElbowL] - J[SkinModel.ShoulderL]).magnitude * k;
+            _forearm = (J[SkinModel.HandL] - J[SkinModel.ElbowL]).magnitude * k;
+            _thigh = (J[SkinModel.KneeL] - J[SkinModel.HipL]).magnitude * k;
+            _shin = (J[SkinModel.FootL] - J[SkinModel.KneeL]).magnitude * k;
+            _torsoLen = (J[SkinModel.Head].y - J[SkinModel.Torso].y) * k;
+            _hipX = Mathf.Abs(J[SkinModel.HipL].x) * k;
+            _hipDrop = (J[SkinModel.Hips].y - J[SkinModel.HipL].y) * k;
+            _seed = (++_count & 1023) * 0.37f;
+            var b = new MeshBuilder();
+
+            // Joints, placed as the sculpt stands (arms out a little, legs apart): its bind pose.
+            _hips = Node("Hips", transform, J[SkinModel.Hips] * k);
+            _torso = Node("Torso", _hips, (J[SkinModel.Torso] - J[SkinModel.Hips]) * k);
+            _head = Node("Head", _torso, (J[SkinModel.Head] - J[SkinModel.Torso]) * k);
+            Transform Limb(string name, Transform parent, int root, int mid, int end, out Transform midT, out Transform endT, bool levelEnd)
+            {
+                var a = Node(name, parent, (J[root] - J[parent == _torso ? SkinModel.Torso : SkinModel.Hips]) * k);
+                Quaternion q0 = Quaternion.FromToRotation(Vector3.down, J[mid] - J[root]);
+                a.localRotation = q0;
+                midT = Node(name + "Mid", a, Vector3.down * ((J[mid] - J[root]).magnitude * k));
+                Quaternion q1 = Quaternion.FromToRotation(Vector3.down, Quaternion.Inverse(q0) * (J[end] - J[mid]));
+                midT.localRotation = q1;
+                endT = Node(name + "End", midT, Vector3.down * ((J[end] - J[mid]).magnitude * k));
+                if (levelEnd) endT.localRotation = Quaternion.Inverse(q0 * q1);     // feet stand flat
+                return a;
+            }
+            _shL = Limb("ArmL", _torso, SkinModel.ShoulderL, SkinModel.ElbowL, SkinModel.HandL, out _elL, out _handL, false);
+            _shR = Limb("ArmR", _torso, SkinModel.ShoulderR, SkinModel.ElbowR, SkinModel.HandR, out _elR, out _handR, false);
+            _hipL = Limb("LegL", _hips, SkinModel.HipL, SkinModel.KneeL, SkinModel.FootL, out _kneeL, out _footL, true);
+            _hipR = Limb("LegR", _hips, SkinModel.HipR, SkinModel.KneeR, SkinModel.FootR, out _kneeR, out _footR, true);
+            var bones = new[] { _hips, _torso, _head, _shL, _elL, _handL, _shR, _elR, _handR, _hipL, _kneeL, _footL, _hipR, _kneeR, _footR };
+            var bind = new Matrix4x4[bones.Length];
+            for (int i = 0; i < bones.Length; i++) bind[i] = bones[i].worldToLocalMatrix * transform.localToWorldMatrix;
+
+            // Each character paints the sculpt's colour slots its own way.
+            var slots = new Color[SkinModel.SlotCount];
+            slots[SkinModel.SlotSkin] = look.Skin;
+            slots[SkinModel.SlotLip] = Color.Lerp(look.Skin, Palette.Hex("#C0392B"), look.Female ? 0.62f : 0.2f);
+            slots[SkinModel.SlotMouth] = Palette.Hex("#4A1A2A");
+            slots[SkinModel.SlotBrow] = Color.Lerp(look.Hair, Palette.Ink, 0.7f);
+            slots[SkinModel.SlotJacket] = look.Jacket; slots[SkinModel.SlotTrim] = look.Trim;
+            slots[SkinModel.SlotPants] = look.Pants; slots[SkinModel.SlotGlove] = look.Gloves;
+            slots[SkinModel.SlotInk] = Palette.Ink; slots[SkinModel.SlotTeeth] = Palette.White;
+            float chinY = J[SkinModel.Head].y - 0.25f * m.HeadRadius, earZ = m.EarL.z;
+            Color beard = Color.Lerp(look.Skin, look.Hair, 0.34f);
+            System.Func<Vector3, int, Color, Color> tint = null;
+            if (look.Stubble)
+                tint = (pos, slot, col) =>
+                {
+                    if (slot != SkinModel.SlotSkin) return col;
+                    float w = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(m.Nose.y + 0.004f, m.Nose.y - 0.022f, pos.y))
+                            * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(earZ - 0.005f, earZ + 0.035f, pos.z))
+                            * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(chinY - 0.07f, chinY - 0.025f, pos.y));
+                    return Color.Lerp(col, beard, w);
+                };
+            foreach (var part in m.Parts)
+            {
+                bool skin = part.Name == "skin";
+                var go = new GameObject(part.Name);
+                go.transform.SetParent(transform, false);
+                var r = go.AddComponent<SkinnedMeshRenderer>();
+                var mesh = m.Build(part, slots, k, bind, skin && look.Hero, tint);
+                _ownMeshes.Add(mesh);
+                r.sharedMesh = mesh;
+                r.bones = bones;
+                r.rootBone = _hips;
+                r.localBounds = new Bounds(new Vector3(0f, 0.1f * s, 0f), new Vector3(2.4f, 2.6f, 2.4f) * s);
+                r.sharedMaterial = look.Hero ? (skin ? Mats.CharacterSkin : Mats.CharacterCloth) : (skin ? Mats.CrowdSkin : Mats.CrowdCloth);
+                if (skin)
+                {
+                    _headParts.Add(r);
+                    if (look.Hero && mesh.blendShapeCount > 0)
+                    {
+                        _face = r;
+                        _kBlink = mesh.GetBlendShapeIndex("Blink"); _kMouth = mesh.GetBlendShapeIndex("MouthOpen"); _kSmile = mesh.GetBlendShapeIndex("Smile");
+                        _kBrowUp = mesh.GetBlendShapeIndex("BrowUp"); _kBrowDown = mesh.GetBlendShapeIndex("BrowDown");
+                    }
+                }
+            }
+
+            // Poles, in the closed hands.
+            if (look.Poles && look.Gear == GearKind.Skis)
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    var hand = side < 0 ? _handL : _handR;
+                    Vector3 grip = new Vector3(m.GripL.x * -side, m.GripL.y, m.GripL.z) * k;
+                    var pole = Node("Pole", hand, hand.InverseTransformPoint(transform.TransformPoint(grip)));
+                    pole.localRotation = Quaternion.Euler(-62f, 0f, 0f);
+                    b.Push(new Vector3(0f, 0.045f * s, 0f));          // the fist closes below the top of the grip
+                    GearModels.Pole(b, 1.12f * s, look.GearAccent);
+                    b.Pop();
+                    Skin(b, pole, "Pole", Mats.Props);
+                    _poles.Add(pole); _poleHome.Add(pole.localPosition);
+                }
+
+            // Boots, skis, board.
+            for (int side = -1; side <= 1; side += 2)
+            {
+                var foot = side < 0 ? _footL : _footR;
+                b.Push(new Vector3(0, -_ankle, 0), Quaternion.identity, Vector3.one * s);
+                GearModels.Boot(b, look.Boots);
+                b.Pop();
+                if (look.Gear == GearKind.Skis)
+                {
+                    b.Push(new Vector3(0, -_ankle - 0.022f, 0));
+                    GearModels.Ski(b, look.GearLength, look.TwinTip, look.GearColour, look.GearAccent, 0.085f * Mathf.Lerp(s, 1f, 0.5f));
+                    b.Pop();
+                }
+                Skin(b, Node("Boot", foot, Vector3.zero), "Foot", Mats.Props);
+            }
+            if (look.Gear == GearKind.Board)
+            {
+                _board = Node("Board", _footL, Vector3.zero);
+                GearModels.Board(b, look.GearLength, look.GearColour, look.GearAccent);
+                Skin(b, _board, "Board", Mats.Props);
+            }
+
+            BuildSkinnedHead(b, look, k);
+        }
+
+        /// <summary>The simple head at a few heights, in head radii: height, half width, half depth, offset forward.</summary>
+        static readonly float[,] Egg = { { 0.55f, 0.76f, 0.84f, 0.03f }, { 0.85f, 0.79f, 0.9f, 0f }, { 1.1f, 0.81f, 0.93f, -0.02f }, { 1.4f, 0.79f, 0.91f, -0.04f }, { 1.65f, 0.66f, 0.79f, -0.05f } };
+
+        /// <summary>Eyes, headwear and goggles on the sculpted head.</summary>
+        void BuildSkinnedHead(MeshBuilder b, PersonLook look, float k)
+        {
+            var m = _model;
+            float hr = _hr;
+            Vector3 headJ = m.Joints[SkinModel.Head];
+            Vector3 H(Vector3 modelPoint) => (modelPoint - headJ) * k;
+
+            // Eyes: balls in the sockets, so the lids really close over them.
+            float er = m.EyeRadius * k;
+            int seg = look.Hero ? 16 : 8;
+            for (int side = -1; side <= 1; side += 2)
+            {
+                var eye = Node(side < 0 ? "EyeL" : "EyeR", _head, H(side < 0 ? m.EyeL : m.EyeR));
+                b.Col = Palette.White;
+                b.Sphere(Vector3.zero, er, seg, seg / 2 + 1);
+                b.Col = Palette.Ink;                                                    // dark rim round the iris
+                b.Sphere(new Vector3(0, 0, 0.5f) * er, new Vector3(0.7f, 0.7f, 0.52f) * er, seg, 5);
+                b.Col = look.Eyes;
+                b.Sphere(new Vector3(0, 0, 0.56f) * er, new Vector3(0.6f, 0.6f, 0.47f) * er, seg, 5);
+                if (look.Hero)
+                {
+                    b.Col = Color.Lerp(look.Eyes, Palette.White, 0.4f);                 // lighter lower half, as painted eyes have
+                    b.Sphere(new Vector3(0, -0.2f, 0.62f) * er, new Vector3(0.36f, 0.24f, 0.42f) * er, 8, 4);
+                }
+                b.Col = Palette.Ink;
+                b.Sphere(new Vector3(0, 0, 0.78f) * er, new Vector3(0.27f, 0.27f, 0.27f) * er, 8, 4);
+                if (look.Hero)
+                {
+                    b.Col = Palette.White;
+                    b.Sphere(new Vector3(0.17f, 0.2f, 0.95f) * er, new Vector3(0.085f, 0.085f, 0.09f) * er, 5, 3);
+                }
+                eye.localRotation = Quaternion.Euler(9f, side * 2f, 0f);          // the lids sit low on the ball: look where they open
+                var eyeR = Skin(b, eye, "Eye", Mats.Eyes);
+                eyeR.receiveShadows = false;
+                _headParts.Add(eyeR);
+            }
+            float eyeY = (m.EyeL.y - headJ.y) * k;
+            _eyeLocal = new Vector3(0f, eyeY, H(m.EyeL).z - 0.03f * k);
+
+            // The headwear was drawn for an egg-shaped head. Stretch it so that egg encloses this skull.
+            float wx = 0f, wf = 0f, wb = 0f;
+            for (int i = 0; i < Egg.GetLength(0); i++)
+            {
+                float y = Egg[i, 0] * m.HeadRadius, unit = m.HeadRadius;
+                wx = Mathf.Max(wx, m.HalfWidth(y) / (unit * Egg[i, 1]));
+                wf = Mathf.Max(wf, m.Front(y) / (unit * (Egg[i, 3] + Egg[i, 2])));
+                wb = Mathf.Max(wb, -m.Back(y) / (unit * (Egg[i, 2] - Egg[i, 3])));
+            }
+            float wz = (wf + wb) * 0.5f, dz = (wf - wb) * 0.5f * 0.9f * hr;
+            var fit = Matrix4x4.TRS(new Vector3(0f, 0f, dz), Quaternion.identity, new Vector3(wx, 1f, wz));
+            b.Push(fit);
+            BuildHeadwear(b, look, look.Hero ? 16 : 9, hr);
+            b.Pop();
+            _headParts.Add(Skin(b, Node("Headwear", _head, Vector3.zero), "Headwear"));
+
+            // Goggles: as wide as the face at the eyes, resting on the brow and cheekbones.
+            _goggles = Node("Goggles", _head, Vector3.zero);
+            float eyeHr = eyeY / hr;
+            float faceHalf = m.HalfWidth(eyeHr * m.HeadRadius) * k, faceFront = m.Front(eyeHr * m.HeadRadius) * k;
+            _gogDown = new Vector3(0f, eyeY + 0.02f * hr, faceFront + 0.075f * hr);
+            _gogUp = fit.MultiplyPoint3x4(look.HasHelmet ? new Vector3(0, hr * 1.7f, hr * 1.08f) : new Vector3(0, hr * 1.64f, hr * 1.0f));
+            if (look.HasGoggles)
+            {
+                float gw = faceHalf / (0.76f * hr);
+                b.Push(Matrix4x4.Scale(new Vector3(gw, 1f, 1f)));
+                BuildGoggles(b, look, hr, look.Hero ? 26 : 14);
+                b.Pop();
+                // The strap: from one outrigger round the back of the head (or helmet) to the other.
+                b.Col = Color.Lerp(look.Goggles, Palette.Ink, 0.35f);
+                float pad = look.HasHelmet ? 1f : 0.84f;
+                const int n = 18;
+                Vector3 On(float deg)
+                {
+                    float a = deg * Mathf.Deg2Rad;
+                    Vector3 p = fit.MultiplyPoint3x4(new Vector3(Mathf.Sin(a) * 1.07f * pad, 0f, Mathf.Cos(a) * 1.16f * pad - 0.03f) * hr);
+                    return new Vector3(p.x, 0f, p.z - _gogDown.z);
+                }
+                for (int i = 0; i < n; i++)
+                {
+                    Vector3 p0 = On(Mathf.Lerp(74f, 286f, i / (float)n)), p1 = On(Mathf.Lerp(74f, 286f, (i + 1) / (float)n));
+                    Vector3 up = new Vector3(0f, 0.13f * hr, 0f);
+                    b.DoubleQuad(p0 - up, p0 + up, p1 + up, p1 - up);
+                }
+                _headParts.Add(Skin(b, _goggles, "Goggles", Mats.Props));
+            }
+            _goggleUp = _goggleUpTarget = look.GogglesDown ? 0f : 1f;
+            PlaceGoggles();
+            if (_face != null) AnimateFace(0f);
+        }
+
         void PlaceGoggles()
         {
-            float hr = _hr, k = _goggleUp;
-            bool hard = Look.HasHelmet;
-            Vector3 up = hard ? new Vector3(0, hr * 1.6f, hr * 1.1f) : new Vector3(0, hr * 1.56f, hr * 1.03f);
-            _goggles.localPosition = Vector3.Lerp(new Vector3(0, hr * 0.86f, hr * 0.99f), up, k);
+            float k = _goggleUp;
+            _goggles.localPosition = Vector3.Lerp(_gogDown, _gogUp, k);
             _goggles.localRotation = Quaternion.Euler(Mathf.Lerp(0f, -26f, k), 0f, 0f);
         }
 
@@ -743,7 +999,7 @@ namespace Ski.Game
                     pole.localRotation = Quaternion.Euler(-62f, 0f, 0f);
                     GearModels.Pole(b, 1.12f * s, look.GearAccent);
                     Skin(b, pole, "Pole", Mats.Props);
-                    _poles.Add(pole);
+                    _poles.Add(pole); _poleHome.Add(pole.localPosition);
                 }
             }
         }
@@ -835,7 +1091,7 @@ namespace Ski.Game
                 _wander = Vector2.Lerp(_wander, _wanderTarget, 1f - Mathf.Exp(-2.5f * dt));
             }
             Apply();
-            if (Look.Hero) AnimateFace(dt);
+            if (_face != null || (Look.Hero && _model == null)) AnimateFace(dt);
         }
 
         void AnimateFace(float dt)
@@ -844,6 +1100,25 @@ namespace Ski.Game
             // Blink.
             if (_time > _nextBlink) { _blink = 0.13f; _nextBlink = _time + 1.8f + Mathf.PerlinNoise(_seed, _time) * 4f; }
             _blink -= dt;
+            if (_face != null)
+            {
+                // The sculpted face: its own lids, jaw, lips and brows move.
+                _blinkW = Mathf.MoveTowards(_blinkW, _blink > 0f || EyesClosed ? 1f : 0f, dt * 16f);
+                float goal = 0f;
+                if (Talking)
+                {
+                    float syll = Mathf.Abs(Mathf.Sin(_time * 11f + _seed)) * (0.35f + 0.65f * Mathf.PerlinNoise(_time * 5f, _seed));
+                    goal = Mathf.PerlinNoise(_time * 1.3f, _seed + 9f) > 0.24f ? 0.15f + syll * 0.75f : 0.05f;
+                }
+                _talk = Mathf.Lerp(_talk, goal, 1f - Mathf.Exp(-26f * dt));
+                float jaw = Mathf.Clamp01(Mathf.Max(MouthOpen, _talk));
+                _face.SetBlendShapeWeight(_kBlink, Mathf.Clamp01(_blinkW + Mathf.Max(0f, -BrowRaise) * 0.18f) * 100f);
+                _face.SetBlendShapeWeight(_kMouth, jaw * 46f + Smile * 5f);
+                _face.SetBlendShapeWeight(_kSmile, Mathf.Clamp01(Smile) * 100f);
+                _face.SetBlendShapeWeight(_kBrowUp, Mathf.Clamp01(BrowRaise) * 100f);
+                _face.SetBlendShapeWeight(_kBrowDown, Mathf.Clamp01(-BrowRaise) * 100f);
+                return;
+            }
             float lidUp = _blink > 0f || EyesClosed ? -0.02f : 0.215f + (BrowRaise > 0f ? BrowRaise * 0.08f : BrowRaise * 0.06f) - Smile * 0.03f;
             _lidL.localPosition = new Vector3(-hr * EyeX, hr * (EyeY + lidUp), hr * EyeZ);
             _lidR.localPosition = new Vector3(hr * EyeX, hr * (EyeY + lidUp), hr * EyeZ);
@@ -879,12 +1154,12 @@ namespace Ski.Game
             // Hips: high enough that the feet reach the ground, or at the seat.
             float tL = p.ThighL * Mathf.Deg2Rad, kL = p.KneeL * Mathf.Deg2Rad;
             float ext = _thigh * Mathf.Cos(tL) + _shin * Mathf.Cos(tL - kL);
-            float standY = _ankle + ext * Mathf.Cos(p.LegOut * Mathf.Deg2Rad) + 0.04f * _s;
+            float standY = _ankle + ext * Mathf.Cos(p.LegOut * Mathf.Deg2Rad) + _hipDrop;
             // Snowplough: the toes turn in at the ankle, never so far that the ski tips cross.
             float footIn = p.FootIn;
             if (Look.Gear == GearKind.Skis && footIn > 0f)
             {
-                float footX = 0.095f * _s + ext * Mathf.Sin(p.LegOut * Mathf.Deg2Rad);
+                float footX = _hipX + ext * Mathf.Sin(p.LegOut * Mathf.Deg2Rad);
                 float maxSin = (footX - SkiHalfWidth - 0.012f) / (0.56f * Look.GearLength);
                 footIn = Mathf.Min(footIn, Mathf.Asin(Mathf.Clamp(maxSin, 0f, 0.6f)) * Mathf.Rad2Deg);
             }
@@ -916,10 +1191,10 @@ namespace Ski.Game
                 // foot, pointing ahead, most of it under the rider's own seat.
                 var rot = Quaternion.Euler(0f, Mathf.Lerp(90f, BoardHangYaw, p.Seated), 0f);
                 _board.localRotation = rot;
-                _board.localPosition = new Vector3(0, -_ankle - 0.025f, 0) + rot * new Vector3(0, 0, (_boardRight ? -1f : 1f) * Mathf.Lerp(0.095f * _s + (_thigh + _shin) * Mathf.Sin(p.LegOut * Mathf.Deg2Rad), -0.26f * (_boardRight ? -1f : 1f), p.Seated));
+                _board.localPosition = new Vector3(0, -_ankle - 0.025f, 0) + rot * new Vector3(0, 0, (_boardRight ? -1f : 1f) * Mathf.Lerp(_hipX + (_thigh + _shin) * Mathf.Sin(p.LegOut * Mathf.Deg2Rad), -0.26f * (_boardRight ? -1f : 1f), p.Seated));
             }
             if (_poleMode == PoleMode.Lap && Poles != PoleMode.Lap)
-                foreach (var pole in _poles) { pole.localPosition = new Vector3(0, -0.06f * _s, 0.02f * _s); pole.localRotation = Quaternion.Euler(-62f, 0f, 0f); }
+                for (int i = 0; i < _poles.Count; i++) { _poles[i].localPosition = _poleHome[i]; _poles[i].localRotation = Quaternion.Euler(-62f, 0f, 0f); }
             _poleMode = Poles;
             if (Poles == PoleMode.Ski)
             {

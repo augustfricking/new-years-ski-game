@@ -60,6 +60,55 @@ namespace Ski.Game
             }
         }
 
+        /// <summary>Sculpted clothes: the folds are inked close up and left clean from further away.</summary>
+        public static Material CharacterCloth => Sculpted("character_cloth", Character, 3f, 9f);
+        /// <summary>Sculpted skin: the fine forms of a face only get lines in a close-up.</summary>
+        public static Material CharacterSkin => Sculpted("character_skin", Character, 1.1f, 3.4f);
+        /// <summary>Sculpted people in the crowd.</summary>
+        public static Material CrowdCloth => Sculpted("crowd_cloth", Props, 2.5f, 7f);
+        public static Material CrowdSkin => Sculpted("crowd_skin", Props, 0.9f, 2.8f);
+
+        /// <summary>Eyeballs: they sit deep in their sockets, and must not go dark there.</summary>
+        public static Material Eyes
+        {
+            get
+            {
+                if (Cache.TryGetValue("eyes", out var m) && m != null) return m;
+                m = NewToon(Color.white, 0f);
+                m.name = "Eyes";
+                m.SetFloat("_BandEdge", -0.5f);
+                m.SetFloat("_MidBand", 0f);
+                m.SetFloat("_Paint", 0f);
+                m.SetFloat("_Wobble", 0f);
+                m.SetFloat("_RimStrength", 0f);
+                m.SetColor("_ShadowTint", new Color(0.8f, 0.78f, 0.88f));
+                m.SetFloat("_InkNear", 1.1f);
+                m.SetFloat("_InkFar", 3.4f);
+                Cache["eyes"] = m;
+                return m;
+            }
+        }
+
+        static Material Sculpted(string key, Material like, float near, float far)
+        {
+            if (Cache.TryGetValue(key, out var m) && m != null) return m;
+            m = new Material(like) { name = key };
+            m.SetFloat("_InkNear", near);
+            m.SetFloat("_InkFar", far);
+            m.SetFloat("_Paint", 0.12f);      // painted variation is fixed in space: keep it faint on bodies that bend
+            // A sculpt has far more small forms than the simple shapes had. Kept clean: only the
+            // strong folds and features are drawn, the shadow is a clear coloured shape, not black.
+            bool skin = key.EndsWith("skin");
+            m.SetFloat("_InkSoft", skin ? 0.5f : 0.42f);
+            m.SetFloat("_InkShadow", 0f);
+            m.SetFloat("_OutlineWidth", Mathf.Min(m.GetFloat("_OutlineWidth"), 2.1f));
+            m.SetFloat("_MidBand", skin ? 0.12f : 0.2f);
+            m.SetFloat("_Wobble", 0.25f);
+            m.SetColor("_ShadowTint", skin ? new Color(0.8f, 0.64f, 0.74f) : new Color(0.66f, 0.58f, 0.8f));
+            Cache[key] = m;
+            return m;
+        }
+
         public static Material Snow
         {
             get

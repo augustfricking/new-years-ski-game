@@ -26,6 +26,9 @@ Shader "Ski/Toon"
         _Snow ("Snow detail", Range(0,1)) = 0
         _Wind ("Wind sway", Range(0,1)) = 0
         _FlatPrepass ("Flat normals for ink edges", Range(0,1)) = 0
+        _InkNear ("Inner ink lines start to thin out at (m, 0 = never)", Float) = 0
+        _InkFar ("Inner ink lines gone at (m)", Float) = 0
+        _InkSoft ("Fewer inner ink lines, at any distance", Range(0,1)) = 0
     }
 
     HLSLINCLUDE
@@ -55,6 +58,9 @@ Shader "Ski/Toon"
         half _Snow;
         half _Wind;
         half _FlatPrepass;
+        half _InkNear;
+        half _InkFar;
+        half _InkSoft;
     CBUFFER_END
 
     // Trees sway a little: displacement grows with height above the object's origin.
@@ -352,13 +358,15 @@ Shader "Ski/Toon"
             #pragma multi_compile_instancing
 
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct Varyings { float4 positionCS : SV_POSITION; float3 normalWS : TEXCOORD0; };
+            struct Varyings { float4 positionCS : SV_POSITION; float3 normalWS : TEXCOORD0; float3 positionWS : TEXCOORD1; };
 
             Varyings vert(Attributes IN)
             {
                 Varyings OUT;
                 UNITY_SETUP_INSTANCE_ID(IN);
-                OUT.positionCS = TransformObjectToHClip(ApplyWind(IN.positionOS.xyz));
+                float3 pos = ApplyWind(IN.positionOS.xyz);
+                OUT.positionCS = TransformObjectToHClip(pos);
+                OUT.positionWS = TransformObjectToWorld(pos);
                 OUT.normalWS = TransformObjectToWorldNormal(IN.normalOS);
                 return OUT;
             }
@@ -366,6 +374,11 @@ Shader "Ski/Toon"
             half4 frag(Varyings IN) : SV_Target
             {
                 float3 n = lerp(normalize(IN.normalWS), float3(0.0, 1.0, 0.0), step(0.5, _FlatPrepass));
+                // Finely modelled surfaces (faces, folds) seen from further off: the small forms are
+                // smoothed away, so the artist draws the outline and leaves the inside clean.
+                float3 toCam = _WorldSpaceCameraPos - IN.positionWS;
+                float far = smoothstep(_InkNear, max(_InkFar, _InkNear + 0.01), length(toCam)) * step(0.001, _InkFar);
+                n = normalize(lerp(n, normalize(toCam), max(_InkSoft, 0.88 * far)));
                 return half4(n, 0.0);
             }
             ENDHLSL
