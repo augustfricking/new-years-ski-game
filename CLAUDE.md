@@ -29,6 +29,13 @@ The game design lives in `docs/GAME_SPEC.md` (source of truth). The plan and mil
   live and hold real players' results: nothing is sent from the Editor (`SendFromEditor` stays
   false), from the bot, or with an implausible value (`Courses.Plausible`). Never teleport a
   player past the finish with submissions enabled. No seeded rivals, no bot ghosts.
+- **Music and voice.** The DJ's songs are made locally by `tools/music/make_songs.py` (ACE-Step
+  1.5, MIT; setup in `tools/music/README.md`) into `Assets/StreamingAssets/Music` and streamed by
+  `Songs`; `AudioDirector.Music("song:<id>")` plays one. Voice chat is `VoiceChat` +
+  `Plugins/WebGL/LastRunVoice.jslib` (WebRTC via PeerJS 1.5.4 from unpkg); it does nothing in
+  the Editor, so test it in a WebGL build.
+- **Shop.** `Unlocks` (Core) holds the items and their challenges; `SaveData.Progress` counts what
+  the player has done; `PersonLook.Apply(Outfit)` dresses a character; `OutfitPaint` prints patterns.
 - **Live players.** `LiveRooms` (Multiplayer sessions used as rooms, player data only, no game
   networking). Nothing is sent from the Editor or the bot (`LiveRooms.SendFromEditor`). Test
   only in the private room `test` with `tools/diag/live_test.cs` + `live_standin.cs` (a second

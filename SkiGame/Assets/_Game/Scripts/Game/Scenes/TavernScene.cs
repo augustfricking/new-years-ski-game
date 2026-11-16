@@ -180,7 +180,7 @@ namespace Ski.Game
             if (AudioDirector.I != null)
             {
                 AudioDirector.I.Silence();
-                AudioDirector.I.Music(Songs.All.Count > 0 ? null : "music_tavern", 1.2f);
+                PlayDj(Songs.Loaded ? null : "");   // the DJ's song (or, until the list is in, nothing yet)
                 AudioDirector.I.Ambience("crowd", "fire");
                 AudioDirector.I.Play("door", 0.8f);
             }
@@ -678,6 +678,7 @@ namespace Ski.Game
         void PlayDj(string id)
         {
             if (AudioDirector.I == null) return;
+            if (id == "") return;
             if (Songs.All.Count == 0) { AudioDirector.I.Music("music_tavern", 1.2f); return; }
             if (id == null)
             {

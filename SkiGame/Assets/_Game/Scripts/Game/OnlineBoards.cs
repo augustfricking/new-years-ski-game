@@ -61,7 +61,11 @@ namespace Ski.Game
             Status = State.Connecting;
             try
             {
-                await UnityServices.InitializeAsync();
+                // "?profile=name" in the page address signs in as a separate player (two tabs, two people).
+                var options = new InitializationOptions();
+                string profile = ProfileFromUrl();
+                if (profile != null) options.SetProfile(profile);
+                await UnityServices.InitializeAsync(options);
                 if (!AuthenticationService.Instance.IsSignedIn) await AuthenticationService.Instance.SignInAnonymouslyAsync();
                 PlayerId = AuthenticationService.Instance.PlayerId;
                 Status = State.Online;
@@ -74,6 +78,20 @@ namespace Ski.Game
                 LastError = e.Message;
                 Debug.Log("[Online] not connected, boards stay local: " + e.Message);
             }
+        }
+
+        static string ProfileFromUrl()
+        {
+            string url = Application.absoluteURL ?? "";
+            int i = url.IndexOf("profile=", StringComparison.Ordinal);
+            if (i < 0) return null;
+            var sb = new System.Text.StringBuilder();
+            for (int k = i + 8; k < url.Length && sb.Length < 20; k++)
+            {
+                char c = url[k];
+                if (char.IsLetterOrDigit(c) || c == '_' || c == '-') sb.Append(c); else break;
+            }
+            return sb.Length > 0 ? sb.ToString() : null;
         }
 
         static string CloudName(string name)

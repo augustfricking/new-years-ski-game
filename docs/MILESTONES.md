@@ -146,7 +146,35 @@ Ghosts and boards
 - [x] Verified against the real room service with a second signed-in player in the Editor
       (`tools/diag/live_standin.cs`), in a private test room
 
+## M10 Shop, DJ, walkman, voice (playtest round 3)
+- [x] Ink: one crisp, hard-edged line per silhouette (no outline shell on people), thinner
+      inner lines; harder shadow shapes; carved-plane shading makes the bodies a little boxy
+- [x] Carving: lean grows half as fast inside the carve band and eases off when you let go
+      there, so taps hold a carve; held too long it still over-turns. Turns about 13 % tighter.
+- [x] Ski shop by every village (and SHOP on the map): colours, printed patterns, headgear and
+      suits per friend; locked items show their challenge (goalie mask: 10 kids in one run;
+      viking: stein in 8 s; boxer: 25 knockouts; gold suit: all five runs; crown: a
+      1000-point trick; tiger, flames, banana suit, unicorn...). Outfits show to live players.
+- [x] Seven original songs (Techno, EDM, Pop, Country, Hip hop, Classical, Rock), generated
+      locally with ACE-Step 1.5 (MIT, `tools/music`), streamed from StreamingAssets
+- [x] DJ on the tavern stage with a dancing crowd; walk up and press E to request a song
+- [x] Walkman on a tavern table: pick it up and your song plays everywhere outside the
+      tavern; M next song, N on/off, both in the settings
+- [x] Voice chat: hold V to talk, louder the closer people are, everyone at your tavern table
+      as if side by side; also on the lift and map. Peer to peer in the browser (PeerJS).
+- [x] Sit down at the tavern tables (E)
+- [x] Beer game: 60 s limit, R restarts, Esc leaves (E no longer leaves)
+- [x] Mouse hints are a drawn mouse with the left button lit
+- [x] You cannot ski through anyone in the village; replays knock kids over instead of passing
+      through them
+- [x] Cutscene: arms rise over the lift's safety bar instead of through it; gentler arm twists
+- [x] Village people waiting about fidget: stamping, waving, stretching, laughing
+
 ## Known gaps and ideas
+- Voice chat needs a free public signalling server (PeerJS) and peer-to-peer connections,
+  which some strict networks block. It was not tested with two real microphones.
+- The songs were checked by measurement (length, loudness, spectrum), not by ear: whether
+  the vocals came out well needs a listen.
 - Live players cost room-service traffic: about 10 GiB a month is free. A full room of 16
   for an hour is roughly 0.3 GiB. If the game grows, watch the Unity Dashboard.
 - Rival times and trick values are tuned from bot runs, not from human play.
