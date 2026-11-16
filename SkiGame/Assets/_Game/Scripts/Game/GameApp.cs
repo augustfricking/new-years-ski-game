@@ -53,7 +53,8 @@ namespace Ski.Game
             Ui.Create(transform);
             SaveData.Load();
             SaveData.Unlocked += u => { Ui.Instance?.Notice("UNLOCKED!", u.Name + "  -  in the shop"); AudioDirector.Sfx("cheer", 0.7f, 1.2f); };
-            OnlineBoards.Connect();   // anonymous device profile for the world boards; local play does not wait for it
+            OnlineBoards.Connect();
+            Songs.LoadList(this, () => AudioDirector.I?.RefreshMusic());   // anonymous device profile for the world boards; local play does not wait for it
             Character = SaveData.LastCharacter;
             if (DebugSlope.HasValue) StartRun(DebugSlope.Value, Character);
             else ShowMenu();
@@ -186,6 +187,12 @@ namespace Ski.Game
         {
             var kb = Keyboard.current; var mouse = Mouse.current;
             LiveRooms.Tick();
+            // The walkman: M for the next song, N on and off (not while typing in a dialog).
+            if (kb != null && SaveData.HasWalkman && !Dialogs.Open && Screen != GameScreen.Tavern)
+            {
+                if (kb.mKey.wasPressedThisFrame) Walkman.Next();
+                else if (kb.nKey.wasPressedThisFrame) Walkman.Toggle();
+            }
             if (Screen == GameScreen.Ride && !_busy)
             {
                 _rideTimer -= Time.deltaTime;
@@ -211,7 +218,7 @@ namespace Ski.Game
                     }
                 }
             }
-            else if (Screen == GameScreen.Tavern && Tavern != null && Tavern.Game == null && Tavern.GameEndFrame < Time.frameCount - 1)
+            else if (Screen == GameScreen.Tavern && Tavern != null && !Tavern.Busy && Tavern.GameEndFrame < Time.frameCount - 1 && Tavern.BusyEndFrame < Time.frameCount - 1)
             {
                 if (!Dialogs.Open && mouse != null && mouse.leftButton.wasPressedThisFrame) Cursor.lockState = CursorLockMode.Locked;
                 if (kb != null && kb.escapeKey.wasPressedThisFrame && !_busy)

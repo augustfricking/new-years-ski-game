@@ -134,7 +134,41 @@ namespace Ski.Game
         /// <summary>Wind only, for scenes that are not skiing (lift, storm, map).</summary>
         public void Wind(float amount) { _windT = amount; _windPitch = 0.8f + amount * 0.4f; _carveT = _skidT = 0f; }
 
+        string _sceneMusic = "";
+        float _sceneLevel = 1f;
+        bool _songPlaying;
+        /// <summary>In the tavern the DJ plays, and the walkman waits.</summary>
+        public bool DjHasFloor;
+        /// <summary>Called when a song (not a synthesised loop) has played to its end, with its id.</summary>
+        public event System.Action<string> SongEnded;
+        /// <summary>The song playing now (its id), or null.</summary>
+        public string CurrentSong => _music.StartsWith("song:") ? _music.Substring(5) : null;
+
+        /// <summary>
+        /// The music a scene wants: a synthesised loop by name, or "song:&lt;id&gt;" for one of the DJ's
+        /// songs. With the walkman on, your song plays instead (outside the tavern).
+        /// </summary>
         public void Music(string id, float level = 1f)
+        {
+            _sceneMusic = id ?? "";
+            _sceneLevel = level;
+            Route();
+        }
+
+        /// <summary>Re-reads the walkman: call after it is switched or skips a song.</summary>
+        public void RefreshMusic(bool restart = false)
+        {
+            if (restart && _music.StartsWith("song:")) _music = "";
+            Route();
+        }
+
+        void Route()
+        {
+            bool walkman = Walkman.Active && !DjHasFloor;
+            Play(walkman ? "song:" + Walkman.Current : _sceneMusic, walkman ? 0.9f : _sceneLevel);
+        }
+
+        void Play(string id, float level)
         {
             _musicLevel = level;
             if (id == _music) return;
@@ -143,7 +177,25 @@ namespace Ski.Game
             var t = _musicA; _musicA = _musicB; _musicB = t;
             _musicBlend = 0f;
             _musicA.Stop();
-            _musicA.clip = string.IsNullOrEmpty(id) ? null : Clip(id);
+            _musicA.clip = null;
+            _songPlaying = false;
+            if (string.IsNullOrEmpty(id)) return;
+            if (id.StartsWith("song:"))
+            {
+                // A whole song: fetched when first played, and played once (the end picks the next).
+                _musicA.loop = false;
+                var src = _musicA;
+                Songs.Clip(this, id.Substring(5), clip =>
+                {
+                    if (_music != id || clip == null || src != _musicA) return;
+                    src.clip = clip;
+                    src.Play();
+                    _songPlaying = true;
+                });
+                return;
+            }
+            _musicA.loop = true;
+            _musicA.clip = Clip(id);
             if (_musicA.clip != null) _musicA.Play();
         }
 
@@ -187,6 +239,14 @@ namespace Ski.Game
             _carve.volume = Mathf.Lerp(_carve.volume, _carveT * 0.5f * SfxVol * live, fast);
             _skid.volume = Mathf.Lerp(_skid.volume, _skidT * 0.6f * SfxVol * live, fast);
 
+            // A song has finished: the walkman moves on by itself, the DJ picks the next one.
+            if (_songPlaying && _musicA.clip != null && !_musicA.isPlaying && _musicA.time <= 0.001f)
+            {
+                _songPlaying = false;
+                string ended = CurrentSong;
+                if (Walkman.Active && !DjHasFloor) Walkman.Next();
+                SongEnded?.Invoke(ended);
+            }
             _musicBlend = Mathf.MoveTowards(_musicBlend, 1f, dt / 1.2f);
             float duck = _voice.isPlaying ? 0.5f : 1f;
             _musicA.volume = Mathf.Lerp(_musicA.volume, _musicBlend * MusicVol * _musicLevel * duck, slow * 2f);

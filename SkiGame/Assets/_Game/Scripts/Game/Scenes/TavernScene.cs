@@ -63,6 +63,17 @@ namespace Ski.Game
         /// <summary>The frame the beer game was left (so the same Esc does not also open the pause menu).</summary>
         public int GameEndFrame = -1;
 
+        // The DJ on the stage, the songs, and the walkman left on a table.
+        static readonly Vector3 DjDesk = new Vector3(-5.75f, 0.3f, 9.2f), WalkmanSpot = new Vector3(0.05f, 0f, -3.45f);
+        Person _dj;
+        Transform _walkman;
+        VisualElement _picker;
+        float _djFlourish;
+        /// <summary>True while something on screen has the keys (the beer game, the song list).</summary>
+        public bool Busy => Game != null || _picker != null;
+        /// <summary>The frame something on screen let go of the keys.</summary>
+        public int BusyEndFrame = -1;
+
         // Other people in here right now (see LiveRooms).
         sealed class LiveGuest { public GhostView V; public Guest Knock; public float Blend; public Vector3 Last; }
         struct PendingPunch { public LiveRooms.Remote By; public string Target; public float Yaw; public double At, Received; }
@@ -165,7 +176,7 @@ namespace Ski.Game
             if (AudioDirector.I != null)
             {
                 AudioDirector.I.Silence();
-                AudioDirector.I.Music("music_tavern", 1.2f);
+                AudioDirector.I.Music(Songs.All.Count > 0 ? null : "music_tavern", 1.2f);
                 AudioDirector.I.Ambience("crowd", "fire");
                 AudioDirector.I.Play("door", 0.8f);
             }
@@ -535,10 +546,9 @@ namespace Ski.Game
             Add(Tables[0] + new Vector3(0.9f, TableTop + 0.01f, 0f), 200f, Act.Dance, 0);
             Add(Tables[1] + new Vector3(-0.8f, TableTop + 0.01f, 0.02f), 150f, Act.Dance, 1);
             Add(Tables[3] + new Vector3(0.3f, TableTop + 0.01f, 0f), 20f, Act.Dance, 3);
-            // On the stage and on the floor in front of it.
-            Add(new Vector3(-6.6f, 0.3f, 9.3f), 140f, Act.Dance);
-            Add(new Vector3(-5.6f, 0.3f, 8.7f), 160f, Act.Dance);
-            Add(new Vector3(-4.2f, 0f, 9.4f), 200f, Act.Dance);
+            // A little crowd dancing in front of the DJ.
+            foreach (var at in new[] { new Vector3(-4.2f, 0f, 8.3f), new Vector3(-3.5f, 0f, 9.1f), new Vector3(-4.1f, 0f, 10.2f), new Vector3(-3.0f, 0f, 10.1f), new Vector3(-2.9f, 0f, 8.5f), new Vector3(-4.4f, 0f, 9.3f) })
+                Add(at, -90f + rng.Range(-30f, 30f), Act.Dance);
             // Standing about with a glass.
             foreach (float z in new[] { -4.4f, -2.9f, 2.7f, 4.6f })
                 Add(new Vector3(3.75f, 0, z + rng.Range(-0.2f, 0.2f)), 90f + rng.Range(-25f, 25f), Act.BarDrink);
@@ -553,6 +563,176 @@ namespace Ski.Game
             _bartender.Smile = 0.6f;
             _guests.Add(new Guest { P = _bartender, Kind = Act.Bartender, Table = -1, Base = Pose.Stand.WithArms(40, 10, 70, 40, 10, 70) });
             foreach (var g in _guests) { g.Home = g.P.transform.localPosition; g.HomeRot = g.P.transform.localRotation; }
+            BuildDj(rng);
+        }
+
+        void BuildDj(Rng rng)
+        {
+            var b = new MeshBuilder();
+            var glow = new MeshBuilder();
+            b.Push(DjDesk);
+            // The booth: a desk with two decks and a mixer, speakers either side, lights along the front.
+            b.Col = Palette.Ink;
+            b.Box(new Vector3(0f, 0.5f, 0f), new Vector3(0.7f, 1.0f, 2.1f));
+            b.Col = Palette.Hex("#3B3550");
+            b.Box(new Vector3(0f, 1.02f, 0f), new Vector3(0.75f, 0.05f, 2.2f));
+            for (int s = -1; s <= 1; s += 2)
+            {
+                b.Col = Palette.Hex("#2A2638");
+                b.Cylinder(new Vector3(0f, 1.045f, s * 0.6f), 0.21f, 0.21f, 0.03f, 18);
+                b.Col = Palette.Ink;
+                b.Cylinder(new Vector3(0f, 1.075f, s * 0.6f), 0.15f, 0.15f, 0.01f, 18);
+                b.Col = Palette.SignalRed;
+                b.Cylinder(new Vector3(0f, 1.085f, s * 0.6f), 0.04f, 0.04f, 0.01f, 10);
+                b.Col = Palette.SteelDark;
+                b.Box(new Vector3(0.12f, 1.07f, s * 0.6f + s * 0.17f), new Vector3(0.03f, 0.02f, 0.16f));   // tone arm
+                // Speakers, tall, on the stage floor.
+                b.Col = Palette.Ink;
+                b.Box(new Vector3(-0.2f, 0.75f, s * 1.5f), new Vector3(0.6f, 1.5f, 0.55f));
+                b.Col = Palette.Hex("#3B3550");
+                b.Cylinder(new Vector3(0.11f, 1.05f, s * 1.5f), 0.2f, 0.2f, 0.01f, 16);
+                b.Cylinder(new Vector3(0.11f, 0.45f, s * 1.5f), 0.12f, 0.12f, 0.01f, 16);
+            }
+            b.Col = Palette.SteelDark;
+            b.Box(new Vector3(0f, 1.06f, 0f), new Vector3(0.4f, 0.04f, 0.5f));                         // mixer
+            for (int i = 0; i < 6; i++)
+            {
+                glow.Col = i % 2 == 0 ? Palette.Hex("#FF4FA3") : Palette.Hex("#4FD8FF");
+                glow.Box(new Vector3(0.36f, 0.3f + i * 0.12f, 0f), new Vector3(0.02f, 0.05f, 1.9f));
+            }
+            b.Pop();
+            b.ToObject("DJ booth", Mats.Props, transform);
+            glow.ToObject("DJ lights", _glowHot, transform, false, false);
+            var sign = VillageBuilder.Sign(transform, "DJ", Vector3.zero, Quaternion.identity, 0.32f, Palette.White);
+            sign.transform.localPosition = DjDesk + new Vector3(0.37f, 0.75f, 0f);
+            sign.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+
+            // The DJ, behind the decks, headphones on.
+            var look = PersonLook.Random(rng, false);
+            look.Hero = true; look.Gear = GearKind.None; look.Poles = false; look.HasHelmet = false; look.Beanie = true; look.HasGoggles = false;
+            look.Jacket = Palette.Hex("#22202E"); look.Trim = Palette.Hex("#FF4FA3"); look.Helmet = Palette.Hex("#FF4FA3");
+            _dj = Person.Create(look, transform, "DJ");
+            _dj.transform.localPosition = DjDesk + new Vector3(-0.75f, 0f, 0f);
+            _dj.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+            _dj.Snap(Pose.Stand);
+            _dj.Smile = 0.7f;
+            var hp = new MeshBuilder();
+            float hr = 0.13f;
+            hp.Col = Palette.Ink;
+            for (int i = 0; i < 8; i++)
+            {
+                float a0 = Mathf.Lerp(-80f, 80f, i / 8f) * Mathf.Deg2Rad, a1 = Mathf.Lerp(-80f, 80f, (i + 1) / 8f) * Mathf.Deg2Rad;
+                hp.Tube(new Vector3(Mathf.Sin(a0), Mathf.Cos(a0) + 0.75f, -0.1f) * hr, new Vector3(Mathf.Sin(a1), Mathf.Cos(a1) + 0.75f, -0.1f) * hr, 0.012f, 5);
+            }
+            hp.Col = Palette.Hex("#FF4FA3");
+            hp.Cylinder(new Vector3(-0.93f, 0.62f, -0.1f) * hr, 0.055f, 0.055f, 0.06f, 12);
+            hp.Cylinder(new Vector3(0.93f, 0.62f, -0.1f) * hr, 0.055f, 0.055f, 0.06f, 12);
+            var hpGo = hp.ToObject("Headphones", Mats.People, _dj.Head, false);
+            hpGo.transform.localPosition = Vector3.zero;
+            _guests.Add(new Guest { P = _dj, Kind = Act.Stand, Table = -1, Base = Pose.Stand, Home = _dj.transform.localPosition, HomeRot = _dj.transform.localRotation });
+            _djGuest = _guests[_guests.Count - 1];
+
+            // The walkman, left on the end of a table, its headphones beside it.
+            if (!SaveData.HasWalkman)
+            {
+                _walkman = new GameObject("Walkman").transform;
+                _walkman.SetParent(transform, false);
+                _walkman.localPosition = WalkmanSpot + new Vector3(0f, TableTop + 0.005f, 0f);
+                _walkman.localRotation = Quaternion.Euler(0f, 20f, 0f);
+                var w = new MeshBuilder();
+                w.Col = Palette.Hex("#E8455A");
+                w.Box(new Vector3(0f, 0.018f, 0f), new Vector3(0.12f, 0.036f, 0.085f));
+                w.Col = Palette.Hex("#22202E");
+                w.Box(new Vector3(0f, 0.037f, 0.005f), new Vector3(0.08f, 0.004f, 0.05f));
+                w.Col = Palette.Hex("#FFC64A");
+                w.Box(new Vector3(-0.045f, 0.038f, -0.03f), new Vector3(0.02f, 0.006f, 0.012f));
+                w.Col = Palette.Ink;
+                for (int i = 0; i < 8; i++)
+                {
+                    float a0 = Mathf.Lerp(0f, 180f, i / 8f) * Mathf.Deg2Rad, a1 = Mathf.Lerp(0f, 180f, (i + 1) / 8f) * Mathf.Deg2Rad;
+                    w.Tube(new Vector3(0.2f + Mathf.Cos(a0) * 0.08f, 0.012f, Mathf.Sin(a0) * 0.08f), new Vector3(0.2f + Mathf.Cos(a1) * 0.08f, 0.012f, Mathf.Sin(a1) * 0.08f), 0.008f, 4);
+                }
+                w.Col = Palette.Hex("#FFC64A");
+                w.Cylinder(new Vector3(0.12f, 0f, 0f), 0.035f, 0.035f, 0.025f, 10);
+                w.Cylinder(new Vector3(0.28f, 0f, 0f), 0.035f, 0.035f, 0.025f, 10);
+                w.ToObject("Walkman model", Mats.Props, _walkman);
+            }
+
+            // The DJ plays the songs, one after another, and takes requests.
+            if (AudioDirector.I != null)
+            {
+                AudioDirector.I.DjHasFloor = true;
+                AudioDirector.I.SongEnded += OnSongEnded;
+            }
+            Songs.LoadList(this, () => { if (this != null) PlayDj(null); });
+        }
+
+        Guest _djGuest;
+
+        /// <summary>The DJ puts on a song: the one asked for, or another at random.</summary>
+        void PlayDj(string id)
+        {
+            if (AudioDirector.I == null) return;
+            if (Songs.All.Count == 0) { AudioDirector.I.Music("music_tavern", 1.2f); return; }
+            if (id == null)
+            {
+                string now = AudioDirector.I.CurrentSong;
+                int i = UnityEngine.Random.Range(0, Songs.All.Count);
+                if (Songs.All.Count > 1 && Songs.All[i].id == now) i = (i + 1) % Songs.All.Count;
+                id = Songs.All[i].id;
+            }
+            AudioDirector.I.Music("song:" + id, 1.1f);
+            _djFlourish = 2.5f;
+        }
+
+        void OnSongEnded(string id) { if (this != null) PlayDj(null); }
+
+        void OpenPicker()
+        {
+            var ui = Ui.Instance;
+            if (ui == null || Songs.All.Count == 0) return;
+            _picker = Ui.Div(ui.ScreenLayer, "layer dim");
+            var card = Ui.Div(_picker, "card shadowed dialog tilt-left");
+            Ui.Text(card, "REQUESTS", "h1");
+            string now = AudioDirector.I != null ? AudioDirector.I.CurrentSong : null;
+            foreach (var s in Songs.All)
+            {
+                var song = s;
+                var row = Ui.Btn(card, s.title + "   -   " + s.style, () =>
+                {
+                    ClosePicker();
+                    PlayDj(song.id);
+                    SaveData.Record(p => p.songsRequested++);
+                    Ui.Instance?.Notice("NOW PLAYING", song.title, 2.4f);
+                }, "btn-plain song-row" + (s.id == now ? " btn-selected" : ""));
+            }
+            Ui.Keys(card, "ESC", "close");
+            UnityEngine.Cursor.lockState = CursorLockMode.None;
+        }
+
+        void ClosePicker()
+        {
+            _picker?.RemoveFromHierarchy();
+            _picker = null;
+            BusyEndFrame = Time.frameCount;
+            UnityEngine.Cursor.lockState = CursorLockMode.Locked;
+        }
+
+        /// <summary>Behind the decks: nodding to the beat, a hand on the headphones, now and then a fist in the air.</summary>
+        void AnimateDj(float dt)
+        {
+            if (_dj == null || _djGuest.State != Knock.None) return;
+            float beat = _time * Mathf.PI * Bpm / 60f;
+            _djFlourish = Mathf.Max(0f, _djFlourish - dt);
+            var p = Pose.Stand;
+            p.HeadPitch = 8f + Mathf.Abs(Mathf.Sin(beat)) * 14f;
+            p.TorsoPitch = 10f + Mathf.Abs(Mathf.Sin(beat)) * 4f;
+            p.KneeL = p.KneeR = 10f + Mathf.Abs(Mathf.Sin(beat)) * 10f; p.ThighL = p.ThighR = 5f + Mathf.Abs(Mathf.Sin(beat)) * 5f;
+            p.ArmFwdR = 55f; p.ElbowR = 55f + Mathf.Sin(beat * 0.5f) * 10f;                                   // a hand on the deck
+            bool pump = _djFlourish > 0f || Mathf.Repeat(_time * Bpm / 60f / 16f, 1f) > 0.82f;
+            if (pump) { p.ArmOutL = 150f; p.ElbowL = 20f + Mathf.Abs(Mathf.Sin(beat)) * 40f; p.HeadPitch = -10f; }
+            else { p.ArmFwdL = 30f; p.ArmOutL = 40f; p.ElbowL = 150f; p.HeadRoll = -10f; }                   // holding the headphones to an ear
+            _dj.Target = p;
         }
 
         void AnimateCrowd(float dt)
@@ -1065,6 +1245,7 @@ namespace Ski.Game
             for (int i = 0; i < _lights.Count; i++) _lights[i].intensity = (i < 5 ? 11f : 4.5f) + beat * (i < 5 ? 5f : 0.6f) * (i % 2 == 0 ? 1f : 0.5f);
             AnimateFire(dt);
             AnimateCrowd(dt);
+            AnimateDj(dt);
             SyncLive(dt);
             if (WorldLook.Instance != null) WorldLook.Instance.Indoors = true;
 
@@ -1081,6 +1262,12 @@ namespace Ski.Game
             if (_powLeft > 0f) { _powLeft -= dt; if (_powLeft <= 0f) _pow.AddToClassList("toast-hidden"); }
 
             if (Game != null) { Game.Tick(dt); PlaceCameraForGame(dt); return; }
+            if (_picker != null)
+            {
+                if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) ClosePicker();
+                PlaceCamera(dt);
+                return;
+            }
             if (AnimateMyKnock(dt)) return;
             if (Dialogs.Open) return;
             if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame && _punch >= 1f && _time > 0.6f) Punch();
@@ -1112,10 +1299,14 @@ namespace Ski.Game
             // What can we do here?
             bool atBar = (_pos - BarSpot).magnitude < 1.6f;
             bool atDoor = _pos.x < -6.2f && Mathf.Abs(_pos.z) < 1.4f && _time > 1.5f;
-            if (_prompt != null) _prompt.text = atBar ? "[E]  BEER CHALLENGE" : atDoor ? "[E]  BACK TO THE LIFT" : "";
+            bool atDj = new Vector2(_pos.x - DjDesk.x, _pos.z - DjDesk.z).magnitude < 2.1f && Songs.All.Count > 0;
+            bool atWalkman = _walkman != null && new Vector2(_pos.x - WalkmanSpot.x, _pos.z - WalkmanSpot.z).magnitude < 1.4f;
+            if (_prompt != null) _prompt.text = atBar ? "[E]  BEER CHALLENGE" : atDj ? "[E]  REQUEST A SONG" : atWalkman ? "[E]  TAKE THE WALKMAN" : atDoor ? "[E]  BACK TO THE LIFT" : "";
             if (kb != null && kb.eKey.wasPressedThisFrame)
             {
-                if (atBar) StartGame();
+                if (atDj) OpenPicker();
+                else if (atWalkman) TakeWalkman();
+                else if (atBar) StartGame();
                 else if (atDoor) { AudioDirector.Sfx("door", 0.8f); OnLeave?.Invoke(); }
             }
         }
@@ -1157,9 +1348,23 @@ namespace Ski.Game
             PlaceCamera(dt);
         }
 
+        void TakeWalkman()
+        {
+            SaveData.HasWalkman = true;
+            SaveData.WalkmanOn = true;
+            if (AudioDirector.I != null && AudioDirector.I.CurrentSong != null) SaveData.WalkmanSong = AudioDirector.I.CurrentSong;
+            SaveData.Save();
+            Destroy(_walkman.gameObject);
+            _walkman = null;
+            AudioDirector.Sfx("click", 0.8f);
+            Ui.Instance?.Notice("WALKMAN!", "M  next song     N  on / off", 4f);
+        }
+
         public void Close()
         {
             LiveRooms.Punched -= OnPunched;
+            ClosePicker();
+            if (AudioDirector.I != null) { AudioDirector.I.SongEnded -= OnSongEnded; AudioDirector.I.DjHasFloor = false; }
             Game?.Dispose();
             _ui?.RemoveFromHierarchy();
             if (WorldLook.Instance != null) WorldLook.Instance.Indoors = false;

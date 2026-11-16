@@ -109,6 +109,8 @@ namespace Ski.Game
             m.SetFloat("_MidBand", skin ? 0.12f : 0.2f);
             m.SetFloat("_Wobble", 0f);
             m.SetFloat("_BandSoft", 0.008f);     // shadow shapes with a hard edge, as painted
+            m.SetFloat("_Facet", skin ? 0.35f : 0.5f);   // carved planes, a little boxy like the rest of the world
+            m.SetFloat("_FacetSteps", skin ? 3f : 2f);
             m.SetColor("_ShadowTint", skin ? new Color(0.8f, 0.64f, 0.74f) : new Color(0.66f, 0.58f, 0.8f));
             Cache[key] = m;
             return m;

@@ -29,6 +29,8 @@ Shader "Ski/Toon"
         _InkNear ("Inner ink lines start to thin out at (m, 0 = never)", Float) = 0
         _InkFar ("Inner ink lines gone at (m)", Float) = 0
         _InkSoft ("Fewer inner ink lines, at any distance", Range(0,1)) = 0
+        _Facet ("Carved planes instead of smooth curves", Range(0,1)) = 0
+        _FacetSteps ("How many planes (per axis)", Float) = 2
     }
 
     HLSLINCLUDE
@@ -61,6 +63,8 @@ Shader "Ski/Toon"
         half _InkNear;
         half _InkFar;
         half _InkSoft;
+        half _Facet;
+        half _FacetSteps;
     CBUFFER_END
 
     // Trees sway a little: displacement grows with height above the object's origin.
@@ -132,6 +136,7 @@ Shader "Ski/Toon"
                 half4 color : COLOR;
                 half fogFactor : TEXCOORD3;
                 float3 positionOS : TEXCOORD4;
+                float3 normalOS : TEXCOORD5;
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -145,6 +150,7 @@ Shader "Ski/Toon"
                 OUT.positionWS = TransformObjectToWorld(pos);
                 OUT.positionCS = TransformWorldToHClip(OUT.positionWS);
                 OUT.normalWS = TransformObjectToWorldNormal(IN.normalOS);
+                OUT.normalOS = IN.normalOS;
                 OUT.uv = TRANSFORM_TEX(IN.uv, _BaseMap);
                 OUT.color = IN.color;
                 OUT.fogFactor = ComputeFogFactor(OUT.positionCS.z);
@@ -154,6 +160,14 @@ Shader "Ski/Toon"
             half4 frag(Varyings IN) : SV_Target
             {
                 half3 n = normalize(IN.normalWS);
+                if (_Facet > 0.001)
+                {
+                    // Snap the surface direction to a few planes in the figure's own space: a carved,
+                    // slightly boxy body instead of a perfectly smooth one.
+                    float3 nOS = normalize(IN.normalOS);
+                    float3 q = normalize(round(nOS * _FacetSteps) + nOS * 0.001);
+                    n = normalize(lerp(n, TransformObjectToWorldNormal(q), _Facet));
+                }
                 half3 v = normalize(GetWorldSpaceViewDir(IN.positionWS));
                 half4 tex = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv);
                 half3 albedo = tex.rgb * _BaseColor.rgb * IN.color.rgb;

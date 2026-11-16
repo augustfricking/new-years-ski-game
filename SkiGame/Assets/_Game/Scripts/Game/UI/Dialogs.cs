@@ -73,6 +73,15 @@ namespace Ski.Game
                 gs.RegisterValueChangedCallback(e => { SaveData.MaxGhosts = e.newValue; Show(); });
                 grow.Add(gs);
             }
+            // The walkman: on or off, and which song.
+            if (SaveData.HasWalkman && Songs.All.Count > 0)
+            {
+                ToggleRow(card, "Walkman (N)", SaveData.WalkmanOn, v => { SaveData.WalkmanOn = v; SaveData.Save(); AudioDirector.I?.RefreshMusic(true); });
+                var wrow = Ui.Div(card, "dialog-row");
+                Ui.Text(wrow, "Song (M)", "dialog-label");
+                Button songBtn = null;
+                songBtn = Ui.Btn(wrow, Songs.Get(Walkman.Current)?.title ?? "-", () => { Walkman.Next(); songBtn.text = Songs.Get(Walkman.Current)?.title ?? "-"; }, "btn-plain btn-small");
+            }
             // The name this device goes by on the boards.
             var row = Ui.Div(card, "dialog-row");
             Ui.Text(row, "Your name", "dialog-label");
