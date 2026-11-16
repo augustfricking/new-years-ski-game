@@ -92,6 +92,31 @@ namespace Ski.Game
             Ui.Btn(row, "DONE", () => { Close(); onClose?.Invoke(); });
         }
 
+        /// <summary>First launch: what should we call you? The name goes on the boards and above your ghost.</summary>
+        public static void AskName(Action onDone = null)
+        {
+            var card = Begin("YOUR NAME?");
+            Ui.Text(card, "Shown on the boards and above your ghost.", "small");
+            var field = new TextField { value = SaveData.PlayerName, maxLength = 16 };
+            field.AddToClassList("name-field");
+            field.AddToClassList("name-field-big");
+            card.Add(field);
+            void Done(bool keep)
+            {
+                if (keep) SaveData.PlayerName = field.value.Trim();
+                SaveData.NameAsked = true;
+                Close();                       // saves
+                if (SaveData.PlayerName.Length > 0) OnlineBoards.NameChanged();
+                onDone?.Invoke();
+            }
+            field.RegisterCallback<KeyDownEvent>(e => { if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter) Done(true); }, TrickleDown.TrickleDown);
+            var row = Ui.Div(card, "row");
+            row.style.justifyContent = Justify.Center;
+            Ui.Btn(row, "OK", () => Done(true));
+            Ui.Btn(row, "LATER", () => Done(false), "btn-plain");
+            field.schedule.Execute(() => field.Focus()).StartingIn(100);
+        }
+
         /// <summary>Pause menu. Null actions hide their buttons.</summary>
         public static void Pause(Action resume, Action restart, Action toMap, Action toMenu)
         {

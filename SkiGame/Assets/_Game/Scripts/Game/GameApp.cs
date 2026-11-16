@@ -85,6 +85,7 @@ namespace Ski.Game
                 Lift.PlayCutscene(who, () => { ShowMap(); Ui.Instance.Fade(0f, 0.8f); });
             };
             Ui.Instance.Fade(0f, 0.6f);
+            if (!SaveData.NameAsked) Dialogs.AskName();
         }
 
         public void ShowMap()

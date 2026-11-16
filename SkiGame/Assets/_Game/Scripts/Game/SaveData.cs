@@ -23,6 +23,8 @@ namespace Ski.Game
         public static float BestChug; // seconds, 0 = none yet
         /// <summary>What this device is called on the boards. Empty: the character's name is shown.</summary>
         public static string PlayerName = "";
+        /// <summary>Whether the first-launch question for a name has been answered (or skipped).</summary>
+        public static bool NameAsked;
         /// <summary>The most other skiers (ghosts) shown on a slope at once. 0 switches them off.</summary>
         public static int MaxGhosts = 6;
 
@@ -49,6 +51,7 @@ namespace Ski.Game
             InvertLook = PlayerPrefs.GetInt("invert", 0) == 1;
             BestChug = PlayerPrefs.GetFloat("chug", 0f);
             PlayerName = PlayerPrefs.GetString("name", "");
+            NameAsked = PlayerPrefs.GetInt("name_asked", 0) == 1 || PlayerName.Length > 0;
             MaxGhosts = PlayerPrefs.GetInt("ghosts", 6);
             LastCharacter = (CharacterId)Mathf.Clamp(PlayerPrefs.GetInt("who", 2), 0, 3);
             Apply();
@@ -66,6 +69,7 @@ namespace Ski.Game
             PlayerPrefs.SetInt("invert", InvertLook ? 1 : 0);
             PlayerPrefs.SetFloat("chug", BestChug);
             PlayerPrefs.SetString("name", PlayerName);
+            PlayerPrefs.SetInt("name_asked", NameAsked ? 1 : 0);
             PlayerPrefs.SetInt("ghosts", MaxGhosts);
             PlayerPrefs.SetInt("who", (int)LastCharacter);
             PlayerPrefs.Save();

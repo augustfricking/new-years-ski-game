@@ -25,6 +25,9 @@ namespace Ski.Core
         public Halfpipe Pipe;
         const float LeftLine = -10f, RightLine = 10f;
 
+        /// <summary>The forest stands well back from the pipe, so its walls have open sky behind them.</summary>
+        public override float HalfWidth(float z) => base.HalfWidth(z) + (Pipe != null && z > Pipe.ZA - 30f && z < Pipe.ZB + 30f ? 9f * M.Smooth((z - (Pipe.ZA - 30f)) / 40f) * (1f - M.Smooth((z - (Pipe.ZB - 10f)) / 40f)) : 0f);
+
         public BlueCourse()
         {
             Id = SlopeId.Blue; Name = "Parken"; Seed = 23;
@@ -49,7 +52,7 @@ namespace Ski.Core
             AddFeature(new BoxFeature(16f, 340f, 10f, 0.8f, 0.6f));
 
             // Section 3: the halfpipe.
-            Pipe = new Halfpipe(0f, 500f, 700f, 8.5f, 3.3f);
+            Pipe = new Halfpipe(0f, 500f, 700f, 9.5f, 4.8f);   // a proper pipe: walls nearly five metres, vertical at the lip
             AddFeature(Pipe);
 
             // Section 4: big air. Three large kickers on the left, three medium ones on the right.

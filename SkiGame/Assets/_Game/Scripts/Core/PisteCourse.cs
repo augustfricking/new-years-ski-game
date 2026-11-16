@@ -128,11 +128,13 @@ namespace Ski.Core
     public sealed class Halfpipe : Feature
     {
         public float ZA, ZB, HalfWidth, WallHeight;
-        const float Blend = 16f, FlatPart = 0.5f, Arc = 0.96f;
+        const float Blend = 16f, FlatPart = 0.4f, Arc = 0.992f;
+        /// <summary>Width of the flat deck on top of each wall.</summary>
+        public const float Deck = 6.5f;
         public Halfpipe(float x, float zA, float zB, float halfWidth, float wallHeight)
         {
             X = x; ZA = zA; ZB = zB; HalfWidth = halfWidth; WallHeight = wallHeight;
-            Z0 = zA; Z1 = zB; HalfW = halfWidth + 9f;
+            Z0 = zA; Z1 = zB; HalfW = halfWidth + Deck + 7f;
         }
         public float Envelope(float z) => M.Smooth((z - ZA) / Blend) * (1f - M.Smooth((z - (ZB - Blend)) / Blend));
         /// <summary>0 on the flat bottom, 1 at the lip.</summary>
@@ -149,8 +151,8 @@ namespace Ski.Core
                 float sArc = Arc * t;
                 wall = WallHeight * (1f - Mathf.Sqrt(1f - sArc * sArc)) / (1f - Mathf.Sqrt(1f - Arc * Arc));
             }
-            else wall = WallHeight * (1f - 0.2f * M.Smooth((d - HalfWidth) / 7f)); // the deck
-            float fade = 1f - M.Smooth((d - HalfWidth - 4f) / 5f);
+            else wall = WallHeight;                                             // the deck: flat, level with the lip
+            float fade = 1f - M.Smooth((d - HalfWidth - Deck) / 6f);            // then a bank back down to the piste
             return wall * Envelope(z) * fade;
         }
     }
@@ -371,7 +373,7 @@ namespace Ski.Core
                     // Above the lip or the deck: lean back in, so you come down on the wall you left.
                     float d = pos.x - hp.X;
                     float over = Mathf.Abs(d) - hp.HalfWidth * 0.86f;
-                    if (over > 0f && Mathf.Abs(d) < hp.HalfWidth + 9f)
+                    if (over > 0f && Mathf.Abs(d) < hp.HalfWidth + Halfpipe.Deck + 6f)
                         return new Vector3(-Mathf.Sign(d) * Mathf.Min(11f, 3.5f + over * 3f) * hp.Envelope(pos.z), 0f, 0f);
                 }
             }

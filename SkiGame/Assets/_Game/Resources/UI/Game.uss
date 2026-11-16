@@ -649,3 +649,9 @@
     -unity-font-style: normal;
     letter-spacing: 2px;
 }
+
+.name-field-big {
+    width: 420px;
+    font-size: 34px;
+    margin: 14px 0;
+}

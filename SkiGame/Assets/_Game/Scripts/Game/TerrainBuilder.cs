@@ -32,6 +32,8 @@ namespace Ski.Game
         {
             bool off = c is OffPisteCourse;
             float step = off ? 2.2f : 1.5f;
+            Halfpipe pipe = null;
+            foreach (var f in c.Features) if (f is Halfpipe hp) pipe = hp;
 
             // Rows: regular spacing plus the sharp edges of features.
             var zs = new List<float>();
@@ -70,6 +72,8 @@ namespace Ski.Game
                         else if (k == cols - 2) x = cx + span + 22f;
                         else if (k == cols - 1) x = cx + span + 75f;
                         else x = cx - span + j / (float)inner * 2f * span;
+                        // Around the lips of a halfpipe the grid closes up, so the wall ends in a crisp vertical edge.
+                        if (pipe != null && z > pipe.ZA && z < pipe.ZB) x = PipeWarp(pipe, x);
                     }
                     int i = r * cols + k;
                     pos[i] = new Vector3(x, c.SnowHeight(x, z), z);
@@ -83,6 +87,13 @@ namespace Ski.Game
                         float bump = BumpShade(c, x, z);
                         if (bump > 0f) cc = Color32.Lerp(piste, bumpShade, bump);
                         else if (bump < 0f) cc = Color32.Lerp(piste, bumpLight, -bump);
+                    }
+                    if (pipe != null && z > pipe.ZA + 6f && z < pipe.ZB - 6f)
+                    {
+                        // Coping: a painted line along each lip, and a shaded wall so the shape reads.
+                        float pd = Mathf.Abs(x - pipe.X);
+                        if (Mathf.Abs(pd - pipe.HalfWidth) < 0.22f) cc = lip;
+                        else if (pd < pipe.HalfWidth) cc = Color32.Lerp(cc, bumpShade, pipe.WallT(x) * pipe.WallT(x) * 0.55f);
                     }
                     cc.a = (byte)(groomed ? 255 : 0);
                     col[i] = cc;
@@ -138,6 +149,16 @@ namespace Ski.Game
                 mr.sharedMaterial = Mats.Snow;
                 mr.shadowCastingMode = ShadowCastingMode.Off;
             }
+        }
+
+        /// <summary>Pulls grid columns toward the lips of the pipe (within three metres either side of each).</summary>
+        static float PipeWarp(Halfpipe pipe, float x)
+        {
+            float d = Mathf.Abs(x - pipe.X), off = d - pipe.HalfWidth;
+            const float reach = 3.2f;
+            if (Mathf.Abs(off) >= reach) return x;
+            float pulled = Mathf.Sign(off) * Mathf.Pow(Mathf.Abs(off) / reach, 2.4f) * reach;
+            return pipe.X + Mathf.Sign(x - pipe.X) * (pipe.HalfWidth + pulled);
         }
 
         /// <summary>How much a point lies in the shade of a pit or roller (+) or on a lit crest (-).</summary>
@@ -265,6 +286,29 @@ namespace Ski.Game
                         b.Tube(new Vector3(-0.42f, 0f, 0f), new Vector3(0.42f, 1.55f, 0f), 0.024f, 5);
                         b.Tube(new Vector3(0.42f, 0f, 0f), new Vector3(-0.42f, 1.55f, 0f), 0.024f, 5);
                         b.Pop();
+                    }
+                }
+                else if (f is Halfpipe hpipe)
+                {
+                    // Orange safety netting along the outside of both decks: the pipe is fenced, not open to the forest.
+                    for (int s = -1; s <= 1; s += 2)
+                    {
+                        float x = hpipe.X + s * (hpipe.HalfWidth + Halfpipe.Deck - 0.8f);
+                        Vector3 prev = default; bool has = false;
+                        for (float z = hpipe.ZA + 18f; z <= hpipe.ZB - 18f; z += 5f)
+                        {
+                            Vector3 p = new Vector3(x, c.SnowHeight(x, z), z);
+                            b.Col = Palette.SteelDark;
+                            b.Tube(p, p + Vector3.up * 1.7f, 0.035f, 5);
+                            if (has)
+                            {
+                                b.Col = Palette.SafetyOrange;
+                                b.DoubleQuad(prev + Vector3.up * 0.25f, prev + Vector3.up * 1.6f, p + Vector3.up * 1.6f, p + Vector3.up * 0.25f);
+                                b.Col = Palette.White;
+                                b.DoubleQuad(prev + Vector3.up * 0.85f, prev + Vector3.up * 1.0f, p + Vector3.up * 1.0f, p + Vector3.up * 0.85f);
+                            }
+                            prev = p; has = true;
+                        }
                     }
                 }
                 else if (f is Kicker k)
