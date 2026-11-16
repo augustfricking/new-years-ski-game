@@ -111,21 +111,21 @@ namespace Ski.Game
         public static readonly Pose SitZipJacket = new Pose
         {
             Seated = 1, ThighL = 88, KneeL = 80, ThighR = 88, KneeR = 80, LegOut = 6, TorsoPitch = 2, HeadPitch = 20,
-            ArmFwdL = 46, ArmOutL = 14, ElbowL = 118, ArmFwdR = 50, ArmOutR = 14, ElbowR = 126, ArmTwistL = 52, ArmTwistR = 52,
+            ArmFwdL = 46, ArmOutL = 14, ElbowL = 118, ArmFwdR = 50, ArmOutR = 14, ElbowR = 126, ArmTwistL = 30, ArmTwistR = 30,
         };
 
         /// <summary>Leaning to the left, pointing with the left arm.</summary>
         public static readonly Pose SitPoint = new Pose
         {
             Seated = 1, ThighL = 88, KneeL = 80, ThighR = 88, KneeR = 80, LegOut = 6, TorsoPitch = 8, TorsoYaw = -14, HeadYaw = -28,
-            ArmFwdL = 76, ArmOutL = 34, ElbowL = 8, ArmFwdR = 28, ArmOutR = 8, ElbowR = 72, ArmTwistR = 15,
+            ArmFwdL = 104, ArmOutL = 30, ElbowL = 10, ArmFwdR = 28, ArmOutR = 8, ElbowR = 72, ArmTwistR = 10,
         };
 
         /// <summary>Hunched against the wind, arms hugging the body.</summary>
         public static readonly Pose SitCold = new Pose
         {
             Seated = 1, ThighL = 92, KneeL = 86, ThighR = 92, KneeR = 86, LegOut = 2, TorsoPitch = 20, HeadPitch = 12,
-            ArmFwdL = 36, ArmOutL = 2, ElbowL = 112, ArmFwdR = 36, ArmOutR = 2, ElbowR = 112, ArmTwistL = 62, ArmTwistR = 62,
+            ArmFwdL = 36, ArmOutL = 2, ElbowL = 112, ArmFwdR = 36, ArmOutR = 2, ElbowR = 112, ArmTwistL = 35, ArmTwistR = 35,
         };
 
         /// <summary>Gripping the safety bar, leaning back, alarmed.</summary>

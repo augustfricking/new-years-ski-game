@@ -74,6 +74,68 @@ namespace Ski.Game
 
         public static float SeatX(int i) => 0.86f - i * 0.573f;
 
+        // The safety bar, its side arms and the foot-rest stem, in the chair's own space (see Props.Chair).
+        static readonly Vector3[] BarParts =
+        {
+            new Vector3(-1.15f, -2.55f, 0.42f), new Vector3(1.15f, -2.55f, 0.42f),
+            new Vector3(-1.15f, -1.9f, -0.4f), new Vector3(-1.15f, -2.55f, 0.42f),
+            new Vector3(1.15f, -1.9f, -0.4f), new Vector3(1.15f, -2.55f, 0.42f),
+            new Vector3(0f, -2.55f, 0.42f), new Vector3(0f, -3.65f, 0.62f),
+        };
+
+        /// <summary>
+        /// Arms never pass through the bar: an arm whose sleeve would cut through it is raised a
+        /// little each frame until it clears it, and lowered back once it is clear. Hands may hold it.
+        /// </summary>
+        void KeepArmsOffTheBar(float dt)
+        {
+            if (Friends == null) return;
+            for (int i = 0; i < Friends.Length; i++)
+            {
+                var f = Friends[i];
+                if (f == null || f.ShoulderL == null) continue;
+                for (int side = 0; side < 2; side++)
+                {
+                    Transform sh = side == 0 ? f.ShoulderL : f.ShoulderR, el = side == 0 ? f.ElbowL : f.ElbowR, hand = side == 0 ? f.HandL : f.HandR;
+                    Vector3 s0 = _chair.InverseTransformPoint(sh.position), e0 = _chair.InverseTransformPoint(el.position), h0 = _chair.InverseTransformPoint(hand.position);
+                    Vector3 wrist = Vector3.Lerp(e0, h0, 0.72f);   // the hand itself may rest on the bar
+                    float d = float.MaxValue;
+                    for (int k = 0; k < BarParts.Length; k += 2)
+                    {
+                        d = Mathf.Min(d, SegmentDistance(s0, e0, BarParts[k], BarParts[k + 1]));
+                        d = Mathf.Min(d, SegmentDistance(e0, wrist, BarParts[k], BarParts[k + 1]));
+                    }
+                    float lift = side == 0 ? f.ArmLiftL : f.ArmLiftR;
+                    lift = d < 0.085f ? Mathf.Min(lift + 160f * dt, 75f) : Mathf.Max(lift - (d > 0.14f ? 45f : 0f) * dt, 0f);
+                    if (side == 0) f.ArmLiftL = lift; else f.ArmLiftR = lift;
+                }
+            }
+        }
+
+        /// <summary>Shortest distance between two line segments.</summary>
+        static float SegmentDistance(Vector3 p1, Vector3 q1, Vector3 p2, Vector3 q2)
+        {
+            Vector3 d1 = q1 - p1, d2 = q2 - p2, r = p1 - p2;
+            float a = Vector3.Dot(d1, d1), e = Vector3.Dot(d2, d2), f = Vector3.Dot(d2, r);
+            float s, t;
+            if (a < 1e-8f && e < 1e-8f) return r.magnitude;
+            if (a < 1e-8f) { s = 0f; t = Mathf.Clamp01(f / e); }
+            else
+            {
+                float c = Vector3.Dot(d1, r);
+                if (e < 1e-8f) { t = 0f; s = Mathf.Clamp01(-c / a); }
+                else
+                {
+                    float b = Vector3.Dot(d1, d2), denom = a * e - b * b;
+                    s = denom > 1e-8f ? Mathf.Clamp01((b * f - c * e) / denom) : 0f;
+                    t = (b * s + f) / e;
+                    if (t < 0f) { t = 0f; s = Mathf.Clamp01(-c / a); }
+                    else if (t > 1f) { t = 1f; s = Mathf.Clamp01((b - c) / a); }
+                }
+            }
+            return ((p1 + d1 * s) - (p2 + d2 * t)).magnitude;
+        }
+
         public static LiftScene Create(Transform parent, Mode mode, CharacterId player = CharacterId.Erik)
         {
             var go = new GameObject("LiftScene");
@@ -495,6 +557,7 @@ namespace Ski.Game
             var look = WorldLook.Instance;
             float storm = look != null ? look.Storm : 0f;
 
+            KeepArmsOffTheBar(dt);
             // The mountain goes by.
             _travel += LiftSpeed * dt;
             float off = _travel % Period;

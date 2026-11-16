@@ -38,10 +38,11 @@ namespace Ski.Game
             foreach (var r in LiveRooms.Others.Values)
             {
                 bool there = r.Timeline.Visible(now) && r.Timeline.At(now, out var s, out float speed, out var mode) && mode != LiveMode.Tavern;
-                if (!_views.TryGetValue(r.Id, out var v))
+                if (_views.TryGetValue(r.Id, out var v) && v.OutfitCode != r.Outfit) { Object.Destroy(v.gameObject); _views.Remove(r.Id); v = null; }
+                if (v == null)
                 {
                     if (!there) continue;
-                    _views[r.Id] = v = GhostView.Create(_parent, r.Name, r.Who, false);
+                    _views[r.Id] = v = GhostView.Create(_parent, r.Name, r.Who, false, false, r.Outfit);
                 }
                 v.Rename(r.Name);
                 if (!there || !r.Timeline.At(now, out s, out speed, out mode)) { v.Hide(); continue; }

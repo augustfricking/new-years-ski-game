@@ -52,14 +52,20 @@ namespace Ski.Game
             AudioDirector.Create(transform);
             Ui.Create(transform);
             SaveData.Load();
+            SaveData.Unlocked += u => { Ui.Instance?.Notice("UNLOCKED!", u.Name + "  -  in the shop"); AudioDirector.Sfx("cheer", 0.7f, 1.2f); };
             OnlineBoards.Connect();   // anonymous device profile for the world boards; local play does not wait for it
             Character = SaveData.LastCharacter;
             if (DebugSlope.HasValue) StartRun(DebugSlope.Value, Character);
             else ShowMenu();
         }
 
+        /// <summary>The shop, while it is open.</summary>
+        public ShopPanel Shop { get; private set; }
+
         void CloseAll()
         {
+            Shop?.Close();
+            Shop = null;
             Dialogs.Close();
             if (Run != null) { Run.Close(); Run = null; }
             if (Lift != null) { Lift.Close(); Lift = null; }
@@ -97,6 +103,7 @@ namespace Ski.Game
             Map = MapScene.Create(transform, Character);
             Map.OnPick = slope => Transition(() => StartRun(slope, Character), 0.45f);
             Map.OnWatch = (slope, entry) => Transition(() => WatchFromMap(slope, entry), 0.45f);
+            Map.OnShop = () => { if (Shop == null || !Shop.IsOpen) Shop = ShopPanel.Open(transform, Character, () => Shop = null); };
             Map.OnChangeSkier = () => Transition(ShowMenu);
         }
 
@@ -111,6 +118,20 @@ namespace Ski.Game
             Cursor.lockState = CursorLockMode.Locked;   // mouse look from the first moment (browsers engage it on the first key or click)
             Run.OnLiftReached = () => Transition(ShowRide);
             Run.OnTavernReached = () => Transition(ShowTavern);
+            Run.OnShopReached = () =>
+            {
+                if (Shop != null && Shop.IsOpen) return;
+                Run.Paused = true;
+                Cursor.lockState = CursorLockMode.None;
+                Shop = ShopPanel.Open(transform, Character, () =>
+                {
+                    Shop = null;
+                    if (Run == null) return;
+                    Run.Rig.RebuildBody();
+                    Run.Paused = false;
+                    Cursor.lockState = CursorLockMode.Locked;
+                });
+            };
         }
 
         /// <summary>Someone's run from the board, on its slope; back to the map when it ends.</summary>
@@ -176,7 +197,8 @@ namespace Ski.Game
                 // Clicking the game captures the mouse for looking around.
                 if (!Dialogs.Open && mouse != null && mouse.leftButton.wasPressedThisFrame && Cursor.lockState != CursorLockMode.Locked)
                     Cursor.lockState = CursorLockMode.Locked;
-                if (kb != null && kb.escapeKey.wasPressedThisFrame && !_busy && Run.Watching) Run.StopWatching();
+                if (kb != null && kb.escapeKey.wasPressedThisFrame && !_busy && Shop != null && Shop.IsOpen) Shop.Close();
+                else if (kb != null && kb.escapeKey.wasPressedThisFrame && !_busy && Run.Watching) Run.StopWatching();
                 else if (kb != null && kb.escapeKey.wasPressedThisFrame && !_busy)
                 {
                     if (Dialogs.Open) { Dialogs.Close(); Resume(); }
@@ -189,7 +211,7 @@ namespace Ski.Game
                     }
                 }
             }
-            else if (Screen == GameScreen.Tavern && Tavern != null && Tavern.Game == null)
+            else if (Screen == GameScreen.Tavern && Tavern != null && Tavern.Game == null && Tavern.GameEndFrame < Time.frameCount - 1)
             {
                 if (!Dialogs.Open && mouse != null && mouse.leftButton.wasPressedThisFrame) Cursor.lockState = CursorLockMode.Locked;
                 if (kb != null && kb.escapeKey.wasPressedThisFrame && !_busy)

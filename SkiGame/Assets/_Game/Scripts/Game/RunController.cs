@@ -22,7 +22,8 @@ namespace Ski.Game
         public bool InputEnabled = true;
         /// <summary>Set once the finish line is crossed and the result is on the board.</summary>
         public SubmitResult? Result { get; private set; }
-        public Action OnLiftReached, OnTavernReached;
+        public Action OnLiftReached, OnTavernReached, OnShopReached;
+        bool _inShop;
 
         ResultsPanel _results;
         LiveCrowd _live;
@@ -89,6 +90,19 @@ namespace Ski.Game
             if (improved) Celebrate(10f);
             // Only a person's own run goes to the world: never the autopilot, never a result no run could give.
             bool real = !_botDrove && Courses.Plausible(Session.Slope, Session.ResultValue);
+            if (!_botDrove)
+            {
+                // What this run counts toward in the shop.
+                var s = Session;
+                SaveData.Record(p =>
+                {
+                    p.slopesFinished |= 1 << (int)s.Slope;
+                    if (s.Slope == SlopeId.Green) p.kidsHitOneRun = Mathf.Max(p.kidsHitOneRun, s.PeopleHit);
+                    if (s.Slope == SlopeId.Blue) p.bestPark = Mathf.Max(p.bestPark, s.ResultValue);
+                    if (s.Slope == SlopeId.Black && (p.bestBlack <= 0f || s.ResultValue < p.bestBlack)) p.bestBlack = s.ResultValue;
+                    p.bestTrick = Mathf.Max(p.bestTrick, s.BestTrickPoints);
+                });
+            }
             if (!real) { OnlineBoards.Fetch(OnlineBoards.BoardId(Session.Slope), list => { if (Session != null && panel != null) panel.ShowWorld(list); }); return; }
             OnlineBoards.Submit(OnlineBoards.BoardId(Session.Slope), Session.ResultValue, recording, (int)Session.Character, list =>
             {
@@ -239,7 +253,16 @@ namespace Ski.Game
                 float rdt = Mathf.Min(Time.deltaTime, 0.1f);
                 _replay.Tick(Rig.Cam, rdt);
                 _live.Sync(Rig.Cam, rdt);
-                if (Kids != null) { Kids.ViewerZ = Rig.Cam.transform.position.z; Kids.Sync(rdt); }
+                // The kids carry on around the replayed skier, and go down if it runs into them.
+                Vector3 rp = _replay.Position;
+                if (Session.Crowd != null)
+                {
+                    Session.Crowd.Step(rdt, rp.z, rp.x);
+                    var kid = Session.Crowd.Hit(rp.x, rp.z, Session.Sim.P.BodyRadius);
+                    if (kid != null && !kid.Fallen) { Session.Crowd.Knock(kid); AudioDirector.Sfx("crash", 0.6f, 1.2f); }
+                }
+                _village.Tick(rp.z, rdt);
+                if (Kids != null) { Kids.ViewerZ = rp.z; Kids.Sync(rdt); }
                 if (_replay.Done) StopWatching();
                 return;
             }
@@ -309,6 +332,13 @@ namespace Ski.Game
             _live.Sync(Rig.Cam, dt);
             SendLive();
             _village.Tick(Session.Sim.Pos.z, dt);
+            // People in the village are solid too.
+            if (!Paused && !Session.Sim.Crashed && Session.Sim.Contact && Session.Sim.Speed > 1.2f && _village.Hit(Session.Sim.Pos, Session.Sim.Vel, Session.Sim.P.BodyRadius))
+            {
+                Session.Sim.Crash(CrashReason.Person);
+                Rig.Kick(0.3f);
+                AudioDirector.Sfx("crash", 0.8f);
+            }
             if (!Paused) _snow.Tick(Session.Sim, dt);
             if (Kids != null) { Kids.ViewerZ = Session.Sim.Pos.z; Kids.Sync(dt); }
             AmbientSounds();
@@ -317,6 +347,10 @@ namespace Ski.Game
             if (Result.HasValue && !_left && !Paused)
             {
                 var c = Session.Course; var p = Session.Sim.Pos;
+                // The shop opens on its pad, and again only after you have skied off it.
+                bool shop = c.ShopZone.Contains(p.x, p.z);
+                if (shop && !_inShop) OnShopReached?.Invoke();
+                _inShop = shop;
                 if (c.LiftZone.Contains(p.x, p.z)) { _left = true; OnLiftReached?.Invoke(); }
                 else if (c.TavernZone.Contains(p.x, p.z)) { _left = true; OnTavernReached?.Invoke(); }
             }

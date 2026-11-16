@@ -29,6 +29,8 @@ namespace Ski.Game
             public CharacterId Who = CharacterId.Erik;
             public readonly LiveTimeline Timeline = new LiveTimeline();
             public string PunchSeen;
+            /// <summary>Their outfit from the shop (<see cref="Outfit.Code"/>).</summary>
+            public string Outfit = "";
             public double Arrived;
         }
 
@@ -111,6 +113,7 @@ namespace Ski.Game
                     PlayerProperties = new Dictionary<string, PlayerProperty>
                     {
                         { "n", new PlayerProperty(SafeName(SaveData.PlayerName), VisibilityPropertyOptions.Member) },
+                        { "o", new PlayerProperty(SaveData.Outfit(SaveData.LastCharacter).Code, VisibilityPropertyOptions.Member) },
                     },
                 };
                 try
@@ -193,6 +196,7 @@ namespace Ski.Game
                 var props = p.Properties;
                 if (props == null) continue;
                 if (props.TryGetValue("n", out var n) && !string.IsNullOrEmpty(n.Value)) r.Name = SafeName(n.Value);
+                if (props.TryGetValue("o", out var o) && o.Value != null && o.Value.Length < 64) r.Outfit = o.Value;
                 if (props.TryGetValue("s", out var st))
                 {
                     var packet = LivePacket.Decode(st.Value);
@@ -257,13 +261,21 @@ namespace Ski.Game
             _lastSave = Now;
             try
             {
-                if (_pendingState != null) s.CurrentPlayer.SetProperty("s", new PlayerProperty(_pendingState, VisibilityPropertyOptions.Member));
+                if (!string.IsNullOrEmpty(_pendingState)) s.CurrentPlayer.SetProperty("s", new PlayerProperty(_pendingState, VisibilityPropertyOptions.Member));
                 if (_pendingPunch != null) s.CurrentPlayer.SetProperty("h", new PlayerProperty(_pendingPunch, VisibilityPropertyOptions.Member));
                 _pendingState = _pendingPunch = null;
                 await s.SaveCurrentPlayerDataAsync();
             }
             catch (Exception e) { Debug.Log("[Live] update: " + e.Message); _lastSave = Now + 3.0; }
             finally { _saving = false; }
+        }
+
+        /// <summary>Call after the player changes their outfit (or character).</summary>
+        public static void OutfitChanged()
+        {
+            if (!Connected) return;
+            try { _session.CurrentPlayer.SetProperty("o", new PlayerProperty(SaveData.Outfit(SaveData.LastCharacter).Code, VisibilityPropertyOptions.Member)); _pendingState ??= ""; Flush(); }
+            catch (Exception) { }
         }
 
         /// <summary>Call after the player changes their name.</summary>

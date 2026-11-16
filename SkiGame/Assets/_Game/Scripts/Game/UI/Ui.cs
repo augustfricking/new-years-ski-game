@@ -79,6 +79,24 @@ namespace Ski.Game
 
         public void ShowGoggles(bool on) { _goggles.style.display = on ? DisplayStyle.Flex : DisplayStyle.None; }
 
+        /// <summary>A short note at the top of the screen for a few seconds ("UNLOCKED", "Goalie mask").</summary>
+        public void Notice(string title, string sub, float seconds = 4f)
+        {
+            var box = Div(TopLayer, "notice notice-hidden");
+            box.pickingMode = PickingMode.Ignore;
+            Text(box, title, "notice-title");
+            if (!string.IsNullOrEmpty(sub)) Text(box, sub, "notice-sub");
+            float t = 0f;
+            System.Action<float> tick = null;
+            tick = AddTicker(dt =>
+            {
+                t += dt;
+                if (t > 0.05f) box.RemoveFromClassList("notice-hidden");
+                if (t > seconds) box.AddToClassList("notice-hidden");
+                if (t > seconds + 0.6f) { box.RemoveFromHierarchy(); RemoveTicker(tick); }
+            });
+        }
+
         public void Letterbox(bool on)
         {
             _barTop.EnableInClassList("letterbox-hidden", !on);
@@ -136,7 +154,14 @@ namespace Ski.Game
         public static VisualElement Keys(VisualElement parent, string keys, string what)
         {
             var row = Div(parent, "keys-row");
-            foreach (var k in keys.Split(' ')) Text(row, k, "key");
+            foreach (var k in keys.Split(' '))
+            {
+                // The mouse is drawn, not spelled: a lit left button for a click.
+                if (k == "CLICK") row.Add(new MouseIcon(MouseIcon.Lit.Left));
+                else if (k == "RCLICK") row.Add(new MouseIcon(MouseIcon.Lit.Right));
+                else if (k == "MOUSE") row.Add(new MouseIcon(MouseIcon.Lit.None));
+                else Text(row, k, "key");
+            }
             Text(row, what, "hint");
             return row;
         }

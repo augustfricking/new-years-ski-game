@@ -123,16 +123,20 @@ namespace Ski.Game
         /// One part as a mesh in a character's own colours and size. Creases are darkened toward
         /// ink, the way a comic artist shades folds. Expressions become blend shapes when asked for.
         /// </summary>
-        public Mesh Build(Part part, Color[] slots, float scale, Matrix4x4[] bindPoses, bool expressions, System.Func<Vector3, int, Color, Color> tint = null)
+        /// <param name="printed">Slots that carry a printed pattern: their faces go to a second sub-mesh, white, with <paramref name="printUv"/> for the texture.</param>
+        public Mesh Build(Part part, Color[] slots, float scale, Matrix4x4[] bindPoses, bool expressions, System.Func<Vector3, int, Color, Color> tint = null,
+                          System.Func<int, bool> printed = null, System.Func<Vector3, int, Vector2> printUv = null)
         {
             int n = part.Vertices.Length;
             var v = new Vector3[n];
             var c = new Color32[n];
+            var uv = printUv != null ? new Vector2[n] : null;
             for (int i = 0; i < n; i++)
             {
                 v[i] = part.Vertices[i] * scale;
                 Color col = slots[Mathf.Min(part.Slot[i], SlotCount - 1)];
                 if (tint != null) col = tint(part.Vertices[i], part.Slot[i], col);
+                if (printed != null && printed(part.Slot[i])) { col = Color.white; uv[i] = printUv(part.Vertices[i], part.Slot[i]); }
                 float crease = part.Crease[i] / 255f;
                 // Skin takes only a little of this: a face must stay light enough to read from afar.
                 c[i] = Color.Lerp(col, Color.Lerp(col, Palette.Ink, part.Slot[i] == SlotSkin ? 0.14f : 0.3f), crease * crease);
@@ -141,7 +145,24 @@ namespace Ski.Game
             mesh.SetVertices(v);
             mesh.SetNormals(part.Normals);
             mesh.SetColors(c);
-            mesh.SetTriangles(part.Triangles, 0);
+            if (printed == null) mesh.SetTriangles(part.Triangles, 0);
+            else
+            {
+                // Faces wholly on printed cloth take the print; the rest stay plain.
+                mesh.SetUVs(0, uv);
+                var plain = new System.Collections.Generic.List<int>(part.Triangles.Length);
+                var print = new System.Collections.Generic.List<int>(part.Triangles.Length);
+                var t = part.Triangles;
+                for (int i = 0; i < t.Length; i += 3)
+                {
+                    bool p = printed(part.Slot[t[i]]) && printed(part.Slot[t[i + 1]]) && printed(part.Slot[t[i + 2]]);
+                    var list = p ? print : plain;
+                    list.Add(t[i]); list.Add(t[i + 1]); list.Add(t[i + 2]);
+                }
+                mesh.subMeshCount = 2;
+                mesh.SetTriangles(plain, 0);
+                mesh.SetTriangles(print, 1);
+            }
             mesh.boneWeights = part.Weights;
             mesh.bindposes = bindPoses;
             if (expressions)

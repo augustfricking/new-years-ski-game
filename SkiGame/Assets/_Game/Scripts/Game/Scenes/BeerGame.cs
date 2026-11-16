@@ -45,6 +45,9 @@ namespace Ski.Game
                 _bar = new ZoneBar();
                 panel.Add(_bar);
                 Ui.Keys(panel, "SPACE", "gulp in green");
+                var keys = Ui.Div(panel, "row");
+                Ui.Keys(keys, "R", "restart");
+                Ui.Keys(keys, "ESC", "leave");
             }
             Begin();
         }
@@ -118,8 +121,11 @@ namespace Ski.Game
         {
             var kb = Keyboard.current;
             bool press = kb != null && kb.spaceKey.wasPressedThisFrame;
-            bool leave = kb != null && (kb.escapeKey.wasPressedThisFrame || kb.eKey.wasPressedThisFrame);
+            // E is for using things, so it never leaves the game by accident: Esc (or Q) leaves, R starts over.
+            bool leave = kb != null && (kb.escapeKey.wasPressedThisFrame || kb.qKey.wasPressedThisFrame);
+            bool restart = kb != null && kb.rKey.wasPressedThisFrame;
 
+            if (restart) { Begin(); return; }
             if (_result != null)
             {
                 if (press) Begin();
@@ -150,6 +156,8 @@ namespace Ski.Game
                     }
                 }
                 if (_game.Finished) Finish();
+                else if (_game.TimedOut) TooSlow();
+                else if (leave) { Dispose(); _onClose?.Invoke(); return; }
             }
 
             // Stein: raised to the mouth while drinking, tipped further as it empties.
@@ -183,6 +191,24 @@ namespace Ski.Game
             }
         }
 
+        /// <summary>A minute went by: the bartender takes the stein back.</summary>
+        void TooSlow()
+        {
+            AudioDirector.Sfx("spill", 0.6f, 0.8f);
+            _bartender.Target = Pose.Stand.WithArms(70, 8, 30, 70, 8, 30);
+            if (_status != null) _status.text = "";
+            var ui = Ui.Instance;
+            if (ui == null) return;
+            _result = Ui.Div(_ui, "dim");
+            _result.pickingMode = PickingMode.Ignore;
+            var card = Ui.Div(_result, "card shadowed dialog tilt-left");
+            Ui.Text(card, "TOO SLOW!", "h1");
+            Ui.Text(card, "A minute is all you get.", "small");
+            var row = Ui.Div(card);
+            Ui.Keys(row, "SPACE", "again");
+            Ui.Keys(row, "ESC", "done");
+        }
+
         void Finish()
         {
             float t = _game.Time;
@@ -191,6 +217,7 @@ namespace Ski.Game
             bool best = res.PersonalBest;
             bool beatBar = res.PersonalBest && !float.IsNaN(res.PreviousBest);
             if (best) { SaveData.BestChug = t; SaveData.Save(); }
+            SaveData.Record(p => { if (p.bestChug <= 0f || t < p.bestChug) p.bestChug = t; });
             _tavern.Wobble = Mathf.Min(_tavern.Wobble + 1.6f, 6f);
             // The whole hall cheers an empty stein.
             _tavern.Cheer(beatBar ? 6f : 3.6f);
@@ -241,7 +268,7 @@ namespace Ski.Game
             }
             var row = Ui.Div(card);
             Ui.Keys(row, "SPACE", "again");
-            Ui.Keys(row, "E", "done");
+            Ui.Keys(row, "ESC", "done");
         }
 
         public void Dispose()

@@ -23,12 +23,47 @@ namespace Ski.Game
         public float JawWidth = 1f, NoseSize = 1f;
         /// <summary>The sculpted body in Resources/Models to wear (null: simple shapes, as for kids).</summary>
         public string Model;
+        /// <summary>From the shop: a printed pattern, special headgear, a whole suit (see <see cref="Unlocks"/>).</summary>
+        public int Pattern, Headgear, Suit;
         public GearKind Gear = GearKind.Skis;
         public float GearLength = 1.6f;
         public bool TwinTip, Poles = true;
         public Color GearColour, GearAccent;
 
-        public static PersonLook For(CharacterId id)
+        /// <summary>A friend as dressed on this device, or in the outfit given (another player's).</summary>
+        public static PersonLook For(CharacterId id, Outfit outfit)
+        {
+            var look = For(id, false);
+            look.Apply(outfit ?? SaveData.Outfit(id));
+            return look;
+        }
+
+        public static PersonLook For(CharacterId id) => For(id, null);
+
+        static readonly Color GoldA = Palette.Hex("#E8B93A"), GoldB = Palette.Hex("#9C6B1E"), BananaA = Palette.Hex("#F5D33B"), BananaB = Palette.Hex("#7A5A20");
+
+        /// <summary>Dresses the look in an outfit from the shop.</summary>
+        public void Apply(Outfit o)
+        {
+            if (o == null) return;
+            Color Pick(int i, Color own) => i >= 0 && i < OutfitPaint.Colours.Length ? OutfitPaint.Colours[i] : own;
+            Jacket = Pick(o.jacket, Jacket); Trim = Pick(o.trim, Trim); Pants = Pick(o.pants, Pants); Helmet = Pick(o.helmet, Helmet);
+            Pattern = o.pattern; Headgear = o.headgear; Suit = o.suit;
+            if (Suit == 1) { Jacket = GoldA; Trim = GoldB; Pants = GoldA; Gloves = GoldB; Boots = GoldA; if (o.helmet < 0) Helmet = GoldA; }
+            if (Suit == 2) { Jacket = BananaA; Trim = BananaB; Pants = BananaA; Gloves = BananaB; if (o.helmet < 0) Helmet = BananaA; }
+            switch (Headgear)
+            {
+                case 1: HasHelmet = false; Beanie = true; break;                                   // beanie
+                case 2: if (o.helmet < 0) Helmet = Palette.Hex("#8C8E98"); break;                 // viking: steel
+                case 3: if (o.helmet < 0) Helmet = Palette.Hex("#F7F4EE"); HasGoggles = false; break; // goalie
+                case 4: if (o.helmet < 0) Helmet = Palette.Hex("#D9342B"); break;                 // boxer
+                case 5: HasHelmet = false; Beanie = false; break;                                  // crown on the hair
+                case 6: if (o.helmet < 0) Helmet = Palette.Hex("#F7F4EE"); break;                 // unicorn
+            }
+            if (Suit == 2 && Headgear == 0) { HasHelmet = false; Beanie = true; }                  // the banana keeps its hat
+        }
+
+        static PersonLook For(CharacterId id, bool unused)
         {
             var st = CharacterStyle.Get(id);
             var info = SkierInfo.Get(id);
@@ -106,6 +141,12 @@ namespace Ski.Game
         public bool PolesHang { get => Poles == PoleMode.Hang; set => Poles = value ? PoleMode.Hang : PoleMode.Ski; }
 
         public Transform HandL => _handL;
+        public Transform ShoulderL => _shL;
+        public Transform ShoulderR => _shR;
+        public Transform ElbowL => _elL;
+        public Transform ElbowR => _elR;
+        /// <summary>Extra forward raise of each arm (degrees), on top of the pose: lifts an arm clear of something in the way.</summary>
+        public float ArmLiftL, ArmLiftR;
         public Transform HandR => _handR;
         public Transform Head => _head;
         public Transform Hips => _hips;
@@ -476,6 +517,7 @@ namespace Ski.Game
             Ring R(float y, float rx, float rz, float oz = 0f) => new Ring(y * hr, rx * hr, rz * hr, oz * hr);
             Vector3 V(float x, float y, float z) => new Vector3(x * hr, y * hr, z * hr);
             // --- headwear and hair -----------------------------------------------------------
+            BuildHeadgear(b, look, hr);
             if (look.HasHelmet) BuildHelmet(b, look, hr, hs);
             else
             {
@@ -732,6 +774,7 @@ namespace Ski.Game
             slots[SkinModel.SlotInk] = Palette.Ink; slots[SkinModel.SlotTeeth] = Palette.White;
             float chinY = J[SkinModel.Head].y - 0.25f * m.HeadRadius, earZ = m.EarL.z;
             Color beard = Color.Lerp(look.Skin, look.Hair, 0.34f);
+            float hipY = J[SkinModel.Hips].y;
             System.Func<Vector3, int, Color, Color> tint = null;
             if (look.Stubble)
                 tint = (pos, slot, col) =>
@@ -748,13 +791,23 @@ namespace Ski.Game
                 var go = new GameObject(part.Name);
                 go.transform.SetParent(transform, false);
                 var r = go.AddComponent<SkinnedMeshRenderer>();
-                var mesh = m.Build(part, slots, k, bind, skin && look.Hero, tint);
+                // A printed pattern: the jacket (and for some prints the pants) gets its own textured material.
+                int pattern = look.Pattern;
+                bool prints = !skin && pattern > 0 && (part.Name == "jacket" || part.Name == "pants");
+                System.Func<int, bool> printed = prints ? (slot => OutfitPaint.Prints(pattern, slot)) : (System.Func<int, bool>)null;
+                System.Func<Vector3, int, Vector2> printUv = prints ? ((pos, slot) => OutfitPaint.Uv(pattern, pos, slot, hipY)) : (System.Func<Vector3, int, Vector2>)null;
+                var mesh = m.Build(part, slots, k, bind, skin && look.Hero, tint, printed, printUv);
                 _ownMeshes.Add(mesh);
                 r.sharedMesh = mesh;
                 r.bones = bones;
                 r.rootBone = _hips;
                 r.localBounds = new Bounds(new Vector3(0f, 0.1f * s, 0f), new Vector3(2.4f, 2.6f, 2.4f) * s);
                 r.sharedMaterial = look.Hero ? (skin ? Mats.CharacterSkin : Mats.CharacterCloth) : (skin ? Mats.CrowdSkin : Mats.CrowdCloth);
+                if (prints)
+                {
+                    bool legs = part.Name == "pants";
+                    r.sharedMaterials = new[] { r.sharedMaterial, OutfitPaint.Material(r.sharedMaterial, pattern, legs ? look.Pants : look.Jacket, look.Trim) };
+                }
                 if (skin)
                 {
                     _headParts.Add(r);
@@ -880,6 +933,104 @@ namespace Ski.Game
             Vector3 l = On(-90f, ear, 0.97f), r = On(90f, ear, 0.97f);
             Vector3 cl = new Vector3(-0.24f, -0.2f, 0.36f) * hr, cr = new Vector3(0.24f, -0.2f, 0.36f) * hr;
             b.Tube(l, cl, 0.028f * hr, 4); b.Tube(r, cr, 0.028f * hr, 4); b.Tube(cl, cr, 0.028f * hr, 4);
+        }
+
+        /// <summary>The sillier things from the shop, added to the helmet (or the hair). In head radii.</summary>
+        void BuildHeadgear(MeshBuilder b, PersonLook look, float hr)
+        {
+            Vector3 V(float x, float y, float z) => new Vector3(x, y, z) * hr;
+            switch (look.Headgear)
+            {
+                case 2: // Viking: two horns curling out and up from the sides
+                    b.Col = Palette.Hex("#EFE6CF");
+                    for (int side = -1; side <= 1; side += 2)
+                    {
+                        Vector3 prev = V(side * 0.86f, 1.3f, -0.05f);
+                        for (int i = 1; i <= 7; i++)
+                        {
+                            float t = i / 7f;
+                            Vector3 p = V(side * (0.9f + 0.85f * t), 1.25f + 0.35f * t + 1.1f * t * t, -0.05f + 0.35f * t);
+                            b.Tube(prev, p, Mathf.Lerp(0.3f, 0.03f, (i - 1) / 7f) * hr, Mathf.Lerp(0.3f, 0.03f, t) * hr, 10, i == 7);
+                            prev = p;
+                        }
+                    }
+                    b.Col = Palette.Hex("#C8A040");
+                    b.Box(V(0f, 1.95f, 0.1f), V(0.1f, 0.3f, 0.9f));                       // a ridge over the top
+                    break;
+                case 3: // goalie: a white wire cage over the face
+                    b.Col = Palette.Hex("#F7F4EE");
+                    float R = 1.14f;
+                    for (float x = -0.5f; x <= 0.51f; x += 0.2f)
+                    {
+                        float z = Mathf.Sqrt(R * R - x * x) - 0.04f;
+                        b.Tube(V(x, 1.3f, z - 0.06f), V(x, -0.18f, z - 0.12f), 0.026f * hr, 4);
+                    }
+                    for (int k = 0; k < 4; k++)
+                    {
+                        float y = 1.1f - k * 0.4f;
+                        Vector3 prev = default;
+                        for (int i = 0; i <= 8; i++)
+                        {
+                            float a = Mathf.Lerp(-62f, 62f, i / 8f) * Mathf.Deg2Rad;
+                            Vector3 p = V(Mathf.Sin(a) * R, y, Mathf.Cos(a) * R - 0.06f - k * 0.02f);
+                            if (i > 0) b.Tube(prev, p, 0.026f * hr, 4);
+                            prev = p;
+                        }
+                    }
+                    b.Col = Palette.Ink;
+                    b.Sphere(V(-0.78f, 0.45f, 0.55f), 0.05f * hr, 6, 4); b.Sphere(V(0.78f, 0.45f, 0.55f), 0.05f * hr, 6, 4);   // the clips
+                    break;
+                case 4: // boxer: padded cheeks and brow
+                    b.Col = look.Helmet;
+                    b.Sphere(V(-0.66f, 0.38f, 0.5f), V(0.18f, 0.34f, 0.24f), 10, 6);
+                    b.Sphere(V(0.66f, 0.38f, 0.5f), V(0.18f, 0.34f, 0.24f), 10, 6);
+                    b.Sphere(V(0f, 1.32f, 0.82f), V(0.58f, 0.15f, 0.2f), 12, 6);
+                    b.Col = Palette.White;
+                    b.Box(V(0f, 1.32f, 1.0f), V(0.5f, 0.05f, 0.05f));
+                    break;
+                case 5: // crown: gold band, points and jewels, on the hair
+                {
+                    Color gold = Palette.Hex("#E8B93A");
+                    b.Col = gold;
+                    b.Cylinder(V(0f, 1.62f, -0.05f), 0.66f * hr, 0.7f * hr, 0.28f * hr, 16, true, false);
+                    for (int i = 0; i < 8; i++)
+                    {
+                        float a = i * Mathf.PI * 2f / 8f;
+                        Vector3 bottom = V(Mathf.Sin(a) * 0.7f, 1.88f, Mathf.Cos(a) * 0.7f - 0.05f);
+                        b.Tube(bottom, bottom + V(Mathf.Sin(a) * 0.06f, 0.34f, Mathf.Cos(a) * 0.06f), 0.1f * hr, 0.015f * hr, 5, true);
+                        b.Col = i % 2 == 0 ? Palette.SignalRed : Palette.Hex("#3A78E0");
+                        b.Sphere(V(Mathf.Sin(a) * 0.71f, 1.76f, Mathf.Cos(a) * 0.71f - 0.05f), 0.07f * hr, 6, 4);
+                        b.Col = gold;
+                    }
+                    break;
+                }
+                case 6: // unicorn: a twisted horn and a rainbow mane
+                {
+                    b.Col = Palette.Hex("#F3D9F0");
+                    Vector3 root = V(0f, 1.5f, 0.88f), dir = new Vector3(0f, 0.8f, 0.6f).normalized;
+                    for (int i = 0; i < 6; i++)
+                    {
+                        float t0 = i / 6f, t1 = (i + 1) / 6f;
+                        b.Col = i % 2 == 0 ? Palette.Hex("#F3D9F0") : Palette.Hex("#E8B93A");
+                        b.Tube(root + dir * (t0 * 1.5f * hr), root + dir * (t1 * 1.5f * hr), Mathf.Lerp(0.24f, 0.02f, t0) * hr, Mathf.Lerp(0.24f, 0.02f, t1) * hr, 8, i == 5);
+                    }
+                    Color[] rainbow = { Palette.Hex("#E8455A"), Palette.Hex("#F2803A"), Palette.Hex("#FFC64A"), Palette.Hex("#8FD14F"), Palette.Hex("#3A78E0"), Palette.Hex("#6C58C9") };
+                    for (int i = 0; i < rainbow.Length; i++)
+                    {
+                        b.Col = rainbow[i];
+                        float x = (i - 2.5f) * 0.09f;
+                        Vector3 a0 = V(x, 2.0f, -0.1f), a1 = V(x * 1.4f, 1.6f, -0.95f), a2 = V(x * 1.6f, 0.6f, -1.1f), a3 = V(x * 1.7f, -0.3f, -0.95f);
+                        b.Tube(a0, a1, 0.08f * hr, 4); b.Tube(a1, a2, 0.08f * hr, 4); b.Tube(a2, a3, 0.08f * hr, 0.03f * hr, 4, true);
+                    }
+                    break;
+                }
+            }
+            if (look.Suit == 2 && look.Headgear == 0)
+            {
+                // The banana's stalk on top of the hat.
+                b.Col = Palette.Hex("#5A4020");
+                b.Tube(V(0f, 2.15f, -0.12f), V(0.05f, 2.55f, -0.05f), 0.11f * hr, 0.08f * hr, 6, true);
+            }
         }
 
         /// <summary>The simple head at a few heights, in head radii: height, half width, half depth, offset forward.</summary>
@@ -1217,8 +1368,8 @@ namespace Ski.Game
             _torso.localRotation = Quaternion.Euler(p.TorsoPitch + breath * 0.8f, p.TorsoYaw - side * 22f, -p.TorsoRoll);
             _head.localRotation = Quaternion.Euler(p.HeadPitch + _wander.y - LookOffset.y, p.HeadYaw + _wander.x + LookOffset.x - side * 56f, p.HeadRoll);
 
-            _shL.localRotation = Quaternion.AngleAxis(-p.ArmOutL, Vector3.forward) * Quaternion.AngleAxis(-p.ArmFwdL, Vector3.right) * Quaternion.AngleAxis(p.ArmTwistL, Vector3.up);
-            _shR.localRotation = Quaternion.AngleAxis(p.ArmOutR, Vector3.forward) * Quaternion.AngleAxis(-p.ArmFwdR, Vector3.right) * Quaternion.AngleAxis(-p.ArmTwistR, Vector3.up);
+            _shL.localRotation = Quaternion.AngleAxis(-p.ArmOutL, Vector3.forward) * Quaternion.AngleAxis(-(p.ArmFwdL + ArmLiftL), Vector3.right) * Quaternion.AngleAxis(p.ArmTwistL, Vector3.up);
+            _shR.localRotation = Quaternion.AngleAxis(p.ArmOutR, Vector3.forward) * Quaternion.AngleAxis(-(p.ArmFwdR + ArmLiftR), Vector3.right) * Quaternion.AngleAxis(-p.ArmTwistR, Vector3.up);
             _elL.localRotation = Quaternion.Euler(-p.ElbowL, 0, 0);
             _elR.localRotation = Quaternion.Euler(-p.ElbowR, 0, 0);
 

@@ -49,14 +49,30 @@ namespace Ski.Game
             data.antialiasing = AntialiasingMode.FastApproximateAntialiasing;
             camGo.AddComponent<AudioListener>();
 
-            var look = PersonLook.For(who);
+            _who = who;
+            MakeBody();
+            _pose = _board ? BoardBase() : Pose.Ski;
+            Body.Snap(_pose);
+        }
+
+        CharacterId _who;
+
+        void MakeBody()
+        {
+            var look = PersonLook.For(_who);
             look.GogglesDown = true;
             Body = Person.Create(look, transform, "Body");
             Body.Alive = false;
             Body.SideStance = _board ? 1f : 0f;
-            _pose = _board ? BoardBase() : Pose.Ski;
             Body.Snap(_pose);
-            Body.SetHeadVisible(false);
+            Body.SetHeadVisible(_third > 0.2f);
+        }
+
+        /// <summary>Puts the body together again (after a visit to the shop).</summary>
+        public void RebuildBody()
+        {
+            if (Body != null) Destroy(Body.gameObject);
+            MakeBody();
         }
 
         void OnDestroy() { if (Cam != null) Destroy(Cam.gameObject); }

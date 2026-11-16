@@ -38,8 +38,54 @@ namespace Ski.Game
         public static string BoardName(BoardEntry e) => !e.IsPlayer ? e.Name : PlayerName.Length > 0 ? PlayerName + " (" + e.Name + ")" : e.Name + " (you)";
         public static CharacterId LastCharacter = CharacterId.Erik;
 
+        // ---- the shop: outfits and what has been earned --------------------------------------
+
+        static Progress _progress;
+        static readonly Outfit[] _outfits = new Outfit[4];
+        /// <summary>Called with each thing newly earned.</summary>
+        public static event System.Action<Unlock> Unlocked;
+
+        public static Progress Progress
+        {
+            get
+            {
+                if (_progress != null) return _progress;
+                try { _progress = JsonUtility.FromJson<Progress>(PlayerPrefs.GetString("progress", "")); } catch (System.Exception) { }
+                return _progress ??= new Progress();
+            }
+        }
+
+        /// <summary>Changes the progress, saves it and announces anything newly earned.</summary>
+        public static void Record(System.Action<Progress> change)
+        {
+            var before = JsonUtility.FromJson<Progress>(JsonUtility.ToJson(Progress));
+            change(Progress);
+            PlayerPrefs.SetString("progress", JsonUtility.ToJson(Progress));
+            PlayerPrefs.Save();
+            foreach (var u in Unlocks.NewlyEarned(before, Progress)) Unlocked?.Invoke(u);
+        }
+
+        /// <summary>How a character is dressed on this device (a copy: change it with <see cref="SetOutfit"/>).</summary>
+        public static Outfit Outfit(CharacterId who)
+        {
+            int i = (int)who;
+            if (_outfits[i] == null)
+            {
+                try { _outfits[i] = JsonUtility.FromJson<Outfit>(PlayerPrefs.GetString("outfit_" + i, "")); } catch (System.Exception) { }
+                _outfits[i] ??= new Outfit();
+            }
+            return Unlocks.Allowed(Progress, _outfits[i]);
+        }
+
+        public static void SetOutfit(CharacterId who, Outfit o)
+        {
+            _outfits[(int)who] = o.Copy();
+            PlayerPrefs.SetString("outfit_" + (int)who, JsonUtility.ToJson(o));
+            PlayerPrefs.Save();
+        }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() { _boards = null; _chug = null; }
+        static void ResetStatics() { _boards = null; _chug = null; _progress = null; System.Array.Clear(_outfits, 0, 4); Unlocked = null; }
 
         public static void Load()
         {

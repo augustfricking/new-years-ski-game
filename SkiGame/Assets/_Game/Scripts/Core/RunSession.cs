@@ -138,15 +138,20 @@ namespace Ski.Core
             if (Crowd != null)
             {
                 Crowd.Step(dt, Sim.Pos.z, Sim.Pos.x);
-                if (!Sim.Crashed && Sim.AirHeight < 1.1f && Phase != RunPhase.Finished)
+                // Nobody can be skied through, before the finish or after it (only the penalty stops at the line).
+                if (!Sim.Crashed && Sim.AirHeight < 1.1f)
                 {
                     var k = Crowd.Hit(Sim.Pos.x, Sim.Pos.z, Sim.P.BodyRadius);
                     if (k != null && !k.Fallen)
                     {
                         Crowd.Knock(k);
                         Sim.Crash(CrashReason.Person);
-                        Penalty += PersonPenalty; PeopleHit++;
-                        Emit(RunEventType.PersonHit, PersonPenalty, "Watch out! +" + PersonPenalty.ToString("0") + " s", kid: k);
+                        if (Phase != RunPhase.Finished)
+                        {
+                            Penalty += PersonPenalty; PeopleHit++;
+                            Emit(RunEventType.PersonHit, PersonPenalty, "Watch out! +" + PersonPenalty.ToString("0") + " s", kid: k);
+                        }
+                        else Emit(RunEventType.PersonHit, 0f, "Oops!", kid: k);
                     }
                 }
             }

@@ -13,6 +13,8 @@ namespace Ski.Game
         public static readonly Color Pale = new Color(0.72f, 0.88f, 1f);
 
         public string Label { get; private set; }
+        /// <summary>The outfit code it was dressed in (rebuild when the player changes clothes).</summary>
+        public string OutfitCode { get; private set; } = "";
         public bool Solid { get; private set; }
         public Person Body => Solid ? _solid : _ghost;
 
@@ -25,13 +27,14 @@ namespace Ski.Game
         bool _placed;
 
         /// <param name="onFoot">Indoors: no skis, no poles, no helmet.</param>
-        public static GhostView Create(Transform parent, string label, CharacterId who, bool solid, bool onFoot = false)
+        public static GhostView Create(Transform parent, string label, CharacterId who, bool solid, bool onFoot = false, string outfit = "")
         {
             var go = new GameObject("Live " + label);
             go.transform.SetParent(parent, false);
             var g = go.AddComponent<GhostView>();
             g._who = who;
             g._onFoot = onFoot;
+            g.OutfitCode = outfit ?? "";
             g.Label = label;
             var tm = VillageBuilder.Sign(go.transform, label, Vector3.zero, Quaternion.identity, 0.3f, Color.Lerp(Pale, Color.white, 0.7f));
             g._nameText = tm;
@@ -61,7 +64,7 @@ namespace Ski.Game
 
         Person Build(bool solid)
         {
-            var look = PersonLook.For(_who);
+            var look = PersonLook.For(_who, OutfitCode.Length > 0 ? Outfit.Parse(OutfitCode) : new Outfit());
             look.GogglesDown = !solid;
             if (_onFoot) { look.Gear = GearKind.None; look.Poles = false; look.HasHelmet = false; look.HasGoggles = false; }
             if (!solid)

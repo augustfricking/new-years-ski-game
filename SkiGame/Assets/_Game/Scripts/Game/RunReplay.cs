@@ -24,6 +24,8 @@ namespace Ski.Game
         bool _init;
 
         public bool Done => _clock > _track.Duration + TailOut;
+        /// <summary>Where the replayed skier is now.</summary>
+        public Vector3 Position { get; private set; }
 
         public RunReplay(Transform parent, Course course, SlopeId slope, GhostTrack track, string name, CharacterId who)
         {
@@ -47,6 +49,7 @@ namespace Ski.Game
             _track.At(t, out Vector3 flat, out float air, out float heading, out float speed);
             if (_clock < 0f) speed = 0f;
             Vector3 p = new Vector3(flat.x, _c.Height(flat.x, flat.z) + air, flat.z);
+            Position = p;
             _view.Show(p, heading, speed, air, speed > 22f ? 1f : 0f, 0f, cam, dt);
             if (_clockLabel != null) _clockLabel.text = Hud.FormatTime(Mathf.Min(t, _track.Duration));
 

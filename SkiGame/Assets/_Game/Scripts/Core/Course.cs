@@ -49,7 +49,7 @@ namespace Ski.Core
         // Village at the bottom (shared layout, relative to the finish line).
         public const float PlazaLength = 130f;
         public const float PlazaHalfWidth = 46f;
-        public Zone LiftZone, TavernZone;
+        public Zone LiftZone, TavernZone, ShopZone;
         public float VillageX; // x of the plaza centre
 
         // Mesh extents.
@@ -234,6 +234,8 @@ namespace Ski.Core
             // Lift base on the skier's left, tavern on the right, both facing the plaza.
             LiftZone = new Zone(x0 - 24f, z0 + 78f, 5.5f);
             TavernZone = new Zone(x0 + 23f, z0 + 92f, 3.2f);
+            ShopZone = new Zone(x0 - 23f, z0 + 112f, 3f);
+            AddBox(ObstacleKind.Building, x0 - 32f, z0 + 112f, 5f, 6f, 50f);     // ski shop
             AddBox(ObstacleKind.Building, x0 - 33f, z0 + 82f, 5f, 7f, 50f);      // lift station hut
             AddBox(ObstacleKind.Building, x0 + 33f, z0 + 94f, 8f, 11f, 50f);     // tavern
             AddBox(ObstacleKind.Fence, x0, z0 + PlazaLength + 1f, PlazaHalfWidth, 1f, 50f); // end of the plaza

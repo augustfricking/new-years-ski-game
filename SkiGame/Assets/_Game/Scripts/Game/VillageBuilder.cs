@@ -11,6 +11,7 @@ namespace Ski.Game
     {
         public static Vector3 TavernDoor(Course c) => c.PointOnSurface(c.TavernZone.X, c.TavernZone.Z);
         public static Vector3 LiftGate(Course c) => c.PointOnSurface(c.LiftZone.X, c.LiftZone.Z);
+        public static Vector3 ShopDoor(Course c) => c.PointOnSurface(c.ShopZone.X, c.ShopZone.Z);
 
         public static GameObject Build(PisteCourse c, Transform parent)
         {
@@ -71,7 +72,30 @@ namespace Ski.Game
                     b.Pop();
                 }
 
+            // --- ski shop -----------------------------------------------------------------------
+            Vector3 shop = c.PointOnSurface(x0 - 32f, z0 + 112f);
+            shop.y = c.Height(x0 - 27f, z0 + 112f) - 0.1f;
+            b.Push(shop);
+            Props.Cabin(b, new Vector3(10f, 4.2f, 12f), 1, true, Palette.Hex("#B5523B"));
+            Props.WindowPane(glow, b, new Vector3(5.03f, 1.9f, 3.4f), 1, 2.2f, 1.6f);
+            Props.WindowPane(glow, b, new Vector3(5.03f, 1.9f, -3.4f), 1, 2.2f, 1.6f);
+            // Skis and boards standing in a row by the door.
+            for (int i = 0; i < 6; i++)
+            {
+                b.Col = Palette.Jackets[i % Palette.Jackets.Length];
+                b.Push(new Vector3(5.5f, 0f, -1.2f + i * 0.45f), Quaternion.Euler(0f, 0f, -8f));
+                b.Box(new Vector3(0f, 0.85f, 0f), new Vector3(0.05f, 1.7f, 0.1f));
+                b.Pop();
+            }
+            b.Col = Palette.TimberDark;
+            b.Box(new Vector3(5.3f, 3.5f, 0f), new Vector3(0.14f, 0.9f, 4.6f));
+            glow.Col = Palette.Lamp;
+            glow.Box(new Vector3(5.38f, 3.5f, 0f), new Vector3(0.06f, 0.7f, 4.3f));
+            b.Pop();
+            Sign(root.transform, "SKI SHOP", shop + new Vector3(5.46f, 3.5f, 0f), Quaternion.Euler(0, -90, 0), 0.55f, Palette.Ink);
+
             // --- trigger pads: visible spots to ski onto ----------------------------------------
+            Pad(glow, ShopDoor(c) + new Vector3(0f, 0.05f, 0f), c.ShopZone.Radius * 0.8f, Palette.Hex("#8FE0C0"));
             Pad(glow, gate + new Vector3(-1.5f, 0.05f, 0f), c.LiftZone.Radius * 0.55f, Palette.SignalYellow);
             Pad(glow, TavernDoor(c) + new Vector3(0f, 0.05f, 0f), c.TavernZone.Radius * 0.8f, Palette.Lamp);
 
@@ -88,6 +112,7 @@ namespace Ski.Game
                 {
                     float x = x0 + s * (c.HalfWidth(z) + 0.4f);
                     if (Mathf.Abs(z - (s > 0 ? z0 + 94f : z0 + 82f)) < (s > 0 ? 13f : 9f)) continue; // buildings stand here
+                    if (s < 0 && Mathf.Abs(z - (z0 + 112f)) < 8f) continue;                            // and the shop
                     b.Push(c.PointOnSurface(x, z), Quaternion.Euler(0, -90, 0));
                     Props.Fence(b);
                     b.Pop();

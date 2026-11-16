@@ -60,6 +60,8 @@ namespace Ski.Game
         Material _glow, _glowHot, _flameMat, _beerMat;
         MeshBuilder _beer;
         public float Wobble; // grows with every beer
+        /// <summary>The frame the beer game was left (so the same Esc does not also open the pause menu).</summary>
+        public int GameEndFrame = -1;
 
         // Other people in here right now (see LiveRooms).
         sealed class LiveGuest { public GhostView V; public Guest Knock; public float Blend; public Vector3 Last; }
@@ -674,6 +676,7 @@ namespace Ski.Game
             else if (hit == null) return;
             else Launch(hit, fwd, 1f);
             Knockouts++;
+            SaveData.Record(p => p.knockouts++);
             AudioDirector.Sfx("land_heavy", 1f, 1.25f);
             AudioDirector.Sfx("crash", 0.6f, 1.2f);
             if (_pow != null)
@@ -764,10 +767,11 @@ namespace Ski.Game
             foreach (var r in LiveRooms.Others.Values)
             {
                 bool there = r.Timeline.Visible(now) && r.Timeline.At(now, out var s, out float speed, out var mode) && mode == LiveMode.Tavern;
-                if (!_live.TryGetValue(r.Id, out var lg))
+                if (_live.TryGetValue(r.Id, out var lg) && lg.Knock == null && lg.V.OutfitCode != r.Outfit) { Destroy(lg.V.gameObject); _live.Remove(r.Id); lg = null; }
+                if (lg == null)
                 {
                     if (!there) continue;
-                    var v = GhostView.Create(_liveRoot, r.Name, r.Who, true, true);
+                    var v = GhostView.Create(_liveRoot, r.Name, r.Who, true, true, r.Outfit);
                     _live[r.Id] = lg = new LiveGuest { V = v };
                 }
                 lg.V.Rename(r.Name);
@@ -980,7 +984,7 @@ namespace Ski.Game
 
             PersonLook Dressed(CharacterId id)
             {
-                var look = PersonLook.For(id);
+                var look = PersonLook.For(id, new Outfit());
                 look.HasHelmet = false; look.HasGoggles = false; look.Gear = GearKind.None; look.Poles = false;
                 return look;
             }
@@ -1141,7 +1145,7 @@ namespace Ski.Game
         {
             if (Game != null) return;
             _prompt.text = "";
-            Game = new BeerGame(this, _bartender, () => { Game = null; });
+            Game = new BeerGame(this, _bartender, () => { Game = null; GameEndFrame = Time.frameCount; });
         }
 
         void PlaceCameraForGame(float dt)

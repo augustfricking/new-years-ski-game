@@ -719,3 +719,145 @@
     margin: 0 18px;
     min-width: 110px;
 }
+
+/* ---- notices and the shop ---------------------------------------------------------------- */
+
+.notice {
+    position: absolute;
+    top: 9%;
+    left: 50%;
+    translate: -50% 0;
+    align-items: center;
+    background-color: rgb(255, 198, 74);
+    border-width: 4px;
+    border-color: rgb(27, 20, 48);
+    border-radius: 6px;
+    padding: 8px 26px;
+    rotate: 1.5deg;
+    transition-property: opacity, translate;
+    transition-duration: 0.4s;
+}
+
+.notice-hidden {
+    opacity: 0;
+    translate: -50% -30px;
+}
+
+.notice-title {
+    font-size: 30px;
+    color: rgb(27, 20, 48);
+    -unity-font-definition: resource("Fonts/Bangers-Regular");
+}
+
+.notice-sub {
+    font-size: 24px;
+    color: rgb(27, 20, 48);
+}
+
+.shop {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(27, 20, 48, 0.55);
+}
+
+.shop-card {
+    width: 600px;
+    height: 88%;
+    margin-right: 24px;
+}
+
+.shop-who {
+    margin-left: 18px;
+}
+
+.shop-tabs {
+    margin: 4px 0 8px 0;
+}
+
+.btn-selected {
+    background-color: rgb(255, 198, 74);
+}
+
+.shop-scroll {
+    flex-grow: 1;
+}
+
+.shop-row {
+    margin-bottom: 10px;
+}
+
+.shop-label {
+    font-size: 22px;
+    -unity-font-definition: resource("Fonts/Bangers-Regular");
+    color: rgb(27, 20, 48);
+}
+
+.shop-swatches, .shop-choices {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.shop-swatch {
+    width: 30px;
+    height: 30px;
+    margin: 2px;
+    padding: 0;
+    border-width: 2px;
+    border-color: rgb(27, 20, 48);
+    border-radius: 15px;
+    font-size: 16px;
+    color: rgb(27, 20, 48);
+}
+
+.shop-swatch-on {
+    border-width: 5px;
+    border-color: rgb(255, 198, 74);
+}
+
+.shop-item {
+    margin: 3px;
+    padding: 4px 10px;
+    border-width: 3px;
+    border-color: rgb(27, 20, 48);
+    border-radius: 5px;
+    background-color: rgb(245, 235, 216);
+}
+
+.shop-item-on {
+    background-color: rgb(255, 198, 74);
+}
+
+.shop-item-locked {
+    background-color: rgb(196, 190, 200);
+    border-color: rgb(120, 112, 130);
+}
+
+.shop-item-name {
+    font-size: 20px;
+    color: rgb(27, 20, 48);
+}
+
+.shop-item-locked .shop-item-name {
+    color: rgb(90, 84, 100);
+}
+
+.shop-item-goal {
+    font-size: 15px;
+    color: rgb(90, 84, 100);
+}
+
+.shop-view {
+    width: 520px;
+    height: 650px;
+    border-width: 5px;
+    border-color: rgb(27, 20, 48);
+    border-radius: 8px;
+    rotate: 1deg;
+}
+
+.mouse-icon {
+    width: 22px;
+    height: 32px;
+    margin: 0 8px 0 2px;
+}

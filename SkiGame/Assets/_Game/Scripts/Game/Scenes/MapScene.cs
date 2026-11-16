@@ -20,6 +20,7 @@ namespace Ski.Game
         public Action OnChangeSkier;
         /// <summary>Watch a board row's run on a slope.</summary>
         public Action<SlopeId, OnlineBoards.Entry> OnWatch;
+        public Action OnShop;
         VisualElement _infoBoard;
         int _shown = -1;
         bool _overCard;
@@ -320,6 +321,7 @@ namespace Ski.Game
             var info = SkierInfo.Get(_who);
             Ui.Text(corner, info.Name.ToUpperInvariant() + "  -  " + info.TraitTitle, "hint");
             Ui.Btn(corner, "CHANGE SKIER", () => OnChangeSkier?.Invoke(), "btn-plain btn-small");
+            Ui.Btn(corner, "SHOP", () => OnShop?.Invoke(), "btn-plain btn-small");
             Ui.Btn(corner, "SETTINGS", () => Dialogs.Settings(), "btn-plain btn-small");
         }
 
@@ -385,7 +387,7 @@ namespace Ski.Game
             Pose(_open);
             if (WorldLook.Instance != null) WorldLook.Instance.Storm = Mathf.MoveTowards(WorldLook.Instance.Storm, 0.1f, dt * 0.35f);
             if (AudioDirector.I != null) AudioDirector.I.Wind(0.25f + (WorldLook.Instance != null ? WorldLook.Instance.Storm * 0.6f : 0f));
-            if (_picked || Dialogs.Open) return;
+            if (_picked || Dialogs.Open || (GameApp.Instance != null && GameApp.Instance.Shop != null)) return;
 
             int hover = -1;
             var mouse = Mouse.current;

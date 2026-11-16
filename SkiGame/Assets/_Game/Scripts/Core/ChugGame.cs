@@ -17,6 +17,9 @@ namespace Ski.Core
         public int Gulps, Spills;
         public float Time;                   // seconds incl. penalties
         public bool Running, Finished;
+        /// <summary>A minute at the bar and the stein goes back: the round is lost.</summary>
+        public const float TimeLimit = 60f;
+        public bool TimedOut;
         public float Level => 1f - Gulps / (float)GulpsToFinish; // beer left in the glass
 
         float _phase, _speed;
@@ -42,6 +45,7 @@ namespace Ski.Core
         {
             if (!Running || Finished) return;
             Time += dt;
+            if (Time >= TimeLimit) { Time = TimeLimit; Running = false; TimedOut = true; return; }
             _phase += dt * _speed;
             // Triangle wave: sweeps 0 -> 1 -> 0.
             float t = _phase % 2f;
