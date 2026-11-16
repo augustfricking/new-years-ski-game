@@ -59,8 +59,9 @@ mergeInto(LibraryManager.library, {
   LRVoiceCall: function (idPtr) {
     var V = window.LRVoice; if (!V || !V.ready) return;
     var pid = UTF8ToString(idPtr);
-    if (V.calls[pid]) return;
-    try { var call = V.peer.call(pid, V.local()); if (call) V.attach(call); } catch (e) {}
+    if (V.calls[pid] && (V.analysers[pid] || Date.now() - (V.calls[pid]._t || 0) < 5000)) return;
+    if (V.calls[pid]) V.drop(pid);
+    try { var call = V.peer.call(pid, V.local()); if (call) { call._t = Date.now(); V.attach(call); } } catch (e) {}
   },
 
   LRVoiceHang: function (idPtr) {

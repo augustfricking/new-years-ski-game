@@ -30,8 +30,9 @@ Material:
     - _FadeStart: 30
     - _InnerEnd: 28
     - _InnerStart: 7
+    - _InnerThickness: 0.9
     - _NormalSens: 0.55
-    - _Thickness: 1.6
+    - _Thickness: 2.1
     m_Colors:
     - _InkColor: {r: 0.10599997, g: 0.07799999, b: 0.18799996, a: 0.9}
   m_BuildTextureStacks: []

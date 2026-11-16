@@ -31,6 +31,7 @@ namespace Ski.Game
         [DllImport("__Internal")] static extern void LRVoiceTalk(int on);
         [DllImport("__Internal")] static extern float LRVoiceLevel(string id);
         [DllImport("__Internal")] static extern int LRVoiceState();
+        [DllImport("__Internal")] static extern int LRVoiceConnected(string id);
         const bool Works = true;
 #else
         static void LRVoiceInit(string id) { }
@@ -40,12 +41,14 @@ namespace Ski.Game
         static void LRVoiceTalk(int on) { }
         static float LRVoiceLevel(string id) => 0f;
         static int LRVoiceState() => 0;
+        static int LRVoiceConnected(string id) => 0;
         const bool Works = false;
 #endif
 
         readonly HashSet<string> _calling = new HashSet<string>();
         readonly List<string> _gone = new List<string>();
         readonly Dictionary<string, float> _level = new Dictionary<string, float>();
+        readonly Dictionary<string, float> _lastCall = new Dictionary<string, float>();
         string _me;
         bool _talking;
         float _poll;
@@ -88,15 +91,21 @@ namespace Ski.Game
             if (_poll > 0f) return;
             _poll = 0.25f;
             double now = LiveRooms.Now;
-            // Call everyone in the room (the one with the smaller id rings), hang up on those who left.
+            // Call everyone in the room (the one with the smaller id rings, again every few seconds
+            // until the line carries sound), hang up on those who left.
+            bool ready = LRVoiceState() >= 2 && LRVoiceState() != 3;
             foreach (var r in LiveRooms.Others.Values)
             {
                 string pid = PeerId(r.Id);
                 if (!on) continue;
-                if (!_calling.Contains(pid))
+                _calling.Add(pid);
+                if (ready && string.CompareOrdinal(_me, r.Id) < 0 && LRVoiceConnected(pid) == 0)
                 {
-                    _calling.Add(pid);
-                    if (string.CompareOrdinal(_me, r.Id) < 0) LRVoiceCall(pid);
+                    if (!_lastCall.TryGetValue(pid, out float t) || Time.unscaledTime - t > 6f)
+                    {
+                        _lastCall[pid] = Time.unscaledTime;
+                        LRVoiceCall(pid);
+                    }
                 }
                 LRVoiceGain(pid, Volume(r, now));
                 _level[r.Id] = LRVoiceLevel(pid);
@@ -108,7 +117,7 @@ namespace Ski.Game
                 foreach (var r in LiveRooms.Others.Values) if (PeerId(r.Id) == pid) { here = true; break; }
                 if (!here || !on) _gone.Add(pid);
             }
-            foreach (var pid in _gone) { _calling.Remove(pid); LRVoiceHang(pid); _level.Remove(pid.Substring(8)); }
+            foreach (var pid in _gone) { _calling.Remove(pid); _lastCall.Remove(pid); LRVoiceHang(pid); _level.Remove(pid.Substring(8)); }
         }
 
         /// <summary>How loud another player is here: full close by, fading with distance.</summary>
