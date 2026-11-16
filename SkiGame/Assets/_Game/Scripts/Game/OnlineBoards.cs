@@ -68,6 +68,9 @@ namespace Ski.Game
                 await UnityServices.InitializeAsync(options);
                 if (!AuthenticationService.Instance.IsSignedIn) await AuthenticationService.Instance.SignInAnonymouslyAsync();
                 PlayerId = AuthenticationService.Instance.PlayerId;
+                // In the browser the sign-in is only kept if it is written out now: without this a
+                // reload can come back as a new player (and a second row on every board).
+                PlayerPrefs.Save();
                 Status = State.Online;
                 Debug.Log("[Online] signed in as device profile " + PlayerId);
                 await PushName();
