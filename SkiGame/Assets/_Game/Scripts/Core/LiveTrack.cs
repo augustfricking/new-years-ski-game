@@ -8,7 +8,7 @@ namespace Ski.Core
     public enum LiveMode : byte { Skiing = 0, Finished = 1, Tavern = 2 }
 
     [Flags]
-    public enum LiveFlags : byte { None = 0, Tuck = 1, Plough = 2, Crashed = 4, Down = 8, Punch = 16 }
+    public enum LiveFlags : byte { None = 0, Tuck = 1, Plough = 2, Crashed = 4, Down = 8, Punch = 16, Sit = 32 }
 
     /// <summary>One moment of a live player: position (y is height off the snow, or off the floor), facing, state.</summary>
     public struct LiveSample

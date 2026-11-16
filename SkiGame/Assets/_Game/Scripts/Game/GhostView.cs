@@ -144,6 +144,29 @@ namespace Ski.Game
 
         public void ShowName(bool on) { if (_name != null) _name.gameObject.SetActive(on); }
 
+        static readonly Color TalkColour = new Color(1f, 0.78f, 0.29f);
+        bool _talking;
+        /// <summary>The name glows while they are speaking.</summary>
+        public void SetTalking(bool on)
+        {
+            if (on == _talking || _nameText == null) return;
+            _talking = on;
+            _nameText.color = on ? TalkColour : Color.Lerp(Pale, Color.white, 0.7f);
+            _nameText.text = on ? Label + "  ((" : Label;
+        }
+
+        /// <summary>Places someone sitting on a bench, arms on the table.</summary>
+        public void ShowSeated(Vector3 seat, float yawDeg, Camera cam)
+        {
+            if (!gameObject.activeSelf) gameObject.SetActive(true);
+            transform.localPosition = seat;
+            transform.localRotation = Quaternion.Euler(0f, yawDeg, 0f);
+            var p = Pose.Sit;
+            p.ArmFwdL = p.ArmFwdR = 62f; p.ElbowL = p.ElbowR = 70f; p.TorsoPitch = 6f;
+            Body.Target = p;
+            PlaceName(cam);
+        }
+
         public void Hide() { if (gameObject.activeSelf) gameObject.SetActive(false); _placed = false; }
     }
 }

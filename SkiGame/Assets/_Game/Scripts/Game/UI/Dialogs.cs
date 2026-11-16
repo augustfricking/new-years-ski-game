@@ -63,6 +63,7 @@ namespace Ski.Game
             ToggleRow(card, "Subtitles", SaveData.Subtitles, v => SaveData.Subtitles = v);
             // Other people playing right now: on the slopes (as ghosts) and in the tavern.
             ToggleRow(card, "Live players", SaveData.Live, v => SaveData.Live = v);
+            ToggleRow(card, "Voice chat (hold V)", SaveData.Voice, v => SaveData.Voice = v);
             {
                 var grow = Ui.Div(card, "dialog-row");
                 var glabel = Ui.Text(grow, "", "dialog-label");

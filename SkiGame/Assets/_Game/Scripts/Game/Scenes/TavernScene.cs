@@ -86,6 +86,10 @@ namespace Ski.Game
         float _knock = -1f, _knockRoll, _knockDrop;
         Vector3 _knockVel;
         float _lastMove;
+        // Sitting at a table (to talk): which table, where, facing which way.
+        int _seatTable = -1;
+        Vector3 _seatPos;
+        float _seatSide;
 
         public static TavernScene Create(Transform parent, CharacterId who)
         {
@@ -192,6 +196,7 @@ namespace Ski.Game
                 Ui.Keys(keys, "MOUSE", "look");
                 Ui.Keys(keys, "E", "use");
                 Ui.Keys(keys, "CLICK", "punch");
+                if (SaveData.Voice && SaveData.Live) Ui.Keys(keys, "V", "talk");
             }
             UnityEngine.Cursor.lockState = CursorLockMode.Locked;
             PlaceCamera(0f);
@@ -972,6 +977,8 @@ namespace Ski.Game
                 }
                 if (!there || !r.Timeline.At(now, out s, out speed, out mode)) { lg.V.Hide(); continue; }
                 Vector3 pos = new Vector3(s.Pos.x, 0f, s.Pos.z);
+                lg.V.SetTalking(VoiceChat.IsTalking(r.Id));
+                if ((s.Flags & LiveFlags.Sit) != 0) { lg.V.ShowSeated(pos + Vector3.up * BenchTop, s.Yaw, Cam); continue; }
                 if (lg.Blend > 0f) { lg.Blend = Mathf.Max(0f, lg.Blend - dt / 1.2f); pos = Vector3.Lerp(pos, lg.Last, lg.Blend); speed = Mathf.Max(speed, 1f); }
                 lg.V.ShowOnFoot(pos, s.Yaw, speed, Cam, dt, (s.Flags & LiveFlags.Punch) != 0);
             }
@@ -993,6 +1000,8 @@ namespace Ski.Game
             var flags = LiveFlags.None;
             if (_punch < 1f) flags |= LiveFlags.Punch;
             if (_knock >= 0f) flags |= LiveFlags.Down;
+            if (_seatTable >= 0) flags |= LiveFlags.Sit;
+            VoiceChat.MyPos = _pos; VoiceChat.Place = "tavern"; VoiceChat.MyTable = _seatTable;
             _rec.PacketSeconds = Time.time - _lastMove < 2f || flags != LiveFlags.None ? 2f : 4.9f;
             LiveRooms.Send(_rec.Tick(now, new LiveSample { Pos = new Vector3(_pos.x, 0f, _pos.z), Yaw = _yaw, Flags = flags }));
         }
@@ -1208,7 +1217,7 @@ namespace Ski.Game
         void PlaceCamera(float dt)
         {
             float sway = Mathf.Sin(_time * 1.3f) * Wobble;
-            Cam.transform.localPosition = _pos + new Vector3(0f, Eye - _knockDrop + Mathf.Sin(_bob) * 0.035f, 0f);
+            Cam.transform.localPosition = _pos + new Vector3(0f, Eye - _knockDrop - (_seatTable >= 0 ? 0.45f : 0f) + Mathf.Sin(_bob) * 0.035f, 0f);
             Cam.transform.localRotation = Quaternion.Euler(-_pitch + Mathf.Cos(_time * 0.9f) * Wobble * 0.6f, _yaw + sway, sway * 1.4f + _knockRoll);
         }
 
@@ -1287,6 +1296,7 @@ namespace Ski.Game
                 if (kb.dKey.isPressed) move.x += 1f;
                 if (kb.aKey.isPressed) move.x -= 1f;
             }
+            if (move.sqrMagnitude > 0f && _seatTable >= 0) { StandUp(); move = Vector3.zero; }
             if (move.sqrMagnitude > 0f)
             {
                 move = Quaternion.Euler(0f, _yaw, 0f) * move.normalized * 2.6f * dt;
@@ -1301,10 +1311,14 @@ namespace Ski.Game
             bool atDoor = _pos.x < -6.2f && Mathf.Abs(_pos.z) < 1.4f && _time > 1.5f;
             bool atDj = new Vector2(_pos.x - DjDesk.x, _pos.z - DjDesk.z).magnitude < 2.1f && Songs.All.Count > 0;
             bool atWalkman = _walkman != null && new Vector2(_pos.x - WalkmanSpot.x, _pos.z - WalkmanSpot.z).magnitude < 1.4f;
-            if (_prompt != null) _prompt.text = atBar ? "[E]  BEER CHALLENGE" : atDj ? "[E]  REQUEST A SONG" : atWalkman ? "[E]  TAKE THE WALKMAN" : atDoor ? "[E]  BACK TO THE LIFT" : "";
+            Vector3 seatPos = default; float seatSide = 0f; int seat = -1;
+            if (_seatTable < 0 && !atBar && !atDj && !atWalkman && !atDoor) seat = FreeSeat(out seatPos, out seatSide);
+            if (_prompt != null) _prompt.text = _seatTable >= 0 ? "[E]  STAND UP" : atBar ? "[E]  BEER CHALLENGE" : atDj ? "[E]  REQUEST A SONG" : atWalkman ? "[E]  TAKE THE WALKMAN" : atDoor ? "[E]  BACK TO THE LIFT" : seat >= 0 ? "[E]  SIT DOWN" : "";
             if (kb != null && kb.eKey.wasPressedThisFrame)
             {
-                if (atDj) OpenPicker();
+                if (_seatTable >= 0) StandUp();
+                else if (seat >= 0) { _seatTable = seat; _seatPos = seatPos; _seatSide = seatSide; _pos = new Vector3(seatPos.x, 0f, seatPos.z); _yaw = seatSide > 0f ? 180f : 0f; AudioDirector.Sfx("land", 0.3f, 1.3f); }
+                else if (atDj) OpenPicker();
                 else if (atWalkman) TakeWalkman();
                 else if (atBar) StartGame();
                 else if (atDoor) { AudioDirector.Sfx("door", 0.8f); OnLeave?.Invoke(); }
@@ -1346,6 +1360,33 @@ namespace Ski.Game
             _yaw = Mathf.LerpAngle(_yaw, 90f, 1f - Mathf.Exp(-5f * dt));
             _pitch = Mathf.Lerp(_pitch, Game.Tilt * 34f - 4f, 1f - Mathf.Exp(-7f * dt));
             PlaceCamera(dt);
+        }
+
+        /// <summary>The nearest empty place on a bench within reach, or -1.</summary>
+        int FreeSeat(out Vector3 at, out float side)
+        {
+            at = default; side = 0f;
+            int best = -1; float bestD = 1.1f;
+            for (int t = 0; t < Tables.Length; t++)
+                for (int sd = -1; sd <= 1; sd += 2)
+                    for (int i = 0; i < 4; i++)
+                    {
+                        Vector3 p = Tables[t] + new Vector3((i - 1.5f) * 1.02f, 0f, sd * 0.74f);
+                        float d = new Vector2(p.x - _pos.x, p.z - _pos.z).magnitude;
+                        if (d > bestD) continue;
+                        bool taken = false;
+                        foreach (var g in _guests) if (g.Table >= 0 && (new Vector2(g.Home.x - p.x, g.Home.z - p.z)).sqrMagnitude < 0.45f * 0.45f) { taken = true; break; }
+                        if (taken) continue;
+                        best = t; bestD = d; at = p; side = sd;
+                    }
+            return best;
+        }
+
+        void StandUp()
+        {
+            if (_seatTable < 0) return;
+            _pos = new Vector3(_seatPos.x, 0f, _seatPos.z + _seatSide * 0.75f);
+            _seatTable = -1;
         }
 
         void TakeWalkman()

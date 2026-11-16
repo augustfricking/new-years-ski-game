@@ -331,6 +331,7 @@ namespace Ski.Game
             Rig.Sync(Session.Sim, dt);
             _live.Sync(Rig.Cam, dt);
             SendLive();
+            VoiceChat.MyPos = Session.Sim.Pos; VoiceChat.Place = "slope"; VoiceChat.MyTable = -1;
             _village.Tick(Session.Sim.Pos.z, dt);
             // People in the village are solid too.
             if (!Paused && !Session.Sim.Crashed && Session.Sim.Contact && Session.Sim.Speed > 1.2f && _village.Hit(Session.Sim.Pos, Session.Sim.Vel, Session.Sim.P.BodyRadius))

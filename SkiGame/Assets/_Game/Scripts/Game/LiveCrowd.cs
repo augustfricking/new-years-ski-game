@@ -53,6 +53,7 @@ namespace Ski.Game
                 if (!solid && (p - me).sqrMagnitude < 9f) { v.Hide(); continue; }
                 float tuck = (s.Flags & LiveFlags.Tuck) != 0 ? 1f : 0f, plough = (s.Flags & LiveFlags.Plough) != 0 ? 1f : 0f;
                 v.Show(p, s.Yaw * Mathf.Deg2Rad, speed, s.Pos.y, tuck, plough, cam, dt, (s.Flags & LiveFlags.Crashed) != 0);
+                v.SetTalking(VoiceChat.IsTalking(r.Id));
                 _order.Add(((p - me).sqrMagnitude, v));
             }
             // The cap: the nearest are kept.

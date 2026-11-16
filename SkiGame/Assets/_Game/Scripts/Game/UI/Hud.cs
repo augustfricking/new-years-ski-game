@@ -67,6 +67,7 @@ namespace Ski.Game
             Ui.Keys(_hints, "S", "brake");
             Ui.Keys(_hints, "SPACE", "jump");
             Ui.Keys(_hints, "CLICK", "push");
+            if (SaveData.Voice && SaveData.Live) Ui.Keys(_hints, "V", "talk");
             Ui.Keys(_hints, "R", "reset");
             Ui.Keys(_hints, "C", "camera");
 

@@ -31,6 +31,8 @@ namespace Ski.Game
         public static bool Live = true;
         /// <summary>The walkman from the tavern: picked up, playing, and which song.</summary>
         public static bool HasWalkman, WalkmanOn = true;
+        /// <summary>Voice chat with the other players (hold V to talk).</summary>
+        public static bool Voice = true;
         public static string WalkmanSong = "";
 
         /// <summary>The recording of this device's best run on a slope, or null.</summary>
@@ -106,6 +108,7 @@ namespace Ski.Game
             MaxGhosts = PlayerPrefs.GetInt("others", 8);
             Live = PlayerPrefs.GetInt("live", 1) == 1;
             HasWalkman = PlayerPrefs.GetInt("walkman", 0) == 1;
+            Voice = PlayerPrefs.GetInt("voice", 1) == 1;
             WalkmanOn = PlayerPrefs.GetInt("walkman_on", 1) == 1;
             WalkmanSong = PlayerPrefs.GetString("walkman_song", "");
             LastCharacter = (CharacterId)Mathf.Clamp(PlayerPrefs.GetInt("who", 2), 0, 3);
@@ -128,6 +131,7 @@ namespace Ski.Game
             PlayerPrefs.SetInt("others", MaxGhosts);
             PlayerPrefs.SetInt("live", Live ? 1 : 0);
             PlayerPrefs.SetInt("walkman", HasWalkman ? 1 : 0);
+            PlayerPrefs.SetInt("voice", Voice ? 1 : 0);
             PlayerPrefs.SetInt("walkman_on", WalkmanOn ? 1 : 0);
             PlayerPrefs.SetString("walkman_song", WalkmanSong ?? "");
             PlayerPrefs.SetInt("who", (int)LastCharacter);

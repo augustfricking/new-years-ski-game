@@ -54,7 +54,8 @@ namespace Ski.Game
             SaveData.Load();
             SaveData.Unlocked += u => { Ui.Instance?.Notice("UNLOCKED!", u.Name + "  -  in the shop"); AudioDirector.Sfx("cheer", 0.7f, 1.2f); };
             OnlineBoards.Connect();
-            Songs.LoadList(this, () => AudioDirector.I?.RefreshMusic());   // anonymous device profile for the world boards; local play does not wait for it
+            Songs.LoadList(this, () => AudioDirector.I?.RefreshMusic());
+            VoiceChat.Create(transform);   // anonymous device profile for the world boards; local play does not wait for it
             Character = SaveData.LastCharacter;
             if (DebugSlope.HasValue) StartRun(DebugSlope.Value, Character);
             else ShowMenu();
@@ -83,7 +84,7 @@ namespace Ski.Game
             CloseAll();
             Screen = GameScreen.Menu;
             Look.Storm = 0f; Look.Night = 0f;
-            LiveRooms.Enter(null);
+            LiveRooms.Enter("lift"); VoiceChat.Place = "lift";
             Lift = LiftScene.Create(transform, LiftScene.Mode.Menu);
             Lift.OnSelect = who =>
             {
@@ -100,7 +101,7 @@ namespace Ski.Game
         {
             CloseAll();
             Screen = GameScreen.Map;
-            LiveRooms.Enter(null);
+            LiveRooms.Enter("lift"); VoiceChat.Place = "lift";
             Map = MapScene.Create(transform, Character);
             Map.OnPick = slope => Transition(() => StartRun(slope, Character), 0.45f);
             Map.OnWatch = (slope, entry) => Transition(() => WatchFromMap(slope, entry), 0.45f);
@@ -150,7 +151,7 @@ namespace Ski.Game
             CloseAll();
             Screen = GameScreen.Ride;
             Look.Storm = 0.1f;
-            LiveRooms.Enter(null);
+            LiveRooms.Enter("lift"); VoiceChat.Place = "lift";
             Lift = LiftScene.Create(transform, LiftScene.Mode.Ride, Character);
             _rideTimer = 3.8f;
         }
