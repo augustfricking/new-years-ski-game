@@ -18,6 +18,11 @@ namespace Ski.Game
     {
         public Action<SlopeId> OnPick;
         public Action OnChangeSkier;
+        /// <summary>Watch a board row's run on a slope.</summary>
+        public Action<SlopeId, OnlineBoards.Entry> OnWatch;
+        VisualElement _infoBoard;
+        int _shown = -1;
+        bool _overCard;
         public Camera Cam { get; private set; }
         /// <summary>The run under the pointer, or -1.</summary>
         public int Hovered { get; private set; } = -1;
@@ -301,9 +306,12 @@ namespace Ski.Game
             _infoBest = Ui.Text(_infoCard, "", "small");
             _infoRival = Ui.Text(_infoCard, "", "small");
             _infoRival.style.whiteSpace = WhiteSpace.Normal;
+            _infoBoard = Ui.Div(_infoCard, "board board-small");
+            _infoCard.RegisterCallback<PointerEnterEvent>(_ => _overCard = true);
+            _infoCard.RegisterCallback<PointerLeaveEvent>(_ => _overCard = false);
             // The world boards, fetched while the map is open, so every run shows who to beat.
             for (int i = 0; i < 5; i++)
-                OnlineBoards.Fetch(OnlineBoards.BoardId((SlopeId)i), _ => { if (this != null && Hovered >= 0) ShowInfo(Hovered); });
+                OnlineBoards.Fetch(OnlineBoards.BoardId((SlopeId)i), _ => { if (this != null && _shown >= 0) ShowInfo(_shown); });
             _infoHint = Ui.Text(_infoCard, "", "tiny");
             _infoCard.style.display = DisplayStyle.None;
 
@@ -318,8 +326,10 @@ namespace Ski.Game
         void ShowInfo(int r)
         {
             if (_infoCard == null) return;
-            _infoCard.style.display = r >= 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            // The card stays up for the last run pointed at, so its replays can be clicked.
             if (r < 0) return;
+            _shown = r;
+            _infoCard.style.display = DisplayStyle.Flex;
             var id = (SlopeId)r;
             _infoChip.ClearClassList();
             _infoChip.AddToClassList("slope-chip");
@@ -333,19 +343,28 @@ namespace Ski.Game
             var world = OnlineBoards.Cached(OnlineBoards.BoardId(id));
             if (world == null) _infoRival.text = OnlineBoards.Status == OnlineBoards.State.Failed ? "World board: offline" : "World board: loading...";
             else if (world.Count == 0) _infoRival.text = "World board: nobody yet. Be the first.";
-            else
+            else _infoRival.text = "WORLD BOARD";
+            _infoBoard.Clear();
+            if (world != null)
             {
-                var sb = new System.Text.StringBuilder("WORLD BOARD");
                 int n = 0;
                 foreach (var e in world)
                 {
                     if (n >= 5 && !e.Me) continue;
-                    sb.Append('\n').Append(e.Rank + 1).Append(".  ").Append(e.Name).Append(e.Me ? " (you)" : "").Append("   ").Append(Leaderboards.Format(id, (float)e.Score));
+                    var row = Ui.Div(_infoBoard, "board-row" + (e.Me ? " board-row-me" : ""));
+                    Ui.Text(row, (e.Rank + 1) + ".", "board-rank");
+                    Ui.Text(row, e.Name + (e.Me ? " (you)" : ""), "board-name");
+                    Ui.Text(row, Leaderboards.Format(id, (float)e.Score));
+                    if (!string.IsNullOrEmpty(e.Ghost))
+                    {
+                        var entry = e;
+                        Ui.Btn(row, "WATCH", () => { if (!_picked) { _picked = true; AudioDirector.Click(); OnWatch?.Invoke(id, entry); } }, "btn-watch btn-watch-wide");
+                    }
+                    else Ui.Div(row, "btn-watch-gap btn-watch-wide");
                     n++;
                 }
-                _infoRival.text = sb.ToString();
             }
-            _infoHint.text = "Click to start";
+            _infoHint.text = "Click the run to start";
         }
 
         // ---- frame -------------------------------------------------------------------------
@@ -409,7 +428,7 @@ namespace Ski.Game
                 if (hover >= 0) AudioDirector.Hover();
             }
             if (key >= 0) Pick(key);
-            else if (hover >= 0 && mouse != null && mouse.leftButton.wasPressedThisFrame) Pick(hover);
+            else if (hover >= 0 && !_overCard && mouse != null && mouse.leftButton.wasPressedThisFrame) Pick(hover);
         }
 
         public void Pick(int run)

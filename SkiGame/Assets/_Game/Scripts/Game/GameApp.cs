@@ -76,6 +76,7 @@ namespace Ski.Game
             CloseAll();
             Screen = GameScreen.Menu;
             Look.Storm = 0f; Look.Night = 0f;
+            LiveRooms.Enter(null);
             Lift = LiftScene.Create(transform, LiftScene.Mode.Menu);
             Lift.OnSelect = who =>
             {
@@ -92,8 +93,10 @@ namespace Ski.Game
         {
             CloseAll();
             Screen = GameScreen.Map;
+            LiveRooms.Enter(null);
             Map = MapScene.Create(transform, Character);
             Map.OnPick = slope => Transition(() => StartRun(slope, Character), 0.45f);
+            Map.OnWatch = (slope, entry) => Transition(() => WatchFromMap(slope, entry), 0.45f);
             Map.OnChangeSkier = () => Transition(ShowMenu);
         }
 
@@ -110,12 +113,22 @@ namespace Ski.Game
             Run.OnTavernReached = () => Transition(ShowTavern);
         }
 
+        /// <summary>Someone's run from the board, on its slope; back to the map when it ends.</summary>
+        void WatchFromMap(SlopeId slope, OnlineBoards.Entry entry)
+        {
+            StartRun(slope, Character);
+            Run.InputEnabled = false;
+            Cursor.lockState = CursorLockMode.None;
+            if (!Run.Watch(entry, () => Transition(ShowMap))) ShowMap();
+        }
+
         /// <summary>The short ride back up after a run; cuts to the map.</summary>
         public void ShowRide()
         {
             CloseAll();
             Screen = GameScreen.Ride;
             Look.Storm = 0.1f;
+            LiveRooms.Enter(null);
             Lift = LiftScene.Create(transform, LiftScene.Mode.Ride, Character);
             _rideTimer = 3.8f;
         }
@@ -151,6 +164,7 @@ namespace Ski.Game
         void Update()
         {
             var kb = Keyboard.current; var mouse = Mouse.current;
+            LiveRooms.Tick();
             if (Screen == GameScreen.Ride && !_busy)
             {
                 _rideTimer -= Time.deltaTime;
@@ -162,7 +176,8 @@ namespace Ski.Game
                 // Clicking the game captures the mouse for looking around.
                 if (!Dialogs.Open && mouse != null && mouse.leftButton.wasPressedThisFrame && Cursor.lockState != CursorLockMode.Locked)
                     Cursor.lockState = CursorLockMode.Locked;
-                if (kb != null && kb.escapeKey.wasPressedThisFrame && !_busy)
+                if (kb != null && kb.escapeKey.wasPressedThisFrame && !_busy && Run.Watching) Run.StopWatching();
+                else if (kb != null && kb.escapeKey.wasPressedThisFrame && !_busy)
                 {
                     if (Dialogs.Open) { Dialogs.Close(); Resume(); }
                     else

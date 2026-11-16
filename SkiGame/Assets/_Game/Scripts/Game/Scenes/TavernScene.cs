@@ -61,6 +61,19 @@ namespace Ski.Game
         MeshBuilder _beer;
         public float Wobble; // grows with every beer
 
+        // Other people in here right now (see LiveRooms).
+        sealed class LiveGuest { public GhostView V; public Guest Knock; public float Blend; public Vector3 Last; }
+        struct PendingPunch { public LiveRooms.Remote By; public string Target; public float Yaw; public double At, Received; }
+        readonly Dictionary<string, LiveGuest> _live = new Dictionary<string, LiveGuest>();
+        readonly List<PendingPunch> _punches = new List<PendingPunch>();
+        readonly List<string> _gone = new List<string>();
+        readonly LiveRecorder _rec = new LiveRecorder { Mode = LiveMode.Tavern };
+        Transform _liveRoot;
+        // Being punched yourself: thrown back, down on the floor, up again.
+        float _knock = -1f, _knockRoll, _knockDrop;
+        Vector3 _knockVel;
+        float _lastMove;
+
         public static TavernScene Create(Transform parent, CharacterId who)
         {
             var go = new GameObject("TavernScene");
@@ -114,8 +127,12 @@ namespace Ski.Game
 
             BuildCrowd(rng);
             BuildPainting();
-            NameTheRegulars(null);
-            OnlineBoards.Fetch(OnlineBoards.ChugBoard, NameTheRegulars);
+            // The people at the tables are the house's; anyone else playing right now walks in for real.
+            _liveRoot = new GameObject("LivePlayers").transform;
+            _liveRoot.SetParent(transform, false);
+            _rec.Character = (int)_who;
+            LiveRooms.Punched += OnPunched;
+            LiveRooms.Enter("tavern");
 
             // --- you ---------------------------------------------------------------------------
             var camGo = new GameObject("Camera") { tag = "MainCamera" };
@@ -621,33 +638,6 @@ namespace Ski.Game
 
         // ---- punching ----------------------------------------------------------------------------
 
-        /// <summary>
-        /// Guests named after real players from the world boards, so the people you meet in here are
-        /// not all strangers. (They are not connected live: nobody else sees your punch.)
-        /// </summary>
-        void NameTheRegulars(List<OnlineBoards.Entry> ignored)
-        {
-            if (this == null) return;
-            var names = new List<string>();
-            var boards = new List<string> { OnlineBoards.ChugBoard };
-            for (int i = 0; i < 5; i++) boards.Add(OnlineBoards.BoardId((SlopeId)i));
-            foreach (var b in boards)
-            {
-                var list = OnlineBoards.Cached(b);
-                if (list == null) continue;
-                foreach (var e in list) if (!e.Me && !names.Contains(e.Name)) names.Add(e.Name);
-            }
-            int n = 0;
-            foreach (var g in _guests)
-            {
-                if (n >= names.Count || n >= 8) break;
-                if (g.Kind == Act.Bartender || g.Tag != null) continue;
-                var tm = VillageBuilder.Sign(g.P.Head, names[n++], Vector3.zero, Quaternion.identity, 0.14f, Palette.White);
-                g.Tag = tm.transform;
-                g.Tag.localPosition = new Vector3(0f, 0.42f, 0f);
-            }
-        }
-
         void Punch()
         {
             _punch = 0f;
@@ -665,8 +655,24 @@ namespace Ski.Game
                 if (d > reach || d > 0.2f && Vector3.Dot(to / d, fwd) < 0.72f) continue;
                 if (d < best) { best = d; hit = g; }
             }
-            if (hit == null) return;
-            Launch(hit, fwd, 1f);
+            // Other players count too: the punch goes to them, and they are sent flying on every screen.
+            LiveGuest liveHit = null; string liveId = null;
+            foreach (var kv in _live)
+            {
+                var lg = kv.Value;
+                if (lg.Knock != null || !lg.V.gameObject.activeSelf) continue;
+                Vector3 to = lg.V.transform.localPosition - eye; to.y = 0f;
+                float d = to.magnitude;
+                if (d > 2.0f || d > 0.2f && Vector3.Dot(to / d, fwd) < 0.72f) continue;
+                if (d < best) { best = d; liveHit = lg; liveId = kv.Key; hit = null; }
+            }
+            if (liveHit != null)
+            {
+                LiveRooms.SendPunch(liveId, _yaw);
+                LaunchLive(liveHit, fwd);
+            }
+            else if (hit == null) return;
+            else Launch(hit, fwd, 1f);
             Knockouts++;
             AudioDirector.Sfx("land_heavy", 1f, 1.25f);
             AudioDirector.Sfx("crash", 0.6f, 1.2f);
@@ -693,6 +699,118 @@ namespace Ski.Game
             var flail = Pose.Cheer;
             flail.LegOut = 26f; flail.ThighL = 40f; flail.ThighR = -10f; flail.KneeL = 50f; flail.KneeR = 30f; flail.TorsoPitch = -14f; flail.HeadPitch = -20f;
             p.Snap(flail);
+        }
+
+        // ---- live players ------------------------------------------------------------------
+
+        void OnPunched(LiveRooms.Remote by, string target, float yaw, double at)
+        {
+            if (this == null) return;
+            // Somebody hit you: that lands the moment it arrives.
+            if (target == LiveRooms.MyId) { KnockMe(yaw); return; }
+            // Somebody hit somebody: shown when the thrower's replay reaches the punch.
+            _punches.Add(new PendingPunch { By = by, Target = target, Yaw = yaw, At = at, Received = LiveRooms.Now });
+        }
+
+        void LaunchLive(LiveGuest lg, Vector3 dir)
+        {
+            var v = lg.V;
+            // The body leaves its view and flies through the room on its own; it comes back when it is up again.
+            Vector3 at = v.transform.localPosition; Quaternion rot = v.transform.localRotation;
+            v.transform.localPosition = Vector3.zero; v.transform.localRotation = Quaternion.identity;
+            v.Body.transform.localPosition = at; v.Body.transform.localRotation = rot;
+            v.ShowName(false);
+            lg.Knock = new Guest { P = v.Body, Kind = Act.Stand, Home = at, HomeRot = rot, Base = Pose.Stand };
+            Launch(lg.Knock, dir, 1f);
+            AudioDirector.Sfx("land_heavy", 0.8f, 1.2f);
+        }
+
+        void KnockMe(float yaw)
+        {
+            if (_knock >= 0f || Game != null) return;
+            _knock = 0f;
+            _knockVel = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward * 7f;
+            AudioDirector.Sfx("land_heavy", 1f, 0.9f);
+            AudioDirector.Sfx("crash", 0.7f, 1.1f);
+            if (_pow != null) { _pow.text = "OOF!"; _pow.RemoveFromClassList("toast-hidden"); _powLeft = 0.8f; }
+        }
+
+        /// <summary>Your own knockdown: flying back for half a second, a moment on the floor, then up.</summary>
+        bool AnimateMyKnock(float dt)
+        {
+            if (_knock < 0f) return false;
+            _knock += dt;
+            if (_knock < 0.55f)
+            {
+                TryMove(_knockVel * dt);
+                _knockVel *= Mathf.Exp(-3f * dt);
+                _knockRoll = Mathf.Lerp(_knockRoll, 75f, 1f - Mathf.Exp(-10f * dt));
+                _knockDrop = Mathf.Lerp(_knockDrop, 1.3f, 1f - Mathf.Exp(-9f * dt));
+                _pitch = Mathf.Lerp(_pitch, 40f, 1f - Mathf.Exp(-8f * dt));
+            }
+            else if (_knock > 2.3f)
+            {
+                _knockRoll = Mathf.Lerp(_knockRoll, 0f, 1f - Mathf.Exp(-7f * dt));
+                _knockDrop = Mathf.Lerp(_knockDrop, 0f, 1f - Mathf.Exp(-6f * dt));
+                if (_knock > 3.1f) { _knock = -1f; _knockRoll = _knockDrop = 0f; }
+            }
+            PlaceCamera(dt);
+            return true;
+        }
+
+        void SyncLive(float dt)
+        {
+            double now = LiveRooms.Now;
+            foreach (var r in LiveRooms.Others.Values)
+            {
+                bool there = r.Timeline.Visible(now) && r.Timeline.At(now, out var s, out float speed, out var mode) && mode == LiveMode.Tavern;
+                if (!_live.TryGetValue(r.Id, out var lg))
+                {
+                    if (!there) continue;
+                    var v = GhostView.Create(_liveRoot, r.Name, r.Who, true, true);
+                    _live[r.Id] = lg = new LiveGuest { V = v };
+                }
+                lg.V.Rename(r.Name);
+                if (lg.Knock != null)
+                {
+                    AnimateKnocked(lg.Knock, dt);
+                    if (lg.Knock.State == Knock.WalkingBack || lg.Knock.State == Knock.None)
+                    {
+                        // Up again: back into their own movement, blending from where they got up.
+                        var p = lg.Knock.P;
+                        lg.Last = p.transform.localPosition; lg.Last.y = 0f;
+                        p.transform.localPosition = Vector3.zero; p.transform.localRotation = Quaternion.identity;
+                        p.Snap(Pose.Stand); p.EyesClosed = false; p.MouthOpen = 0f; p.BrowRaise = 0f;
+                        lg.Knock = null; lg.Blend = 1f;
+                        lg.V.ShowName(true);
+                    }
+                    continue;
+                }
+                if (!there || !r.Timeline.At(now, out s, out speed, out mode)) { lg.V.Hide(); continue; }
+                Vector3 pos = new Vector3(s.Pos.x, 0f, s.Pos.z);
+                if (lg.Blend > 0f) { lg.Blend = Mathf.Max(0f, lg.Blend - dt / 1.2f); pos = Vector3.Lerp(pos, lg.Last, lg.Blend); speed = Mathf.Max(speed, 1f); }
+                lg.V.ShowOnFoot(pos, s.Yaw, speed, Cam, dt, (s.Flags & LiveFlags.Punch) != 0);
+            }
+            // Punches between other people, when the thrower's replay gets there (or soon, whatever happens).
+            for (int i = _punches.Count - 1; i >= 0; i--)
+            {
+                var pp = _punches[i];
+                double t = pp.By.Timeline.PlaybackTime(now);
+                if (!(t >= pp.At) && now - pp.Received < 6.0) continue;
+                _punches.RemoveAt(i);
+                if (_live.TryGetValue(pp.Target, out var target) && target.Knock == null && target.V.gameObject.activeSelf)
+                    LaunchLive(target, Quaternion.Euler(0f, pp.Yaw, 0f) * Vector3.forward);
+            }
+            _gone.Clear();
+            foreach (var id in _live.Keys) if (!LiveRooms.Others.ContainsKey(id)) _gone.Add(id);
+            foreach (var id in _gone) { Destroy(_live[id].V.gameObject); _live.Remove(id); }
+
+            // Where you are, for everyone else. Standing still, a packet every five seconds is plenty.
+            var flags = LiveFlags.None;
+            if (_punch < 1f) flags |= LiveFlags.Punch;
+            if (_knock >= 0f) flags |= LiveFlags.Down;
+            _rec.PacketSeconds = Time.time - _lastMove < 2f || flags != LiveFlags.None ? 2f : 4.9f;
+            LiveRooms.Send(_rec.Tick(now, new LiveSample { Pos = new Vector3(_pos.x, 0f, _pos.z), Yaw = _yaw, Flags = flags }));
         }
 
         float FloorAt(Vector3 c)
@@ -906,8 +1024,8 @@ namespace Ski.Game
         void PlaceCamera(float dt)
         {
             float sway = Mathf.Sin(_time * 1.3f) * Wobble;
-            Cam.transform.localPosition = _pos + new Vector3(0f, Eye + Mathf.Sin(_bob) * 0.035f, 0f);
-            Cam.transform.localRotation = Quaternion.Euler(-_pitch + Mathf.Cos(_time * 0.9f) * Wobble * 0.6f, _yaw + sway, sway * 1.4f);
+            Cam.transform.localPosition = _pos + new Vector3(0f, Eye - _knockDrop + Mathf.Sin(_bob) * 0.035f, 0f);
+            Cam.transform.localRotation = Quaternion.Euler(-_pitch + Mathf.Cos(_time * 0.9f) * Wobble * 0.6f, _yaw + sway, sway * 1.4f + _knockRoll);
         }
 
         void AnimateFire(float dt)
@@ -943,6 +1061,7 @@ namespace Ski.Game
             for (int i = 0; i < _lights.Count; i++) _lights[i].intensity = (i < 5 ? 11f : 4.5f) + beat * (i < 5 ? 5f : 0.6f) * (i % 2 == 0 ? 1f : 0.5f);
             AnimateFire(dt);
             AnimateCrowd(dt);
+            SyncLive(dt);
             if (WorldLook.Instance != null) WorldLook.Instance.Indoors = true;
 
             // The fist: out, and back.
@@ -958,6 +1077,7 @@ namespace Ski.Game
             if (_powLeft > 0f) { _powLeft -= dt; if (_powLeft <= 0f) _pow.AddToClassList("toast-hidden"); }
 
             if (Game != null) { Game.Tick(dt); PlaceCameraForGame(dt); return; }
+            if (AnimateMyKnock(dt)) return;
             if (Dialogs.Open) return;
             if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame && _punch >= 1f && _time > 0.6f) Punch();
 
@@ -981,6 +1101,7 @@ namespace Ski.Game
                 move = Quaternion.Euler(0f, _yaw, 0f) * move.normalized * 2.6f * dt;
                 TryMove(move);
                 _bob += dt * 9f;
+                _lastMove = Time.time;
             }
             PlaceCamera(dt);
 
@@ -1034,6 +1155,7 @@ namespace Ski.Game
 
         public void Close()
         {
+            LiveRooms.Punched -= OnPunched;
             Game?.Dispose();
             _ui?.RemoveFromHierarchy();
             if (WorldLook.Instance != null) WorldLook.Instance.Indoors = false;

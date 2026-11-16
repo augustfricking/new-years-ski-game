@@ -2,6 +2,7 @@ using System;
 using Ski.Core;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UIElements;
 
 namespace Ski.Game
 {
@@ -24,7 +25,11 @@ namespace Ski.Game
         public Action OnLiftReached, OnTavernReached;
 
         ResultsPanel _results;
-        GhostCrowd _ghosts;
+        LiveCrowd _live;
+        readonly LiveRecorder _rec = new LiveRecorder();
+        RunReplay _replay;
+        Action _replayDone;
+        float _fovBeforeReplay;
         VillageLife _village;
         readonly GhostTrack _track = new GhostTrack();
         SnowFx _snow;
@@ -57,7 +62,9 @@ namespace Ski.Game
             Rig.SetThirdPerson(slope == SlopeId.Blue);   // the park is ridden from behind, so tricks can be seen
             Rig.Sync(Session.Sim, 0.016f);
             _snow = SnowFx.Create(transform);
-            _ghosts = new GhostCrowd(Session, transform);
+            _live = new LiveCrowd(Session, transform);
+            LiveRooms.Enter(slope.ToString().ToLowerInvariant());
+            _rec.Character = (int)who;
             _village = VillageLife.Create(course, transform);
             if (WorldLook.Instance != null) WorldLook.Instance.Follow = Rig.Cam.transform;
             if (Ui.Instance != null)
@@ -72,7 +79,7 @@ namespace Ski.Game
             if (Result.HasValue) return;
             var r = SaveData.Boards.Submit(Session.Slope, Session.Character, Session.ResultValue);
             Result = r;
-            if (Ui.Instance != null) _results = new ResultsPanel(Session, r);
+            if (Ui.Instance != null) _results = new ResultsPanel(Session, r) { OnWatch = e => Watch(e) };
             // A personal best is kept as this device's ghost, and goes to the world board with its recording.
             string recording = _track.Encode();
             if (r.PersonalBest) SaveData.SetGhost(Session.Slope, recording);
@@ -101,8 +108,8 @@ namespace Ski.Game
         /// <summary>Removes the run's UI and sound, then destroys the run. Call instead of Destroy.</summary>
         public void Close()
         {
+            StopWatching(false);
             _results?.Dispose();
-            _ghosts?.Close();
             Hud?.Dispose();
             Hud = null;
             if (Ui.Instance != null) Ui.Instance.ShowGoggles(false);
@@ -164,6 +171,7 @@ namespace Ski.Game
             inp.Tuck = kb.wKey.isPressed || kb.upArrowKey.isPressed;
             inp.Brake = kb.sKey.isPressed || kb.downArrowKey.isPressed;
             inp.Jump = _jump; inp.Pole = _pole;
+            if (Result.HasValue) return inp;
             if (kb.digit1Key.isPressed) inp.Trick = 1;
             else if (kb.digit2Key.isPressed) inp.Trick = 2;
             else if (kb.digit3Key.isPressed) inp.Trick = 3;
@@ -172,10 +180,74 @@ namespace Ski.Game
             return inp;
         }
 
+        // ---- replays from the boards --------------------------------------------------------
+
+        public bool Watching => _replay != null;
+
+        /// <summary>Plays a board row's recorded run on this slope. <paramref name="done"/> runs when it ends (null: back to the run).</summary>
+        public bool Watch(OnlineBoards.Entry e, Action done = null)
+        {
+            var track = GhostTrack.Decode(e.Ghost);
+            if (track == null || Session == null) return false;
+            StopWatching(false);
+            var who = e.Character >= 0 && e.Character < 4 ? (CharacterId)e.Character : CharacterId.Erik;
+            _replay = new RunReplay(transform, Session.Course, Session.Slope, track, e.Me ? "You" : e.Name, who);
+            _replayDone = done;
+            _fovBeforeReplay = Rig.Cam.fieldOfView;
+            Rig.Body.gameObject.SetActive(false);
+            if (Ui.Instance != null) { Ui.Instance.HudLayer.style.display = DisplayStyle.None; Ui.Instance.ShowGoggles(false); }
+            AudioDirector.Click();
+            return true;
+        }
+
+        /// <summary>Ends a replay and goes back to the run (or wherever the replay was started from).</summary>
+        public void StopWatching(bool callBack = true)
+        {
+            if (_replay == null) return;
+            _replay.Dispose();
+            _replay = null;
+            if (Rig != null)
+            {
+                Rig.Body.gameObject.SetActive(true);
+                Rig.Cam.fieldOfView = _fovBeforeReplay;
+            }
+            if (Ui.Instance != null) { Ui.Instance.HudLayer.style.display = DisplayStyle.Flex; Ui.Instance.ShowGoggles(Rig != null && !Rig.ThirdPerson); }
+            var done = _replayDone;
+            _replayDone = null;
+            if (callBack) done?.Invoke();
+        }
+
+        /// <summary>Tells the room where this player is (never the bot's runs, never from the start gate).</summary>
+        void SendLive()
+        {
+            if (Autopilot != null || _botDrove || Session.Phase == RunPhase.Ready || Watching) return;
+            var sim = Session.Sim;
+            _rec.Mode = Result.HasValue ? LiveMode.Finished : LiveMode.Skiing;
+            var flags = LiveFlags.None;
+            if (sim.Tuck > 0.5f) flags |= LiveFlags.Tuck;
+            if (sim.Plough > 0.4f) flags |= LiveFlags.Plough;
+            if (sim.Crashed) flags |= LiveFlags.Crashed;
+            var sample = new LiveSample { Pos = new Vector3(sim.Pos.x, sim.Contact ? 0f : sim.AirHeight, sim.Pos.z), Yaw = sim.Heading * Mathf.Rad2Deg, Flags = flags };
+            LiveRooms.Send(_rec.Tick(LiveRooms.Now, sample));
+        }
+
         void Update()
         {
             if (Session == null) return;
+            if (_replay != null)
+            {
+                float rdt = Mathf.Min(Time.deltaTime, 0.1f);
+                _replay.Tick(Rig.Cam, rdt);
+                _live.Sync(Rig.Cam, rdt);
+                if (Kids != null) { Kids.ViewerZ = Rig.Cam.transform.position.z; Kids.Sync(rdt); }
+                if (_replay.Done) StopWatching();
+                return;
+            }
             var kb = Keyboard.current;
+            // On the results card: number keys watch the runs on the board.
+            if (kb != null && Result.HasValue && _results != null && InputEnabled && !Paused && !Dialogs.Open)
+                for (int i = 0; i < 9; i++)
+                    if (kb[(Key)((int)Key.Digit1 + i)].wasPressedThisFrame && _results.Watch(i)) return;
             if (kb != null && InputEnabled && Autopilot == null)
             {
                 if (kb.spaceKey.wasPressedThisFrame) _jump = true;
@@ -211,7 +283,6 @@ namespace Ski.Game
                     if (Session.Phase != RunPhase.Ready)
                     {
                         if (Session.Phase == RunPhase.Running) _track.Record(Session.Time, Session.Sim.Pos.x, Session.Sim.Pos.z, Session.Sim.Contact ? 0f : Session.Sim.AirHeight);
-                        _ghosts.Step(SkiSim.FixedDt);
                     }
                     _jump = _pole = false; // edges are consumed by the first step
                 }
@@ -235,7 +306,8 @@ namespace Ski.Game
             Session.Events.Clear();
 
             Rig.Sync(Session.Sim, dt);
-            _ghosts.Sync(Rig.Cam, dt);
+            _live.Sync(Rig.Cam, dt);
+            SendLive();
             _village.Tick(Session.Sim.Pos.z, dt);
             if (!Paused) _snow.Tick(Session.Sim, dt);
             if (Kids != null) { Kids.ViewerZ = Session.Sim.Pos.z; Kids.Sync(dt); }

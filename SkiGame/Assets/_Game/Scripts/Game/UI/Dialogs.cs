@@ -61,17 +61,17 @@ namespace Ski.Game
             SliderRow(card, "Mouse sensitivity", SaveData.MouseSensitivity, 0.03f, 0.35f, v => SaveData.MouseSensitivity = v);
             ToggleRow(card, "Invert look up/down", SaveData.InvertLook, v => SaveData.InvertLook = v);
             ToggleRow(card, "Subtitles", SaveData.Subtitles, v => SaveData.Subtitles = v);
-            // Ghosts are replays of real runs: your own best and other players' bests. This caps how many are shown.
+            // Other people playing right now: on the slopes (as ghosts) and in the tavern.
+            ToggleRow(card, "Live players", SaveData.Live, v => SaveData.Live = v);
             {
                 var grow = Ui.Div(card, "dialog-row");
                 var glabel = Ui.Text(grow, "", "dialog-label");
-                void Show() => glabel.text = SaveData.MaxGhosts == 0 ? "Ghost replays: off" : "Ghost replays shown: up to " + SaveData.MaxGhosts;
+                void Show() => glabel.text = "Skiers shown: " + SaveData.MaxGhosts;
                 Show();
-                var gs = new SliderInt(0, 12) { value = SaveData.MaxGhosts };
+                var gs = new SliderInt(1, 15) { value = SaveData.MaxGhosts };
                 gs.AddToClassList("slider");
                 gs.RegisterValueChangedCallback(e => { SaveData.MaxGhosts = e.newValue; Show(); });
                 grow.Add(gs);
-                Ui.Text(card, "Ghosts replay real runs: your best and other players'.", "tiny");
             }
             // The name this device goes by on the boards.
             var row = Ui.Div(card, "dialog-row");
@@ -79,7 +79,7 @@ namespace Ski.Game
             var name = new TextField { value = SaveData.PlayerName, maxLength = 16 };
             name.AddToClassList("name-field");
             name.RegisterValueChangedCallback(e => SaveData.PlayerName = e.newValue.Trim());
-            name.RegisterCallback<FocusOutEvent>(_ => { SaveData.Save(); OnlineBoards.NameChanged(); });
+            name.RegisterCallback<FocusOutEvent>(_ => { SaveData.Save(); OnlineBoards.NameChanged(); LiveRooms.NameChanged(); });
             row.Add(name);
         }
 
