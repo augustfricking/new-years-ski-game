@@ -87,6 +87,7 @@ namespace Ski.Core
         public float AirSpinRate = 7.2f;    // rad/s
         public float AirSpinAccel = 30f;    // rad/s^2
         public float FlipRate = 6.9f;       // rad/s
+        public float FlipAccel = 30f;       // rad/s2: how quickly W / S get a flip going (and stop it)
         public float CorkRate = 5.6f;
         public float AirDrag = 0.0025f;
 

@@ -201,6 +201,8 @@ namespace Ski.Game
             inp.Brake = kb.sKey.isPressed || kb.downArrowKey.isPressed;
             inp.Jump = _jump; inp.Pole = _pole;
             if (Result.HasValue) return inp;
+            if (kb.qKey.isPressed) inp.Variant = 1;
+            else if (kb.eKey.isPressed) inp.Variant = 2;
             if (kb.digit1Key.isPressed) inp.Trick = 1;
             else if (kb.digit2Key.isPressed) inp.Trick = 2;
             else if (kb.digit3Key.isPressed) inp.Trick = 3;

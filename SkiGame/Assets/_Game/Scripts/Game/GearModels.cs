@@ -177,5 +177,62 @@ namespace Ski.Game
             b.Box(new Vector3(0.02f, 0.2f, 0.042f), new Vector3(0.08f, 0.018f, 0.02f));
             b.Box(new Vector3(0.02f, 0.275f, 0.054f), new Vector3(0.08f, 0.018f, 0.02f));
         }
+
+        /// <summary>
+        /// A soft snowboard boot: rounder and chunkier than a ski boot, a thick rubber sole, a padded
+        /// cuff that stops lower, laces up the front and a strap round the ankle. No buckles.
+        /// </summary>
+        public static void BoardBoot(MeshBuilder b, Color colour)
+        {
+            // Thick rubber sole, rounded at the toe.
+            b.Col = Palette.Ink;
+            b.Push(new Vector3(0, 0.0f, 0.015f), Quaternion.Euler(90f, 0f, 0f));
+            b.Loft(new[]
+            {
+                new MeshBuilder.Ring(-0.13f, 0.05f, 0.016f, -0.016f),
+                new MeshBuilder.Ring(-0.11f, 0.058f, 0.016f, -0.016f),
+                new MeshBuilder.Ring(0.1f, 0.062f, 0.016f, -0.016f),
+                new MeshBuilder.Ring(0.16f, 0.05f, 0.016f, -0.016f),
+                new MeshBuilder.Ring(0.18f, 0.03f, 0.016f, -0.016f),
+            }, 8, true, true);
+            b.Pop();
+            // The foot: soft and round, a big toe box.
+            b.Col = colour;
+            b.Push(new Vector3(0, 0.03f, 0), Quaternion.Euler(90f, 0f, 0f));
+            b.Loft(new[]
+            {
+                new MeshBuilder.Ring(-0.125f, 0.05f, 0.05f, -0.05f),
+                new MeshBuilder.Ring(-0.08f, 0.058f, 0.066f, -0.064f),
+                new MeshBuilder.Ring(0.0f, 0.06f, 0.07f, -0.066f),
+                new MeshBuilder.Ring(0.08f, 0.06f, 0.06f, -0.056f),
+                new MeshBuilder.Ring(0.14f, 0.054f, 0.046f, -0.044f),
+                new MeshBuilder.Ring(0.172f, 0.034f, 0.03f, -0.03f),
+            }, 8, true, true);
+            b.Pop();
+            // A padded cuff, upright and lower than a ski boot's.
+            b.Loft(new[]
+            {
+                new MeshBuilder.Ring(0.08f, 0.058f, 0.068f, -0.04f),
+                new MeshBuilder.Ring(0.17f, 0.056f, 0.064f, -0.03f),
+                new MeshBuilder.Ring(0.24f, 0.061f, 0.066f, -0.024f),
+            }, 8, false, true);
+            b.Col = Palette.Mul(colour, 0.7f);
+            b.Loft(new[]
+            {
+                new MeshBuilder.Ring(0.235f, 0.064f, 0.07f, -0.024f),
+                new MeshBuilder.Ring(0.262f, 0.062f, 0.068f, -0.022f),
+            }, 8, false, true);
+            // Laces criss-crossing up the front, and the ankle strap.
+            b.Col = Palette.White;
+            for (int i = 0; i < 4; i++)
+            {
+                float y = 0.1f + i * 0.033f, z = 0.105f - i * 0.016f;
+                b.Push(new Vector3(0f, y, z), Quaternion.Euler(0f, 0f, i % 2 == 0 ? 22f : -22f));
+                b.Box(Vector3.zero, new Vector3(0.055f, 0.007f, 0.012f));
+                b.Pop();
+            }
+            b.Col = Palette.Ink;
+            b.Box(new Vector3(0f, 0.15f, 0.0f), new Vector3(0.128f, 0.03f, 0.15f));
+        }
     }
 }

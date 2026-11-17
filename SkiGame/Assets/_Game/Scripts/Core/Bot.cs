@@ -89,10 +89,11 @@ namespace Ski.Core
                     if (sim.AirTime < 0.8f) inp.Trick = 1;
                     break;
                 case 2: // mute grab, held
-                    if (sim.AirTime < 0.75f) { inp.Trick = 2; inp.Tuck = sim.AirTime > 0.3f; }
+                    if (sim.AirTime < 0.75f) { inp.Trick = 2; inp.Variant = sim.AirTime > 0.3f ? 1 : 0; }
                     break;
                 default: // backflip when there is enough air for it, else a spread eagle
-                    if (sim.Vel.y > -3.5f && sim.AirTime < 0.25f || Mathf.Abs(sim.FlipVel) > 0.1f && Mathf.Abs(sim.Flip) < 4.6f) inp.Trick = 3;
+                    // S held (pressed after take-off) turns a backflip; let go near the end and it settles.
+                    if (sim.Vel.y > -3.5f && sim.AirTime < 0.25f && sim.AirTime > 0.04f || Mathf.Abs(sim.FlipVel) > 0.1f && Mathf.Abs(sim.Flip) < 4.6f) inp.Brake = true;
                     else if (Mathf.Abs(sim.Flip) < 0.01f && sim.AirTime < 0.7f) inp.Trick = 4;
                     break;
             }

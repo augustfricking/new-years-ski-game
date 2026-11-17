@@ -92,6 +92,9 @@ namespace Ski.Game
             {
                 Character = who;
                 SaveData.LastCharacter = who; SaveData.Save();
+                // The cutscene plays once a visit; changing skier afterwards goes straight to the map.
+                if (BrowserSession.Has("cutscene")) { Transition(ShowMap); return; }
+                BrowserSession.Set("cutscene");
                 Screen = GameScreen.Cutscene;
                 Lift.PlayCutscene(who, () => { ShowMap(); Ui.Instance.Fade(0f, 0.8f); });
             };

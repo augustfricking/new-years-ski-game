@@ -153,6 +153,10 @@ namespace Ski.Game
                     case 2: // mute: left hand across to the right ski
                         p.TorsoPitch = 44f; p.TorsoYaw = 20f; p.ArmFwdL = 52f; p.ArmOutL = 0f; p.ElbowL = 14f; p.ArmTwistL = 46f;
                         p.ArmFwdR = -10f; p.ArmOutR = 80f; p.ElbowR = 20f; break;
+                    case 3: // stalefish: knees up, the right hand behind the leg to the tail
+                        p.ThighL = p.ThighR = 78f; p.KneeL = p.KneeR = 118f; p.TorsoPitch = 30f; p.TorsoYaw = -14f;
+                        p.ArmFwdR = -38f; p.ArmOutR = 22f; p.ElbowR = 34f; p.ArmTwistR = -30f;
+                        p.ArmFwdL = 30f; p.ArmOutL = 70f; p.ElbowL = 24f; break;
                     case 4: // spread eagle
                         p.ThighL = p.ThighR = 4f; p.KneeL = p.KneeR = 8f; p.LegOut = 34f; p.TorsoPitch = 2f;
                         p.ArmFwdL = p.ArmFwdR = 8f; p.ArmOutL = p.ArmOutR = 108f; p.ElbowL = p.ElbowR = 8f; break;

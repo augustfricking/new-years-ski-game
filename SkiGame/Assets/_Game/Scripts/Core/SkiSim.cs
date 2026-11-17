@@ -7,11 +7,12 @@ namespace Ski.Core
     public struct SkiInput
     {
         public float Steer;   // -1 = left (A), +1 = right (D)
-        public bool Tuck;     // W held
-        public bool Brake;    // S held
+        public bool Tuck;     // W held: tuck on the snow, pitch forward in the air
+        public bool Brake;    // S held: brake on the snow, pitch back in the air
         public bool Jump;     // Space pressed this step
         public bool Pole;     // Shift pressed this step
         public int Trick;     // 0 = none, 1..5 = trick key held
+        public int Variant;   // 0, or 1 / 2 (Q / E held): the other ways to hold a grab
     }
 
     public enum SkiEventType { PolePush, Jump, Takeoff, Landed, HeavyLanding, Crash, Recovered, GrindStart, GrindEnd, Brush }
@@ -51,6 +52,8 @@ namespace Ski.Core
         public float AirTime, AirHeight, MaxAirHeight;
         public float SpinVel, AirYaw;
         public float Flip, FlipVel;
+        // W or S held since before take-off stays a tuck or a brake until let go: only a fresh press flips.
+        bool _heldW, _heldS;
         public float Cork, CorkVel;
         public int ActiveGrab, ActiveGrabVariant;
         public readonly float[] GrabTime = new float[15]; // [trick * 3 + variant]
@@ -108,6 +111,7 @@ namespace Ski.Core
         {
             AirTime = AirHeight = MaxAirHeight = 0f;
             SpinVel = AirYaw = Flip = FlipVel = Cork = CorkVel = 0f;
+            _heldW = _heldS = true;
             ActiveGrab = 0; ActiveGrabVariant = 0;
             for (int i = 0; i < GrabTime.Length; i++) GrabTime[i] = 0f;
         }
@@ -144,7 +148,12 @@ namespace Ski.Core
             float sH = HorizontalSpeed;
 
             // --- body position -----------------------------------------------------------
-            Tuck = Mathf.MoveTowards(Tuck, inp.Tuck ? 1f : 0f, (inp.Tuck ? P.TuckIn : P.TuckOut) * dt);
+            // In the air W and S turn you over instead (once pressed again after take-off).
+            if (Grounded) { _heldW = inp.Tuck; _heldS = inp.Brake; }
+            else { if (!inp.Tuck) _heldW = false; if (!inp.Brake) _heldS = false; }
+            bool pitchFwd = !contact && inp.Tuck && !_heldW, pitchBack = !contact && inp.Brake && !_heldS;
+            bool tucking = inp.Tuck && !pitchFwd;
+            Tuck = Mathf.MoveTowards(Tuck, tucking ? 1f : 0f, (tucking ? P.TuckIn : P.TuckOut) * dt);
             bool brake = inp.Brake && contact;
             Plough = Mathf.MoveTowards(Plough, brake ? 1f : 0f, (brake ? P.PloughIn : P.PloughOut) * dt);
             if (contact)
@@ -285,14 +294,24 @@ namespace Ski.Core
                 Heading = M.WrapPi(Heading + SpinVel * dt);
                 AirYaw += SpinVel * dt;
 
-                StepRotation(ref Flip, ref FlipVel, inp.Trick == 3, inp.Tuck ? 1f : -1f, P.FlipRate, dt);
+                // Flips by hand: W pitches forward, S back; let go and the body settles on the nearest
+                // whole turn, so landing is a matter of timing.
+                float pitch = (pitchFwd ? 1f : 0f) - (pitchBack ? 1f : 0f);
+                if (pitch != 0f) FlipVel = Mathf.MoveTowards(FlipVel, pitch * P.FlipRate, P.FlipAccel * dt);
+                else
+                {
+                    const float Turn = 2f * Mathf.PI;
+                    float settle = Mathf.Round(Flip / Turn) * Turn - Flip;
+                    FlipVel = Mathf.MoveTowards(FlipVel, Mathf.Clamp(settle * 7f, -P.FlipRate, P.FlipRate), P.FlipAccel * dt);
+                }
+                Flip += FlipVel * dt;
                 StepRotation(ref Cork, ref CorkVel, inp.Trick == 5, steer < 0f ? -1f : 1f, P.CorkRate, dt);
 
                 ActiveGrab = 0;
-                if (inp.Trick == 1 || inp.Trick == 2 || inp.Trick == 4)
+                if (inp.Trick >= 1 && inp.Trick <= 4)
                 {
                     ActiveGrab = inp.Trick;
-                    ActiveGrabVariant = inp.Tuck ? 1 : inp.Brake ? 2 : 0;
+                    ActiveGrabVariant = Mathf.Clamp(inp.Variant, 0, 2);
                     GrabTime[inp.Trick * 3 + ActiveGrabVariant] += dt;
                 }
                 acc += c.AirAssist(Pos, Vel);

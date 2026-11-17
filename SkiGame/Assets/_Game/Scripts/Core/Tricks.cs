@@ -20,12 +20,12 @@ namespace Ski.Core
         static readonly string[,] GrabNames =
         {
             { "", "", "" },
-            { "Safety", "Nose grab", "Tail grab" },        // key 1 (+W, +S)
+            { "Safety", "Nose grab", "Tail grab" },        // key 1 (+Q, +E)
             { "Mute", "Japan", "Truck driver" },           // key 2
-            { "", "", "" },
+            { "Stalefish", "Iron cross", "Tindy" },        // key 3
             { "Spread eagle", "Daffy", "Backscratcher" },  // key 4
         };
-        static readonly float[] GrabRate = { 0f, 160f, 220f, 0f, 190f };
+        static readonly float[] GrabRate = { 0f, 160f, 220f, 200f, 190f };
 
         public static string GrabName(int trick, int variant) =>
             trick >= 0 && trick < 5 ? GrabNames[trick, Mathf.Clamp(variant, 0, 2)] : "";

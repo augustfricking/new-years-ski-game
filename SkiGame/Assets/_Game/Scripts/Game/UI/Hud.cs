@@ -72,12 +72,12 @@ namespace Ski.Game
             if (s.ScoreBased)
             {
                 Ui.Text(_tricks, "IN THE AIR", "hint");
+                Ui.Keys(_tricks, "W S", "flip");
                 Ui.Keys(_tricks, "A D", "spin");
-                Ui.Keys(_tricks, "1 2", "grabs");
-                Ui.Keys(_tricks, "3", "flip");
+                Ui.Keys(_tricks, "1 2 3", "grabs");
                 Ui.Keys(_tricks, "4", "spread");
                 Ui.Keys(_tricks, "5", "cork");
-                Ui.Keys(_tricks, "W S", "variants");
+                Ui.Keys(_tricks, "Q E", "variants");
             }
 
             run.OnEvent += OnEvent;

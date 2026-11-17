@@ -163,6 +163,33 @@ namespace Ski.Tests
         }
 
         [Test]
+        public void WAndSFlipInTheAirButATuckHeldFromTheSnowStaysATuck()
+        {
+            // W held through the take-off: still a tuck, no turning over.
+            var s = Make(8f);
+            Run(s, 6f, new SkiInput { Tuck = true });
+            s.Step(new SkiInput { Jump = true, Tuck = true }, Dt);
+            Run(s, 0.3f, new SkiInput { Tuck = true });
+            Assert.IsFalse(s.Grounded);
+            Assert.That(Mathf.Abs(s.Flip), Is.LessThan(0.01f), "a held tuck does not flip");
+            Assert.That(s.Tuck, Is.GreaterThan(0.5f));
+            // Let go and press W again: forward. S: back.
+            Run(s, 0.02f, default);
+            Run(s, 0.2f, new SkiInput { Tuck = true });
+            Assert.That(s.Flip, Is.GreaterThan(0.4f), "W pitches forward");
+            Assert.That(s.Tuck, Is.LessThan(0.5f), "and is not a tuck in the air");
+            var b = Make(8f);
+            Run(b, 6f, default);
+            b.Step(new SkiInput { Jump = true }, Dt);
+            Run(b, 0.25f, new SkiInput { Brake = true });
+            Assert.That(b.Flip, Is.LessThan(-0.4f), "S pitches back");
+            // Let go early: it settles back upright and lands.
+            int guard = 0;
+            while (!b.Grounded && guard++ < 2000) { b.Step(default, Dt); b.Events.Clear(); }
+            Assert.IsFalse(b.Crashed, "settled before landing");
+        }
+
+        [Test]
         public void JumpGoesUpAndLandsCleanly()
         {
             var s = Make(8f);

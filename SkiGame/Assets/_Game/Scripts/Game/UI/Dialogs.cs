@@ -134,7 +134,9 @@ namespace Ski.Game
             Ui.Keys(ski, "S", "brake");
             Ui.Keys(ski, "SPACE", "jump");
             Ui.Keys(ski, "CLICK", "pole push");
-            Ui.Keys(ski, "1 2 3 4 5", "tricks in the air");
+            Ui.Keys(ski, "W S", "flip in the air");
+            Ui.Keys(ski, "1 2 3 4 5", "grabs, cork");
+            Ui.Keys(ski, "Q E", "grab variants");
             Ui.Keys(ski, "R", "back on the line");
             Ui.Keys(ski, "C", "camera");
             var other = Ui.Div(cols, "keys-column");

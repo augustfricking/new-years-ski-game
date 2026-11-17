@@ -100,52 +100,33 @@ namespace Ski.Game
             }
             steel.ToObject("Lift line", Mats.Props, parent, true);
 
-            // Chairs, strung along both cables.
+            // Chairs, running round the loop: up the line nearer the piste, down the other.
             var cb = new MeshBuilder();
             Props.Chair(cb);
             var chairMesh = cb.Build("Lift chair");
-            var chairs = new MeshBuilder();
             var rng = new Rng(c.Seed * 7 + 3);
-            float total = 0f;
-            for (int i = 0; i < pts.Count - 1; i++) total += (pts[i + 1] - pts[i]).magnitude;
-            const float gap = 19f;
-            int n = Mathf.FloorToInt(total / gap);
-            var riders = new GameObject("Riders").transform;
-            riders.SetParent(parent, false);
+            var lift = new GameObject("Lift chairs").AddComponent<LiftChairs>();
+            lift.transform.SetParent(parent, false);
+            var chairs = lift.Setup(pts, chairMesh, Mats.Props, side, CableHalf, 19f);
+            // A few people riding up, for life. They sit still: no per-frame cost of their own.
             int riderCount = 0;
-            for (int k = -1; k <= 1; k += 2)
-                for (int j = 0; j < n; j++)
+            for (int j = 0; j < chairs.Count && riderCount < 12; j++)
+            {
+                if (!rng.Chance(0.3f)) continue;
+                int seats = rng.Range(1, 4);
+                for (int s = 0; s < seats; s++)
                 {
-                    float d = (j + (k < 0 ? 0.25f : 0.75f)) * gap, acc = 0f;
-                    for (int i = 0; i < pts.Count - 1; i++)
-                    {
-                        float len = (pts[i + 1] - pts[i]).magnitude;
-                        if (d > acc + len) { acc += len; continue; }
-                        Vector3 p = Vector3.Lerp(pts[i], pts[i + 1], (d - acc) / len) + Vector3.right * k * CableHalf * side;
-                        bool up = k < 0;   // the line nearer the piste carries people up
-                        var rot = Quaternion.Euler(0f, up ? 180f : 0f, 0f);
-                        chairs.Push(p, rot);
-                        chairs.Append(chairMesh);
-                        chairs.Pop();
-                        // A few riders on their way up, for life. They are frozen: no per-frame cost.
-                        if (up && riderCount < 9 && rng.Chance(0.3f))
-                        {
-                            int seats = rng.Range(1, 4);
-                            for (int s = 0; s < seats; s++)
-                            {
-                                var person = Person.Create(PersonLook.Random(rng, false), riders, "Rider");
-                                person.transform.SetPositionAndRotation(p + rot * new Vector3(0.86f - (s + rng.Range(0, 2)) * 0.573f, -3.07f, -0.02f), rot);
-                                person.Poles = PoleMode.Lap;
-                                person.Alive = false;
-                                person.Snap(Pose.Sit);
-                                person.enabled = false;
-                                riderCount++;
-                            }
-                        }
-                        break;
-                    }
+                    var person = Person.Create(PersonLook.Random(rng, false), chairs[j], "Rider");
+                    person.transform.localPosition = new Vector3(0.86f - (s + rng.Range(0, 2)) * 0.573f, -3.07f, -0.02f);
+                    person.transform.localRotation = Quaternion.identity;
+                    person.Poles = PoleMode.Lap;
+                    person.Alive = false;
+                    person.Snap(Pose.Sit);
+                    person.enabled = false;
+                    lift.Seat(j, person.gameObject);
+                    riderCount++;
                 }
-            chairs.ToObject("Lift chairs", Mats.Props, parent, true);
+            }
         }
 
         // ---- the flanks: forest and the other runs ---------------------------------------------

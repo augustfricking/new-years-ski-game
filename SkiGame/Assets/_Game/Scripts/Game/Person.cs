@@ -874,7 +874,7 @@ namespace Ski.Game
             {
                 var foot = side < 0 ? _footL : _footR;
                 b.Push(new Vector3(0, -_ankle, 0), Quaternion.identity, Vector3.one * s);
-                GearModels.Boot(b, look.Boots);
+                if (look.Gear == GearKind.Board) GearModels.BoardBoot(b, look.Boots); else GearModels.Boot(b, look.Boots);
                 b.Pop();
                 if (look.Gear == GearKind.Skis)
                 {
@@ -1346,7 +1346,7 @@ namespace Ski.Game
 
                 var foot = Node(side < 0 ? "FootL" : "FootR", knee, new Vector3(0, -_shin, 0));
                 b.Push(new Vector3(0, -_ankle, 0), Quaternion.identity, Vector3.one * s);
-                GearModels.Boot(b, look.Boots);
+                if (look.Gear == GearKind.Board) GearModels.BoardBoot(b, look.Boots); else GearModels.Boot(b, look.Boots);
                 b.Pop();
                 if (look.Gear == GearKind.Skis)
                 {
@@ -1484,16 +1484,20 @@ namespace Ski.Game
             _kneeR.localRotation = Quaternion.Euler(p.KneeR, 0, 0);
             // Keep the feet flat on the ground (seated: let them hang a little toe-down).
             float hang = p.Seated * 12f;
-            _footL.localRotation = Quaternion.Euler(p.ThighL - p.KneeL + hang, 0, 0) * Quaternion.AngleAxis(p.LegOut * (1f - p.Seated), Vector3.forward) * Quaternion.Euler(0f, footIn, -footIn * 0.35f);
-            _footR.localRotation = Quaternion.Euler(p.ThighR - p.KneeR + hang, 0, 0) * Quaternion.AngleAxis(-p.LegOut * (1f - p.Seated), Vector3.forward) * Quaternion.Euler(0f, -footIn, footIn * 0.35f);
+            // Seated with a board strapped to one foot, that foot turns out so the board hangs pointing ahead.
+            float twistL = _board != null && !_boardRight ? -80f * p.Seated : 0f, twistR = _board != null && _boardRight ? 80f * p.Seated : 0f;
+            _footL.localRotation = Quaternion.Euler(p.ThighL - p.KneeL + hang, 0, 0) * Quaternion.AngleAxis(p.LegOut * (1f - p.Seated), Vector3.forward) * Quaternion.Euler(0f, footIn + twistL, -footIn * 0.35f);
+            _footR.localRotation = Quaternion.Euler(p.ThighR - p.KneeR + hang, 0, 0) * Quaternion.AngleAxis(-p.LegOut * (1f - p.Seated), Vector3.forward) * Quaternion.Euler(0f, -footIn + twistR, footIn * 0.35f);
 
             if (_board != null)
             {
                 // Riding: across the body, under both feet. On the lift: hanging from the front
                 // foot, pointing ahead, most of it under the rider's own seat.
-                var rot = Quaternion.Euler(0f, Mathf.Lerp(90f, BoardHangYaw, p.Seated), 0f);
+                // Always across the foot, the boot in its binding: riding, the board's middle is between
+                // the feet; on the lift it hangs from the one foot (turned out), the rest of it ahead.
+                var rot = Quaternion.Euler(0f, 90f, 0f);
                 _board.localRotation = rot;
-                _board.localPosition = new Vector3(0, -_ankle - 0.025f, 0) + rot * new Vector3(0, 0, (_boardRight ? -1f : 1f) * Mathf.Lerp(_hipX + (_thigh + _shin) * Mathf.Sin(p.LegOut * Mathf.Deg2Rad), -0.26f * (_boardRight ? -1f : 1f), p.Seated));
+                _board.localPosition = new Vector3(0, -_ankle - 0.025f, 0) + rot * new Vector3(0, 0, (_boardRight ? -1f : 1f) * Mathf.Lerp(_hipX + (_thigh + _shin) * Mathf.Sin(p.LegOut * Mathf.Deg2Rad), 0.26f, p.Seated));
             }
             if (_poleMode == PoleMode.Lap && Poles != PoleMode.Lap)
                 for (int i = 0; i < _poles.Count; i++) { _poles[i].localPosition = _poleHome[i]; _poles[i].localRotation = Quaternion.Euler(-62f, 0f, 0f); }
