@@ -47,8 +47,8 @@ PROFILES = {
     # The leading man: tall, a V of a torso, a long hard face, square jaw and a cleft chin, heavy brow,
     # hooded eyes, a long straight nose with a bump. The old-school ski suit.
     "erik": dict(height=1.88, head=0.24, shoulders=0.205, chest=(0.185, 0.122), waist=(0.142, 0.1), hips=(0.155, 0.105), neck=0.058,
-                 style="retro", skull=0.073, cheek=0.07, jaw=0.066, chin=(0.03, 0.011), brow=0.012, bone=0.006, hollow=0.006, face=1.1,
-                 nose=(0.058, 0.017, 0.024, -0.002, 0.003), eye=0.0122, eye_gap=0.0325, lids=0.5, mouth=0.026, lips=0.003, age=0.4),
+                 style="retro", skull=0.073, cheek=0.072, jaw=0.07, chin=(0.03, 0.011), brow=0.012, bone=0.006, hollow=0.005, face=1.02,
+                 nose=(0.058, 0.017, 0.024, -0.002, 0.003), eye=0.0122, eye_gap=0.0325, lids=0.4, mouth=0.026, lips=0.003, age=0.4),
     # The snowboarder: big and soft, round fleshy face, small eyes, a wide flat nose turned up, big ears,
     # thick neck, a belly under the baggy jacket.
     "jonte": dict(height=1.82, head=0.245, shoulders=0.2, chest=(0.19, 0.135), waist=(0.18, 0.14), hips=(0.175, 0.125), belly=0.035,
@@ -59,12 +59,12 @@ PROFILES = {
     # and lips. The one-piece suit.
     "maja": dict(sex="f", height=1.64, head=0.228, shoulders=0.165, chest=(0.15, 0.105), waist=(0.125, 0.09), hips=(0.162, 0.11), neck=0.046,
                  limbs=0.86, style="onepiece", skull=0.072, cheek=0.07, jaw=0.052, chin=(0.016, 0.002), brow=0.004, bone=0.003, hollow=-0.004,
-                 face=0.9, nose=(0.043, 0.014, 0.018, 0.005, 0.0), eye=0.0142, eye_gap=0.035, lids=0.85, mouth=0.024, lips=0.0065, lash=1.25),
+                 face=0.9, nose=(0.043, 0.014, 0.018, 0.005, 0.0), eye=0.0142, eye_gap=0.035, lids=0.7, mouth=0.024, lips=0.0065, lash=1.25),
     # Tall and sharp: high cheekbones over hollow cheeks, a pointed chin, long nose, almond eyes tilted
     # up, a long neck. The sleek futuristic shell.
     "linn": dict(sex="f", height=1.76, head=0.232, shoulders=0.172, chest=(0.152, 0.104), waist=(0.118, 0.086), hips=(0.155, 0.105), neck=0.045,
                  limbs=0.84, style="sleek", skull=0.071, cheek=0.071, jaw=0.054, chin=(0.013, 0.008), brow=0.006, bone=0.009, hollow=0.008,
-                 face=1.06, nose=(0.054, 0.0145, 0.023, 0.001, 0.0015), eye=0.0132, eye_gap=0.0335, tilt=0.004, lids=0.6, mouth=0.023,
+                 face=1.06, nose=(0.054, 0.0145, 0.023, 0.001, 0.0015), eye=0.0132, eye_gap=0.0335, tilt=0.004, lids=0.5, mouth=0.023,
                  lips=0.0055, lash=1.35),
     "male": dict(detail=0.55, age=0.2),
     "female": dict(sex="f", height=1.68, head=0.228, shoulders=0.168, chest=(0.152, 0.106), waist=(0.125, 0.09), hips=(0.16, 0.11), neck=0.046,
@@ -254,7 +254,7 @@ def ribbon(part, pts, normals, widths, weights, slot=INK, lift=0.0012):
     for k in range(len(ids) - 1):
         a, b = ids[k]
         c, d = ids[k + 1]
-        part.face(a, c, d, b)
+        part.face(a, b, d, c)          # facing out of the surface (the game draws one side only)
     return [i for pair in ids for i in pair]
 
 
@@ -420,10 +420,10 @@ def face_push(theta, x, z):
     # The muzzle round the mouth.
     d += 0.0025 * FS * gauss(x, 0.03 * FS) * gauss(z - (MOUTH_Z + 0.004 * FS), 0.02 * FS)
     # Lips: upper and lower, a groove between.
-    lip = 1.0 - sm(MOUTH_HALF * 0.75, MOUTH_HALF * 1.15, ax)
-    d += P["lips"] * FS * 0.7 * lip * gauss(z - (MOUTH_Z + 0.0045 * FS), 0.0038 * FS)
-    d += P["lips"] * FS * 0.85 * lip * gauss(z - (MOUTH_Z - 0.0065 * FS), 0.0048 * FS)
-    d -= 0.0015 * FS * lip * gauss(z - MOUTH_Z, 0.0016 * FS)
+    lip = 1.0 - sm(MOUTH_HALF * 0.55, MOUTH_HALF * 1.3, ax)
+    # Soft, so the ink pass does not trace them: the lips are drawn by the strokes.
+    d += P["lips"] * FS * 0.4 * lip * gauss(z - (MOUTH_Z + 0.004 * FS), 0.0055 * FS)
+    d += P["lips"] * FS * 0.5 * lip * gauss(z - (MOUTH_Z - 0.006 * FS), 0.0065 * FS)
     # The chin, forward; Erik's with a cleft.
     cw, cf = P["chin"]
     d += cf * FS * 0.7 * gauss(x, (cw + 0.01) * FS) * gauss(z - (CHIN_Z + 0.016 * FS), 0.013 * FS)
@@ -627,7 +627,7 @@ def build_lids(part):
             pts = [part.co[v] for v in edge]
             nrms = [(p - e).normalized() for p in pts]
             if upper:
-                ws = [0.0011 * FS * P["lash"] * (0.45 + 1.1 * sm(0.1, 0.95, b / n)) for b in range(n + 1)]
+                ws = [0.0014 * FS * P["lash"] * (0.45 + 1.1 * sm(0.1, 0.95, b / n)) for b in range(n + 1)]
                 ids = ribbon(part, pts, nrms, ws, [HEADW] * len(pts), INK, 0.0006)
                 for k, v in enumerate(ids):
                     KEYS["Blink"][v] = KEYS["Blink"][edge[k // 2]]
@@ -714,7 +714,7 @@ def build_face_ink(part):
         inner = (sx * 0.011 * f, bz - 0.002 * f)
         peak = (sx * (0.033 if male else 0.036) * f, bz + (0.0035 if male else 0.0065) * f)
         outer = (sx * 0.054 * f, bz - (0.003 if male else 0.002) * f)
-        w = (0.0032 if male else 0.0019) * f * (1.15 if NAME == "jonte" else 1.0)
+        w = (0.0042 if male else 0.0025) * f * (1.15 if NAME == "jonte" else 1.0)
         face_stroke(part, [inner, peak, outer], w, 0.85, 0.1, 0.3, BROW, 0.0011, {"BrowUp": brow_up, "BrowDown": brow_down})
         # A crease above the lid (heavier on the men).
         face_stroke(part, [(e.x - sx * 0.008 * f, e.z + ER * 1.45), (e.x + sx * 0.004 * f, e.z + ER * 1.65), (e.x + sx * 0.013 * f, e.z + ER * 1.25)],
@@ -745,8 +745,9 @@ def build_face_ink(part):
     face_stroke(part, pts, 0.0008 * f, 0.15, 0.15, 0.5, INK, 0.0007,
                 {"Smile": lambda c: Vector((math.copysign(0.004 * FS, c.x), 0.003 * FS, 0.0055 * FS)) * gauss(abs(c.x) - MOUTH_HALF, 0.014 * FS)})
     # Under the lower lip, a short shadow; Erik's cleft; the line under the chin.
-    face_stroke(part, [(-MOUTH_HALF * 0.45, MOUTH_Z - 0.013 * f), (MOUTH_HALF * 0.45, MOUTH_Z - 0.013 * f)], 0.0007 * f, 0.1, 0.1, 0.5, INK, 0.0008,
-                {"MouthOpen": lambda c: (JAW_ROT @ (c - HINGE)) + HINGE - c})
+    if male:
+        face_stroke(part, [(-MOUTH_HALF * 0.3, MOUTH_Z - 0.014 * f), (MOUTH_HALF * 0.3, MOUTH_Z - 0.0135 * f)], 0.0005 * f, 0.1, 0.1, 0.5, INK, 0.0008,
+                    {"MouthOpen": lambda c: (JAW_ROT @ (c - HINGE)) + HINGE - c})
     if NAME == "erik":
         face_stroke(part, [(0.0, CHIN_Z + 0.022 * f), (0.0005 * f, CHIN_Z + 0.009 * f)], 0.0006 * f, 0.2, 0.2, 0.5, INK, 0.0008,
                     {"MouthOpen": lambda c: (JAW_ROT @ (c - HINGE)) + HINGE - c})
@@ -857,21 +858,21 @@ def build_jacket(part):
     lo = Loft(part, rings, slot, wts)
     q = NR // 4                                           # the front, round the ring
     # Ink: the zip down the middle, folds from the armpits, creases at the waist.
-    stroke_on(lo, [(0.2, q), (n - 2.2, q)], 0.0008 * S, 0.6, 0.6, 0.5, INK, 0.0015)
+    stroke_on(lo, [(0.2, q), (n - 2.2, q)], 0.0011 * S, 0.6, 0.6, 0.5, INK, 0.0015)
     for sx in (1, -1):
         v_side = 0 if sx > 0 else NR // 2
         v_front = q - sx * NR * 0.12
-        stroke_on(lo, [(5.0, v_side + sx * 0.6 * -1), (4.3, v_front)], 0.0016 * S, 0.1, 0.0, 0.3)
-        stroke_on(lo, [(4.7, v_side - sx * 0.3), (3.6, v_front + sx * 0.8)], 0.0012 * S, 0.1, 0.0, 0.3)
-        stroke_on(lo, [(2.0, v_side + sx * 1.2 * -1 + (NR if sx < 0 else 0) * 0), (2.25, v_front - sx * 1.5)], 0.0012 * S, 0.1, 0.0, 0.4)
-        stroke_on(lo, [(1.5, v_side - sx * 0.8), (1.6, v_front - sx * 2.2)], 0.001 * S, 0.1, 0.0, 0.4)
+        stroke_on(lo, [(5.0, v_side + sx * 0.6 * -1), (4.3, v_front)], 0.0022 * S, 0.1, 0.0, 0.3)
+        stroke_on(lo, [(4.7, v_side - sx * 0.3), (3.6, v_front + sx * 0.8)], 0.0016 * S, 0.1, 0.0, 0.3)
+        stroke_on(lo, [(2.0, v_side + sx * 1.2 * -1 + (NR if sx < 0 else 0) * 0), (2.25, v_front - sx * 1.5)], 0.0016 * S, 0.1, 0.0, 0.4)
+        stroke_on(lo, [(1.5, v_side - sx * 0.8), (1.6, v_front - sx * 2.2)], 0.0014 * S, 0.1, 0.0, 0.4)
     if STYLE in ("puffer", "baggy"):
         # Quilting: seams round the jacket.
         for u in (1.6, 2.8, 3.9, 4.9):
-            stroke_on(lo, [(u, 0.0), (u + 0.05, NR * 0.5), (u, NR * 1.0 - 0.01)], 0.0009 * S, 0.8, 0.8, 0.5, INK, 0.0016, steps=6)
+            stroke_on(lo, [(u, 0.0), (u + 0.05, NR * 0.5), (u, NR * 1.0 - 0.01)], 0.0012 * S, 0.8, 0.8, 0.5, INK, 0.0016, steps=6)
     if STYLE == "sleek":
         for sx in (1, -1):                                # piping: a diagonal line of colour
-            stroke_on(lo, [(5.6, q + sx * NR * 0.2), (2.0, q - sx * NR * 0.08)], 0.0022 * S, 1.0, 1.0, 0.5, TRIM, 0.0015)
+            stroke_on(lo, [(5.6, q + sx * NR * 0.2), (2.0, q - sx * NR * 0.08)], 0.0030 * S, 1.0, 1.0, 0.5, TRIM, 0.0015)
     return lo
 
 
@@ -879,11 +880,13 @@ def build_arm(part, side):
     tag = "L" if side > 0 else "R"
     sh, el, hd = J["Shoulder" + tag], J["Elbow" + tag], J["Hand" + tag]
     d1 = (el - sh).normalized()
-    start = sh - d1 * 0.035 * S + Vector((-side * 0.012 * S, 0.004, -0.004 * S))
     k = PUFF * P["limbs"]
-    pts = path([start, sh, el, hd], [2, 6, 6])
+    # The shoulder: a dome over the top of the arm, low, so it rounds into the slope of the shoulders.
+    inward = Vector((-side * 0.018 * S, 0.0, 0.0))
+    dome = [sh - d1 * 0.044 * S + inward, sh - d1 * 0.034 * S + inward * 0.6, sh - d1 * 0.016 * S + inward * 0.2]
+    pts = dome + path([sh, el, hd], [6, 6])
     pts[-1] = hd + (hd - el).normalized() * 0.012
-    base = [0.046, 0.066, 0.066, 0.062, 0.06, 0.058, 0.055, 0.052, 0.05, 0.05, 0.051, 0.051, 0.05, 0.05, 0.055 if BAGGY else 0.052]
+    base = [0.016, 0.04, 0.056, 0.062, 0.062, 0.06, 0.058, 0.055, 0.052, 0.05, 0.05, 0.051, 0.051, 0.05, 0.05, 0.055 if BAGGY else 0.052]
     radii = [r * k * S for r in base[:len(pts)]]
     rings, frames = limb_rings(pts, radii, NL)
     n = len(rings)
@@ -891,29 +894,27 @@ def build_arm(part, side):
     def slot(i, j):
         if i >= n - 2:
             return TRIM                                   # the cuff
-        if STYLE == "retro" and 4 <= i <= 5:
+        if STYLE == "retro" and 5 <= i <= 6:
             return TRIM
         return JACKET
 
     def wts(i, j):
-        if i <= 1:
-            return blend({"Torso": 1.0}, {"Shoulder" + tag: 1.0}, 0.55 + 0.25 * i)
-        if i < 7:
-            return blend({"Shoulder" + tag: 1.0}, {"Elbow" + tag: 1.0}, sm(5.0, 8.0, i))
+        if i <= 2:
+            return blend({"Torso": 1.0}, {"Shoulder" + tag: 1.0}, 0.45 + 0.2 * i)
         if i < n - 2:
-            return blend({"Shoulder" + tag: 1.0}, {"Elbow" + tag: 1.0}, sm(6.0, 8.5, i))
+            return blend({"Shoulder" + tag: 1.0}, {"Elbow" + tag: 1.0}, sm(7.0, 9.5, i))
         return blend({"Elbow" + tag: 1.0}, {"Hand" + tag: 1.0}, 0.35)
     lo = Loft(part, rings, slot, wts, cap0=True)
     # Folds: the inside of the elbow, and the sleeve bunching over the wrist.
     inner = NL * 0.5 if side > 0 else 0.0                 # the side facing the body
     front = NL * 0.25
-    e = 8.0
+    e = 9.0
     for k2, off in enumerate((-0.5, 0.4, 1.2)):
-        stroke_on(lo, [(e + off - 0.3, front - 1.6 + k2 * 0.3), (e + off + 0.3, front + 1.4 - k2 * 0.4)], 0.0012 * S, 0.1, 0.0, 0.4)
+        stroke_on(lo, [(e + off - 0.3, front - 1.6 + k2 * 0.3), (e + off + 0.3, front + 1.4 - k2 * 0.4)], 0.0016 * S, 0.1, 0.0, 0.4)
     for k2 in range(2):
         u = n - 3.2 + k2 * 0.7
-        stroke_on(lo, [(u, front - 2.0), (u - 0.25, front + 0.5), (u + 0.1, front + 2.4)], 0.0009 * S, 0.1, 0.0, 0.5)
-    stroke_on(lo, [(2.6, inner + 1.0), (4.8, inner - 0.6)], 0.001 * S, 0.1, 0.0, 0.5)
+        stroke_on(lo, [(u, front - 2.0), (u - 0.25, front + 0.5), (u + 0.1, front + 2.4)], 0.0012 * S, 0.1, 0.0, 0.5)
+    stroke_on(lo, [(3.6, inner + 1.0), (5.8, inner - 0.6)], 0.0014 * S, 0.1, 0.0, 0.5)
     return lo, frames
 
 
@@ -957,8 +958,8 @@ def build_glove(part, side):
     trings, _ = limb_rings(tp, [0.017 * s, 0.016 * s, 0.015 * s, 0.0135 * s, 0.012 * s], 8 if DETAIL > 0.8 else 6)
     Loft(part, trings, lambda i, j: GLOVE, lambda i, j: w, cap0=True, cap1=True)
     # Ink: the knuckles, the seam of the cuff.
-    stroke_on(lo, [(5.6, NL * 0.75 - 2.5), (5.6, NL * 0.75 + 2.5)], 0.0009 * S, 0.3, 0.3, 0.5)
-    stroke_on(lo, [(2.1, 0.0), (2.1, NL * 0.5), (2.1, NL - 0.01)], 0.0008 * S, 0.8, 0.8, 0.5)
+    stroke_on(lo, [(5.6, NL * 0.75 - 2.5), (5.6, NL * 0.75 + 2.5)], 0.0012 * S, 0.3, 0.3, 0.5)
+    stroke_on(lo, [(2.1, 0.0), (2.1, NL * 0.5), (2.1, NL - 0.01)], 0.0011 * S, 0.8, 0.8, 0.5)
     grip = centre
     return grip, palm
 
@@ -1007,14 +1008,14 @@ def build_pants(part):
         front = NL * 0.25
         # Knee folds front and back, the crotch pull, folds stacking over the boot.
         for k2, off in enumerate((-0.6, 0.2, 0.9)):
-            stroke_on(lo, [(6.0 + off, front - 2.2 + k2 * 0.3), (6.0 + off - 0.25, front + 0.2), (6.0 + off + 0.1, front + 2.1)], 0.0011 * S, 0.1, 0.0, 0.4)
-            stroke_on(lo, [(6.0 + off * 0.7, front + NL * 0.5 - 1.8), (6.0 + off * 0.7 + 0.2, front + NL * 0.5 + 1.8)], 0.001 * S, 0.1, 0.0, 0.5)
+            stroke_on(lo, [(6.0 + off, front - 2.2 + k2 * 0.3), (6.0 + off - 0.25, front + 0.2), (6.0 + off + 0.1, front + 2.1)], 0.0015 * S, 0.1, 0.0, 0.4)
+            stroke_on(lo, [(6.0 + off * 0.7, front + NL * 0.5 - 1.8), (6.0 + off * 0.7 + 0.2, front + NL * 0.5 + 1.8)], 0.0014 * S, 0.1, 0.0, 0.5)
         inner = NL * 0.5 if side > 0 else 0.0
-        stroke_on(lo, [(0.4, inner + side * 0.8), (2.3, front + side * -1.5)], 0.0013 * S, 0.1, 0.0, 0.35)
-        stroke_on(lo, [(0.9, inner + side * 0.3), (2.8, front + side * -0.4)], 0.001 * S, 0.1, 0.0, 0.35)
+        stroke_on(lo, [(0.4, inner + side * 0.8), (2.3, front + side * -1.5)], 0.0018 * S, 0.1, 0.0, 0.35)
+        stroke_on(lo, [(0.9, inner + side * 0.3), (2.8, front + side * -0.4)], 0.0014 * S, 0.1, 0.0, 0.35)
         for k2 in range(3 if BAGGY else 2):
             u = n - 2.6 + k2 * 0.6
-            stroke_on(lo, [(u, front - 2.6), (u + 0.2, front), (u - 0.1, front + 2.6)], 0.001 * S, 0.1, 0.0, 0.5)
+            stroke_on(lo, [(u, front - 2.6), (u + 0.2, front), (u - 0.1, front + 2.6)], 0.0014 * S, 0.1, 0.0, 0.5)
         legs.append(lo)
     return pelvis, legs
 
@@ -1140,7 +1141,8 @@ def export(objs, path):
         for p in pts:
             out += struct.pack("<3H", *(int(round((p[i] - lo[i]) / size[i] * 65535)) for i in range(3)))
         for i in range(n):
-            c = 0.0 if part.slot[i] == INK else crease[i]
+            # The ink is drawn with strokes; creases only shade (kept under the line the game inks).
+            c = 0.0 if part.slot[i] == INK else min(crease[i], 0.07 if part.slot[i] in (SKIN, LIP) else 0.09)
             out += struct.pack("<2B", part.slot[i], int(min(1.0, c * 4.0) * 255))
         for i in range(n):
             ws = sorted(((x, BONES.index(b)) for b, x in part.w[i].items()), reverse=True)[:4]
@@ -1203,6 +1205,7 @@ scene.display.shading.color_type = 'VERTEX'
 scene.display.shading.show_object_outline = True
 scene.display.shading.object_outline_color = (0.05, 0.03, 0.08)
 scene.display.shading.show_cavity = True
+scene.display.shading.show_backface_culling = True       # as the game draws: one side only
 scene.display.shading.cavity_type = 'BOTH'
 scene.render.film_transparent = False
 world = bpy.data.worlds.new("w"); scene.world = world
