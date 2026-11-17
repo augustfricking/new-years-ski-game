@@ -203,7 +203,7 @@ namespace Ski.Game
                 var r1 = Ui.Div(box, "dialog-row"); Ui.Text(r1, "Username", "dialog-label"); r1.Add(user);
                 var r2 = Ui.Div(box, "dialog-row"); Ui.Text(r2, "Password", "dialog-label"); r2.Add(pass);
                 var r3 = Ui.Div(box, "row");
-                var msg = Ui.Text(box, CloudStatus() + ". Same progress anywhere: make an account.", "small");
+                var msg = Ui.Text(box, CloudStatus(), "small");
                 async void Go(bool create)
                 {
                     msg.text = "...";
