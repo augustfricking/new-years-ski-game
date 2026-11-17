@@ -191,7 +191,8 @@ namespace Ski.Game
             Color ink = Palette.Ink;
             for (int r = 0; r < 5; r++) _runs[r] = Smooth(RunPoints[r]);
             Vector2 top = new Vector2(0.0f, 0.245f), v = MapPainter.Village;
-            var liftLine = Smooth(new[] { new Vector2(0.075f, -0.285f), new Vector2(0.105f, -0.1f), new Vector2(0.075f, 0.1f), new Vector2(0.02f, 0.245f) }, 6);
+            // The lift climbs up the middle, between Parken (1 and 2 on its left) and Slalombacken.
+            var liftLine = Smooth(new[] { new Vector2(0.0f, -0.285f), new Vector2(-0.012f, -0.12f), new Vector2(-0.024f, 0.05f), new Vector2(-0.012f, 0.19f), new Vector2(0.0f, 0.245f) }, 6);
 
             // The printed sheet: a painted panorama (see MapPainter), with a darker back edge.
             Poly(b, Palette.Mul(Palette.UiPaper, 0.75f), -0.0006f, new Vector2(-hw - 0.004f, -hh - 0.004f), new Vector2(hw + 0.004f, -hh - 0.004f), new Vector2(hw + 0.004f, hh + 0.004f), new Vector2(-hw - 0.004f, hh + 0.004f));
@@ -230,7 +231,7 @@ namespace Ski.Game
             }
             Plaque("YOU ARE HERE  1 480 m", top + new Vector2(-0.125f, 0.022f), 0.013f);
             Plaque("AFTER SKI  -  VILLAGE  620 m", v + new Vector2(-0.19f, -0.012f), 0.013f);
-            Plaque("A  FJÄLLEXPRESSEN", liftLine[liftLine.Count / 2] + new Vector2(0.082f, 0.012f), 0.011f);
+            Plaque("A  FJÄLLEXPRESSEN", liftLine[liftLine.Count / 2] + new Vector2(0f, -0.035f), 0.011f);
             Label3D("N", new Vector2(0.445f, -0.3f), 0.012f, ink, TextAnchor.MiddleCenter);
             Label3D("FJÄLLTOPPEN", new Vector2(-0.47f, 0.318f), 0.024f, Palette.White, TextAnchor.MiddleLeft);
             Label3D("PISTE MAP  -  WINTER", new Vector2(0.47f, 0.318f), 0.017f, Palette.SignalYellow, TextAnchor.MiddleRight);
@@ -321,7 +322,6 @@ namespace Ski.Game
             var info = SkierInfo.Get(_who);
             Ui.Text(corner, info.Name.ToUpperInvariant() + "  -  " + info.TraitTitle, "hint");
             Ui.Btn(corner, "CHANGE SKIER", () => OnChangeSkier?.Invoke(), "btn-plain btn-small");
-            Ui.Btn(corner, "SHOP", () => OnShop?.Invoke(), "btn-plain btn-small");
             Ui.Btn(corner, "SETTINGS", () => Dialogs.Settings(), "btn-plain btn-small");
         }
 
@@ -333,11 +333,8 @@ namespace Ski.Game
             _shown = r;
             _infoCard.style.display = DisplayStyle.Flex;
             var id = (SlopeId)r;
-            _infoChip.ClearClassList();
-            _infoChip.AddToClassList("slope-chip");
-            if (id == SlopeId.Green) _infoChip.AddToClassList("slope-chip-round");
-            if (id == SlopeId.Black) _infoChip.AddToClassList("slope-chip-diamond");
-            _infoChip.style.backgroundColor = Palette.Slope(id);
+            _infoChip.Clear();
+            _infoChip.Add(new SlopeIcon(id));
             _infoName.text = (r + 1) + "  " + Courses.Names[r].ToUpperInvariant();
             _infoGoal.text = Grades[r] + "\n" + Courses.Goals[r];
             float best = SaveData.Boards.PersonalBest(id);

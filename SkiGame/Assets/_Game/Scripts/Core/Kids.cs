@@ -53,7 +53,7 @@ namespace Ski.Core
             float top = 70f, bottom = course.FinishZ - 40f;
 
             // Slow traversers, spread down the hill.
-            const int traversers = 17;
+            const int traversers = 26;
             for (int i = 0; i < traversers; i++)
             {
                 float z = Mathf.Lerp(top, bottom, (i + _rng.Range(0.1f, 0.9f)) / traversers);
@@ -66,7 +66,7 @@ namespace Ski.Core
             }
 
             // Kids on a harness with a parent behind.
-            const int pairs = 8;
+            const int pairs = 12;
             for (int i = 0; i < pairs; i++)
             {
                 float z = Mathf.Lerp(top + 30f, bottom - 20f, (i + _rng.Range(0.2f, 0.8f)) / pairs);
@@ -79,7 +79,7 @@ namespace Ski.Core
             }
 
             // Ski schools: an instructor and a row of kids snaking across the slope.
-            const int schools = 5;
+            const int schools = 7;
             _trails = new List<Vector2>[schools];
             for (int i = 0; i < schools; i++)
             {
@@ -108,8 +108,8 @@ namespace Ski.Core
             }
 
             // Bombers appear behind the skier during the run.
-            for (int i = 0; i < 13; i++)
-                _bomberPlan.Add((3f + i * _rng.Range(3.2f, 4.6f), _rng.Range(-0.8f, 0.8f), _rng.Range(12.5f, 16.5f)));
+            for (int i = 0; i < 18; i++)
+                _bomberPlan.Add((3f + i * _rng.Range(2.6f, 3.6f), _rng.Range(-0.8f, 0.8f), _rng.Range(12.5f, 16.5f)));
 
             foreach (var k in Kids) k.Colour = _rng.Range(0, 8);
             Step(0f, 0f, 0f);

@@ -88,10 +88,37 @@ namespace Ski.Game
 
         public static void Click() { if (I != null) I.Play("click", 0.35f); }
         public static void Hover() { if (I != null) I.Play("hover", 0.12f); }
+
+        // A sound asked for over and over (a UI event firing every frame) must never turn into a buzz:
+        // each sound has a short gap it cannot be repeated within, and a burst is cut off.
+        readonly Dictionary<string, float> _lastPlayed = new Dictionary<string, float>();
+        readonly Dictionary<string, int> _burst = new Dictionary<string, int>();
+        readonly HashSet<string> _warned = new HashSet<string>();
+
+        bool Allowed(string id)
+        {
+            float now = Time.unscaledTime;
+            float gap = id == "hover" ? 0.09f : id == "click" ? 0.06f : 0.03f;
+            if (_lastPlayed.TryGetValue(id, out float last))
+            {
+                if (now - last < gap) return false;
+                int n = now - last < 0.5f ? (_burst.TryGetValue(id, out int b) ? b + 1 : 1) : 0;
+                _burst[id] = n;
+                if (n > 6)
+                {
+                    if (_warned.Add(id)) Debug.Log("[Audio] '" + id + "' asked for again and again; held back");
+                    _lastPlayed[id] = now;
+                    return false;
+                }
+            }
+            _lastPlayed[id] = now;
+            return true;
+        }
         public static void Sfx(string id, float volume = 1f, float pitch = 1f) { if (I != null) I.Play(id, volume, pitch); }
 
         public void Play(string id, float volume = 1f, float pitch = 1f, float pan = 0f)
         {
+            if (!Allowed(id)) return;
             var c = Clip(id);
             if (c == null) return;
             var s = _pool[_next++ % _pool.Count];
@@ -137,6 +164,7 @@ namespace Ski.Game
         string _sceneMusic = "";
         float _sceneLevel = 1f;
         bool _songPlaying;
+        float _songStart;
         /// <summary>In the tavern the DJ plays, and the walkman waits.</summary>
         public bool DjHasFloor;
         /// <summary>Called when a song (not a synthesised loop) has played to its end, with its id.</summary>
@@ -159,6 +187,13 @@ namespace Ski.Game
         public void RefreshMusic(bool restart = false)
         {
             if (restart && _music.StartsWith("song:")) _music = "";
+            Route();
+        }
+
+        /// <summary>Plays the scene's song again from the start (a request for the song that is on).</summary>
+        public void RestartMusic()
+        {
+            _music = "";
             Route();
         }
 
@@ -191,6 +226,7 @@ namespace Ski.Game
                     src.clip = clip;
                     src.Play();
                     _songPlaying = true;
+                    _songStart = Time.unscaledTime;
                 });
                 return;
             }
@@ -240,11 +276,15 @@ namespace Ski.Game
             _skid.volume = Mathf.Lerp(_skid.volume, _skidT * 0.6f * SfxVol * live, fast);
 
             // A song has finished: the walkman moves on by itself, the DJ picks the next one.
-            if (_songPlaying && _musicA.clip != null && !_musicA.isPlaying && _musicA.time <= 0.001f)
+            // (By the clock as well: a browser can report a song as stopped while it is still being decoded.)
+            if (_songPlaying && _musicA.clip != null && !_musicA.isPlaying && Time.unscaledTime - _songStart > _musicA.clip.length - 1f)
             {
                 _songPlaying = false;
                 string ended = CurrentSong;
-                if (Walkman.Active && !DjHasFloor) Walkman.Next();
+                if (Walkman.Active && !DjHasFloor)
+                {
+                    if (SaveData.WalkmanRepeat) RestartMusic(); else Walkman.Next();
+                }
                 SongEnded?.Invoke(ended);
             }
             _musicBlend = Mathf.MoveTowards(_musicBlend, 1f, dt / 1.2f);

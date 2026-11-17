@@ -46,13 +46,15 @@ namespace Ski.Game
             DontDestroyOnLoad(gameObject);
             Application.targetFrameRate = -1;
             Look = WorldLook.Create(transform);
+            GraphicsQuality.Apply();
             // The inked contour: a touch heavier than the default, as in a comic.
             var ink = Resources.Load<Material>("Materials/InkEdges");
             if (ink != null) { ink.SetFloat("_Thickness", 2.1f); ink.SetFloat("_InnerThickness", 0.9f); ink.SetFloat("_InnerEnd", 28f); }
             AudioDirector.Create(transform);
             Ui.Create(transform);
             SaveData.Load();
-            SaveData.Unlocked += u => { Ui.Instance?.Notice("UNLOCKED!", u.Name + "  -  in the shop"); AudioDirector.Sfx("cheer", 0.7f, 1.2f); };
+            GraphicsQuality.Apply();
+            SaveData.Unlocked += u => { Ui.Instance?.Notice("UNLOCKED!", u.Name + " for " + SkierInfo.Get(u.Who).Name + "  -  at the ski shop"); AudioDirector.Sfx("cheer", 0.7f, 1.2f); };
             OnlineBoards.Connect();
             Songs.LoadList(this, () => AudioDirector.I?.RefreshMusic());
             VoiceChat.Create(transform);   // anonymous device profile for the world boards; local play does not wait for it
@@ -105,9 +107,10 @@ namespace Ski.Game
             Map = MapScene.Create(transform, Character);
             Map.OnPick = slope => Transition(() => StartRun(slope, Character), 0.45f);
             Map.OnWatch = (slope, entry) => Transition(() => WatchFromMap(slope, entry), 0.45f);
-            Map.OnShop = () => { if (Shop == null || !Shop.IsOpen) Shop = ShopPanel.Open(transform, Character, () => Shop = null); };
             Map.OnChangeSkier = () => Transition(ShowMenu);
         }
+
+        SlopeId _lastSlope = SlopeId.Green;
 
         public void StartRun(SlopeId slope, CharacterId who)
         {
@@ -116,6 +119,7 @@ namespace Ski.Game
             Screen = GameScreen.Run;
             Look.Storm = 0.06f; Look.Night = 0f;
             if (AudioDirector.I != null) { AudioDirector.I.Music("music_ski", 0.6f); AudioDirector.I.Ambience(null); }
+            _lastSlope = slope;
             Run = RunController.Create(transform, slope, who);
             Cursor.lockState = CursorLockMode.Locked;   // mouse look from the first moment (browsers engage it on the first key or click)
             Run.OnLiftReached = () => Transition(ShowRide);
@@ -161,7 +165,7 @@ namespace Ski.Game
             CloseAll();
             Screen = GameScreen.Tavern;
             Tavern = TavernScene.Create(transform, Character);
-            Tavern.OnLeave = () => Transition(ShowRide);
+            Tavern.OnLeave = () => Transition(() => { StartRun(_lastSlope, Character); Run.StartInVillage(); });
         }
 
         /// <summary>Fades to ink, swaps the screen, fades back.</summary>

@@ -6,61 +6,48 @@ using UnityEngine.UIElements;
 namespace Ski.Game
 {
     /// <summary>
-    /// The ski shop: the four friends' outfits. Colours and plain patterns are free; the rest are
-    /// shown locked with what earns them, and get sillier the harder they are to earn.
+    /// The ski shop in the village: the outfit of the friend you skied there as. Colours and the
+    /// plain prints are free; this friend's own things are listed too, locked until earned, with
+    /// what earns them. Everything else belongs to someone else.
     /// </summary>
     public sealed class ShopPanel
     {
         readonly VisualElement _root, _list;
         readonly ShopStage _stage;
         readonly Action _onClose;
-        CharacterId _who;
+        readonly CharacterId _who;
         Outfit _outfit;
-        readonly Label _name;
-        readonly VisualElement _tabs;
+        readonly ScrollView _scroll;
 
         public static ShopPanel Open(Transform world, CharacterId who, Action onClose) => new ShopPanel(world, who, onClose);
 
         ShopPanel(Transform world, CharacterId who, Action onClose)
         {
             _onClose = onClose;
+            _who = who;
             _stage = ShopStage.Create(world);
             var ui = Ui.Instance;
             _root = Ui.Div(ui.DialogLayer, "layer shop");
             var card = Ui.Div(_root, "card shadowed shop-card");
-            var head = Ui.Div(card, "row");
+            var head = Ui.Div(card, "row shop-head");
             Ui.Text(head, "SKI SHOP", "h1");
-            _name = Ui.Text(head, "", "h2 shop-who");
-            _tabs = Ui.Div(card, "row shop-tabs");
-            for (int i = 0; i < 4; i++)
-            {
-                var id = (CharacterId)i;
-                Ui.Btn(_tabs, SkierInfo.Get(id).Name.ToUpperInvariant(), () => Select(id), "btn-plain btn-small");
-            }
-            var scroll = new ScrollView(ScrollViewMode.Vertical);
-            scroll.AddToClassList("shop-scroll");
-            card.Add(scroll);
-            _list = scroll.contentContainer;
-            head.style.flexShrink = 0; _tabs.style.flexShrink = 0;
-            var foot = Ui.Div(card, "row");
-            foot.style.flexShrink = 0;
-            foot.style.justifyContent = Justify.FlexEnd;
+            Ui.Text(head, SkierInfo.Get(who).Name.ToUpperInvariant(), "h2 shop-who");
+            _scroll = new ScrollView(ScrollViewMode.Vertical);
+            _scroll.AddToClassList("shop-scroll");
+            card.Add(_scroll);
+            _list = _scroll.contentContainer;
+            var foot = Ui.Div(card, "row shop-foot");
             Ui.Btn(foot, "DONE", Close);
 
             var view = new Image { image = _stage.Texture, scaleMode = ScaleMode.ScaleToFit };
             view.AddToClassList("shop-view");
+            // Drag to turn the model; while the button is held it stays where you put it.
+            view.RegisterCallback<PointerDownEvent>(e => { _stage.Hold(true); view.CapturePointer(e.pointerId); });
             view.RegisterCallback<PointerMoveEvent>(e => { if ((e.pressedButtons & 1) != 0) _stage.Drag(-e.deltaPosition.x * 0.6f); });
+            view.RegisterCallback<PointerUpEvent>(e => { _stage.Hold(false); view.ReleasePointer(e.pointerId); });
+            view.RegisterCallback<PointerCaptureOutEvent>(_ => _stage.Hold(false));
             _root.Add(view);
-            Select(who);
-        }
-
-        void Select(CharacterId who)
-        {
-            _who = who;
             _outfit = SaveData.Outfit(who);
-            _name.text = SkierInfo.Get(who).Name;
-            int i = 0;
-            foreach (var t in _tabs.Children()) t.EnableInClassList("btn-selected", i++ == (int)who);
             Refresh();
         }
 
@@ -74,9 +61,11 @@ namespace Ski.Game
 
         void Refresh()
         {
+            float keep = _scroll.verticalScroller.value;
             _stage.Show(PersonLook.For(_who, _outfit));
             _list.Clear();
             var style = CharacterStyle.Get(_who);
+            bool board = SkierInfo.Get(_who).Gear == Gear.Snowboard;
             Swatches("JACKET", _outfit.jacket, style.Jacket, v => _outfit.jacket = v);
             Swatches("TRIM", _outfit.trim, style.JacketTrim, v => _outfit.trim = v);
             Swatches("PANTS", _outfit.pants, style.Pants, v => _outfit.pants = v);
@@ -84,6 +73,10 @@ namespace Ski.Game
             Choices("PATTERN", ItemKind.Pattern, Unlocks.Patterns, _outfit.pattern, v => _outfit.pattern = v);
             Choices("HEAD", ItemKind.Headgear, Unlocks.Headgear, _outfit.headgear, v => _outfit.headgear = v);
             Choices("SUIT", ItemKind.Suit, Unlocks.Suits, _outfit.suit, v => _outfit.suit = v);
+            Choices(board ? "BOARD" : "SKIS", ItemKind.Gear, Unlocks.Gear, _outfit.gear, v => _outfit.gear = v);
+            Swatches(board ? "BOARD COLOUR" : "SKI COLOUR", _outfit.gearColour, style.Gear, v => _outfit.gearColour = v);
+            Swatches(board ? "BOARD DETAIL" : "SKI DETAIL", _outfit.gearAccent, style.GearAccent, v => _outfit.gearAccent = v);
+            _scroll.schedule.Execute(() => _scroll.verticalScroller.value = keep);
         }
 
         void Swatches(string label, int current, Color own, Action<int> set)
@@ -109,16 +102,29 @@ namespace Ski.Game
             var row = Ui.Div(_list, "shop-row");
             Ui.Text(row, label, "shop-label");
             var wrap = Ui.Div(row, "shop-choices");
-            var p = SaveData.Progress;
+            var p = SaveData.ProgressOf(_who);
             for (int i = 0; i < names.Length; i++)
             {
+                if (!Unlocks.Listed(_who, kind, i)) continue;
                 int v = i;
                 var unlock = Unlocks.For(kind, v);
-                bool open = unlock == null || unlock.Earned(p);
-                var item = Ui.Div(wrap, "shop-item" + (v == current ? " shop-item-on" : "") + (open ? "" : " shop-item-locked"));
-                Ui.Text(item, names[i], "shop-item-name");
-                if (!open) Ui.Text(item, unlock.Goal, "shop-item-goal");
-                if (open) item.RegisterCallback<ClickEvent>(_ => { set(v); Changed(); });
+                bool open = Unlocks.Available(_who, p, kind, v);
+                var item = new Button(() => { if (!open) { AudioDirector.Sfx("gate_miss", 0.4f); return; } set(v); Changed(); });
+                item.AddToClassList("shop-item");
+                if (v == current) item.AddToClassList("shop-item-on");
+                if (!open) item.AddToClassList("shop-item-locked");
+                var name = new Label(open || unlock == null ? names[i] : "\U0001F512 " + names[i]);
+                name.AddToClassList("shop-item-name");
+                name.pickingMode = PickingMode.Ignore;
+                item.Add(name);
+                if (!open && unlock != null)
+                {
+                    var goal = new Label(unlock.Goal);
+                    goal.AddToClassList("shop-item-goal");
+                    goal.pickingMode = PickingMode.Ignore;
+                    item.Add(goal);
+                }
+                wrap.Add(item);
             }
         }
 

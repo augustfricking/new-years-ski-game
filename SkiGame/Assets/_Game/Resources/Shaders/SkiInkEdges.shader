@@ -37,15 +37,16 @@ Shader "Ski/InkEdges"
 
             float Eye(float2 uv) { return LinearEyeDepth(SampleSceneDepth(uv), _ZBufferParams); }
 
-            // Depth edge across a cross of four samples at a given radius (in uv).
+            // Depth edge from a cross of four samples at a given radius (in uv). A flat surface, at
+            // any angle, lies on a straight line between opposite samples; a real edge does not. The
+            // line goes on the pixels in front of their surroundings, so a silhouette is one line,
+            // drawn on the near object, and a long slope seen at a grazing angle stays clean.
             float DepthEdge(float2 uv, float2 r, float d0, float thr)
             {
                 float dA = Eye(uv + r * float2(1, 1)), dB = Eye(uv - r * float2(1, 1));
                 float dC = Eye(uv + r * float2(1, -1)), dD = Eye(uv - r * float2(1, -1));
-                // Only the nearer side of a depth step is inked, so a silhouette is one line, not two.
-                float near = min(min(dA, dB), min(dC, dD));
-                float step1 = (abs(dA - dB) + abs(dC - dD)) / d0;
-                return (step1 > thr && d0 < near + d0 * thr * 0.6) ? 1.0 : 0.0;
+                float lap = ((dA + dB) * 0.5 - d0) + ((dC + dD) * 0.5 - d0);
+                return lap / d0 > thr ? 1.0 : 0.0;
             }
 
             half4 Frag(Varyings IN) : SV_Target

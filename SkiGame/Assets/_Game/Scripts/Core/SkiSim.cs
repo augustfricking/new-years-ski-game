@@ -68,6 +68,9 @@ namespace Ski.Core
         public float GrindDistance;
 
         public float CrashTimer;
+        /// <summary>Seconds after getting up during which nothing can knock you down again (you blink).</summary>
+        public float Shield;
+        public const float ShieldTime = 3f;
         public CrashReason LastCrash;
         public int CrashCount;
 
@@ -97,7 +100,7 @@ namespace Ski.Core
             Heading = heading;
             Lean = Tuck = Plough = 0f;
             Grounded = true;
-            CrashTimer = 0f;
+            CrashTimer = 0f; Shield = 0f;
             ResetAir();
         }
 
@@ -116,7 +119,7 @@ namespace Ski.Core
 
         public void Crash(CrashReason reason)
         {
-            if (Crashed) return;
+            if (Crashed || Shield > 0f) return;
             CrashTimer = P.CrashTime;
             LastCrash = reason;
             CrashCount++;
@@ -127,6 +130,7 @@ namespace Ski.Core
 
         public void Step(in SkiInput inp, float dt)
         {
+            if (Shield > 0f) Shield = Mathf.Max(0f, Shield - dt);
             if (Crashed) { StepCrashed(dt); return; }
 
             var c = Course;
@@ -455,12 +459,14 @@ namespace Ski.Core
                     if (Speed > 4f && Events.Count == 0) Emit(SkiEventType.Brush);
                     return;
                 }
-                if (Speed > 3.2f)
-                {
-                    Crash(o.Kind == ObstacleKind.Tree || o.Kind == ObstacleKind.DeadTree ? CrashReason.Trees : CrashReason.Obstacle);
-                    return;
-                }
+                // Out of the rock or tree first, so nobody tumbles on through it.
+                bool hard = Speed > 3.2f;
                 PushOut(o);
+                if (hard)
+                {
+                    Vel *= 0.25f;
+                    Crash(o.Kind == ObstacleKind.Tree || o.Kind == ObstacleKind.DeadTree ? CrashReason.Trees : CrashReason.Obstacle);
+                }
             }
         }
 
@@ -501,6 +507,7 @@ namespace Ski.Core
                 Vel.y -= P.Gravity * dt;
                 Pos += Vel * dt;
                 if (Pos.y < c.Height(Pos.x, Pos.z)) { Pos.y = c.Height(Pos.x, Pos.z); Vel.y = 0f; }
+                if (c.HitObstacle(Pos.x, Pos.z, P.BodyRadius, Pos.y - c.Height(Pos.x, Pos.z), out var oa) && oa.Solid) { PushOut(oa); Vel.x = Vel.z = 0f; }
             }
             else
             {
@@ -525,6 +532,7 @@ namespace Ski.Core
                 Heading = c.FallHeading(Pos.x, Pos.z);
                 Grounded = true;
                 Switch = false;
+                Shield = ShieldTime;
                 Emit(SkiEventType.Recovered);
             }
         }

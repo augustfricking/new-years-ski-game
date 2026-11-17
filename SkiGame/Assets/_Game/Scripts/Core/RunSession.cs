@@ -139,7 +139,7 @@ namespace Ski.Core
             {
                 Crowd.Step(dt, Sim.Pos.z, Sim.Pos.x);
                 // Nobody can be skied through, before the finish or after it (only the penalty stops at the line).
-                if (!Sim.Crashed && Sim.AirHeight < 1.1f)
+                if (!Sim.Crashed && Sim.Shield <= 0f && Sim.AirHeight < 1.1f)
                 {
                     var k = Crowd.Hit(Sim.Pos.x, Sim.Pos.z, Sim.P.BodyRadius);
                     if (k != null && !k.Fallen)

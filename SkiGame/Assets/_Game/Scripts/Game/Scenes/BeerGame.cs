@@ -44,8 +44,9 @@ namespace Ski.Game
                 _timer = Ui.Text(panel, "", "h2 outlined");
                 _bar = new ZoneBar();
                 panel.Add(_bar);
-                Ui.Keys(panel, "SPACE", "gulp in green");
-                var keys = Ui.Div(panel, "row");
+                var gulp = Ui.Div(panel, "beer-gulp");
+                Ui.Keys(gulp, "SPACE", "gulp in green");
+                var keys = Ui.Div(panel, "row beer-keys");
                 Ui.Keys(keys, "R", "restart");
                 Ui.Keys(keys, "ESC", "leave");
             }
@@ -217,7 +218,7 @@ namespace Ski.Game
             bool best = res.PersonalBest;
             bool beatBar = res.PersonalBest && !float.IsNaN(res.PreviousBest);
             if (best) { SaveData.BestChug = t; SaveData.Save(); }
-            SaveData.Record(p => { if (p.bestChug <= 0f || t < p.bestChug) p.bestChug = t; });
+            SaveData.Record(who, p => { if (p.bestChug <= 0f || t < p.bestChug) p.bestChug = t; });
             _tavern.Wobble = Mathf.Min(_tavern.Wobble + 1.6f, 6f);
             // The whole hall cheers an empty stein.
             _tavern.Cheer(beatBar ? 6f : 3.6f);

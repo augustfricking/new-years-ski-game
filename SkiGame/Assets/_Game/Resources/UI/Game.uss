@@ -5,7 +5,7 @@
     flex-grow: 1;
     color: rgb(245, 235, 216);
     font-size: 26px;
-    -unity-font-definition: resource("Fonts/ComicNeue-Bold");
+    -unity-font-definition: resource("Fonts/BarlowSemiCondensed-SemiBold");
     -unity-font-style: normal;
 }
 
@@ -131,10 +131,12 @@
     border-bottom-width: 8px;
     border-color: rgb(27, 20, 48);
     border-radius: 6px;
-    padding: 10px 26px;
+    padding: 8px 26px 6px 26px;
     margin: 6px;
     font-size: 30px;
-    -unity-font-style: bold;
+    letter-spacing: 1px;
+    -unity-text-align: middle-center;
+    -unity-font-style: normal;
     transition-duration: 0.08s;
 }
 
@@ -598,20 +600,14 @@
 }
 
 .slope-chip {
-    width: 34px;
-    height: 34px;
-    border-width: 3px;
-    border-color: rgb(27, 20, 48);
+    width: 40px;
+    height: 36px;
     margin-right: 12px;
+    flex-shrink: 0;
 }
 
-.slope-chip-round {
-    border-radius: 17px;
-}
-
-.slope-chip-diamond {
-    rotate: 45deg;
-    scale: 0.8 0.8;
+.slope-icon {
+    flex-grow: 1;
 }
 
 /* ---- minigame --------------------------------------------------------------------------- */
@@ -642,7 +638,7 @@
     font-size: 24px;
 }
 
-/* ---- comic lettering: Bangers for anything shouted, Comic Neue (set on .root) for the rest ---- */
+/* ---- comic lettering: Bangers for anything shouted, Barlow Semi Condensed (set on .root) for the rest ---- */
 
 .title, .h1, .h2, .btn, .key, .hud-badge, .hud-timer, .hud-speed, .hud-score, .toast, .results-big, .banner-text, .sub-name {
     -unity-font-definition: resource("Fonts/Bangers-Regular");
@@ -872,8 +868,9 @@
 
 .voice-badge {
     position: absolute;
-    top: 3%;
-    right: 3%;
+    bottom: 4%;
+    left: 50%;
+    translate: -50% 0;
     flex-direction: row;
     align-items: center;
     background-color: rgb(245, 235, 216);
@@ -896,4 +893,118 @@
     font-size: 20px;
     color: rgb(27, 20, 48);
     -unity-font-definition: resource("Fonts/Bangers-Regular");
+}
+
+/* ---- the controls, laid out like the keyboard --------------------------------------------- */
+
+.controls {
+    margin: 0 0 4px 0;
+}
+
+.controls-top {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.controls-pad {
+    align-items: center;
+}
+
+.controls-keys {
+    flex-direction: row;
+    align-items: flex-start;
+    margin-bottom: 2px;
+}
+
+.controls-cell {
+    align-items: center;
+    width: 64px;
+}
+
+.key-square {
+    width: 36px;
+    margin: 0;
+    -unity-text-align: middle-center;
+    padding: 1px 0;
+}
+
+.controls-space-row {
+    align-items: center;
+    margin-top: 2px;
+}
+
+.key-space {
+    width: 150px;
+    -unity-text-align: middle-center;
+}
+
+.controls-what {
+    font-size: 17px;
+    color: rgb(238, 243, 250);
+    -unity-text-outline-width: 2px;
+    -unity-text-outline-color: rgb(27, 20, 48);
+}
+
+.controls-mouse {
+    align-items: center;
+    margin-left: 18px;
+}
+
+.controls-mouse .mouse-icon {
+    width: 30px;
+    height: 44px;
+    margin: 0 0 2px 0;
+}
+
+.beer-gulp {
+    align-items: center;
+    margin: 10px 0 18px 0;
+}
+
+.beer-keys {
+    justify-content: center;
+    opacity: 0.85;
+}
+
+.shop-foot {
+    justify-content: flex-end;
+    flex-shrink: 0;
+}
+
+.shop-head {
+    flex-shrink: 0;
+    margin-bottom: 6px;
+}
+
+/* ---- settings sections ------------------------------------------------------------------------ */
+
+.settings-tabs {
+    margin-bottom: 8px;
+    flex-shrink: 0;
+}
+
+.settings-body {
+    min-width: 640px;
+    min-height: 360px;
+}
+
+.keys-columns {
+    align-items: flex-start;
+    margin-top: 8px;
+}
+
+.keys-column {
+    margin-right: 40px;
+}
+
+.keys-heading {
+    font-size: 22px;
+    color: rgb(27, 20, 48);
+    -unity-font-definition: resource("Fonts/Bangers-Regular");
+    margin: 8px 0 4px 0;
+}
+
+.keys-column .hint {
+    color: rgb(27, 20, 48);
 }

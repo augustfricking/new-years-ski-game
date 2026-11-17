@@ -20,6 +20,8 @@ namespace Ski.Game
         public Bot Autopilot;
         public bool Paused;
         public bool InputEnabled = true;
+        /// <summary>Out of the tavern into the village: the run is long over, only the lift, the shop and the tavern are left.</summary>
+        public bool VillageOnly { get; private set; }
         /// <summary>Set once the finish line is crossed and the result is on the board.</summary>
         public SubmitResult? Result { get; private set; }
         public Action OnLiftReached, OnTavernReached, OnShopReached;
@@ -75,6 +77,16 @@ namespace Ski.Game
             }
         }
 
+        /// <summary>Puts the skier just outside the tavern door, the run already over.</summary>
+        public void StartInVillage()
+        {
+            VillageOnly = true;
+            Session.Phase = RunPhase.Finished;
+            var c = Session.Course;
+            Session.Sim.Teleport(c.TavernZone.X - 7f, c.TavernZone.Z - 1f, -Mathf.PI * 0.5f);   // facing the plaza
+            Rig.Sync(Session.Sim, 0.016f);
+        }
+
         void Finish()
         {
             if (Result.HasValue) return;
@@ -94,8 +106,10 @@ namespace Ski.Game
             {
                 // What this run counts toward in the shop.
                 var s = Session;
-                SaveData.Record(p =>
+                SaveData.Record(s.Character, p =>
                 {
+                    p.runs++;
+                    p.topSpeed = Mathf.Max(p.topSpeed, s.TopSpeed);
                     p.slopesFinished |= 1 << (int)s.Slope;
                     if (s.Slope == SlopeId.Green) p.kidsHitOneRun = Mathf.Max(p.kidsHitOneRun, s.PeopleHit);
                     if (s.Slope == SlopeId.Blue) p.bestPark = Mathf.Max(p.bestPark, s.ResultValue);
@@ -341,7 +355,7 @@ namespace Ski.Game
             VoiceChat.MyPos = Session.Sim.Pos; VoiceChat.Place = "slope"; VoiceChat.MyTable = -1;
             _village.Tick(Session.Sim.Pos.z, dt);
             // People in the village are solid too.
-            if (!Paused && !Session.Sim.Crashed && Session.Sim.Contact && Session.Sim.Speed > 1.2f && _village.Hit(Session.Sim.Pos, Session.Sim.Vel, Session.Sim.P.BodyRadius))
+            if (!Paused && !Session.Sim.Crashed && Session.Sim.Shield <= 0f && Session.Sim.Contact && Session.Sim.Speed > 1.2f && _village.Hit(Session.Sim.Pos, Session.Sim.Vel, Session.Sim.P.BodyRadius))
             {
                 Session.Sim.Crash(CrashReason.Person);
                 Rig.Kick(0.3f);
@@ -352,7 +366,7 @@ namespace Ski.Game
             AmbientSounds();
 
             // After the finish: ski to the lift for another run, or to the tavern door.
-            if (Result.HasValue && !_left && !Paused)
+            if ((Result.HasValue || VillageOnly) && !_left && !Paused)
             {
                 var c = Session.Course; var p = Session.Sim.Pos;
                 // The shop opens on its pad, and again only after you have skied off it.

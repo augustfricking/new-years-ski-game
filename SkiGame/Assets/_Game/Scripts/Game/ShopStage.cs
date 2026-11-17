@@ -15,7 +15,7 @@ namespace Ski.Game
         Transform _turn;
         Person _person;
         float _spin, _time;
-        bool _dragging;
+        bool _dragging, _held;
 
         public static ShopStage Create(Transform parent)
         {
@@ -57,6 +57,7 @@ namespace Ski.Game
             l.type = LightType.Point; l.range = 9f; l.intensity = 3.5f; l.color = Color.Lerp(Palette.Lamp, Color.white, 0.6f); l.shadows = LightShadows.None;
             _turn = new GameObject("Turntable").transform;
             _turn.SetParent(transform, false);
+            _turn.localPosition = new Vector3(0f, 0.06f, 0f);     // skis and board stand on the stand, not in it
         }
 
         /// <summary>Dresses the stand: the character in this look.</summary>
@@ -74,12 +75,14 @@ namespace Ski.Game
 
         /// <summary>Turns the stand by a drag of the mouse (degrees); it drifts round on its own otherwise.</summary>
         public void Drag(float degrees) { _spin += degrees; _dragging = true; }
+        /// <summary>While the mouse button is held on the model it does not turn by itself.</summary>
+        public void Hold(bool on) { _held = on; }
 
         void Update()
         {
             float dt = Time.unscaledDeltaTime;
             _time += dt;
-            if (!_dragging) _spin += dt * 18f;
+            if (!_dragging && !_held) _spin += dt * 18f;
             _dragging = false;
             _turn.localRotation = Quaternion.Euler(0f, 180f + _spin, 0f);
         }

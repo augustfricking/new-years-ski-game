@@ -51,30 +51,45 @@ namespace Ski.Game
             b = Ui.Btn(row, value ? "ON" : "OFF", () => { value = !value; set(value); b.text = value ? "ON" : "OFF"; }, "btn-plain btn-small");
         }
 
+        static int _section;
+        static readonly string[] Sections = { "AUDIO", "GRAPHICS", "CONTROLS", "ONLINE" };
+
+        /// <summary>The settings, in sections chosen with tabs along the top.</summary>
         static void AddSettings(VisualElement card)
+        {
+            var tabs = Ui.Div(card, "row settings-tabs");
+            var body = Ui.Div(card, "settings-body");
+            var buttons = new Button[Sections.Length];
+            void Show(int i)
+            {
+                _section = i;
+                for (int k = 0; k < buttons.Length; k++) buttons[k].EnableInClassList("btn-selected", k == i);
+                body.Clear();
+                switch (i)
+                {
+                    case 0: AudioSection(body); break;
+                    case 1: GraphicsSection(body); break;
+                    case 2: ControlsSection(body); break;
+                    default: OnlineSection(body); break;
+                }
+            }
+            for (int i = 0; i < Sections.Length; i++)
+            {
+                int k = i;
+                buttons[i] = Ui.Btn(tabs, Sections[i], () => Show(k), "btn-plain btn-small");
+            }
+            Show(_section);
+        }
+
+        static void AudioSection(VisualElement card)
         {
             SliderRow(card, "Overall volume", SaveData.MasterVolume, 0f, 1f, v => SaveData.MasterVolume = v);
             SliderRow(card, "Music", SaveData.MusicVolume, 0f, 1f, v => SaveData.MusicVolume = v);
             SliderRow(card, "Wind and ambience", SaveData.AmbienceVolume, 0f, 1f, v => SaveData.AmbienceVolume = v);
-            SliderRow(card, "Effects (skis, poles, crashes)", SaveData.EffectsVolume, 0f, 1f, v => SaveData.EffectsVolume = v);
+            SliderRow(card, "Effects", SaveData.EffectsVolume, 0f, 1f, v => SaveData.EffectsVolume = v);
             SliderRow(card, "Voices", SaveData.VoiceVolume, 0f, 1f, v => SaveData.VoiceVolume = v);
-            SliderRow(card, "Mouse sensitivity", SaveData.MouseSensitivity, 0.03f, 0.35f, v => SaveData.MouseSensitivity = v);
-            ToggleRow(card, "Invert look up/down", SaveData.InvertLook, v => SaveData.InvertLook = v);
             ToggleRow(card, "Subtitles", SaveData.Subtitles, v => SaveData.Subtitles = v);
-            // Other people playing right now: on the slopes (as ghosts) and in the tavern.
-            ToggleRow(card, "Live players", SaveData.Live, v => SaveData.Live = v);
-            ToggleRow(card, "Voice chat (hold V)", SaveData.Voice, v => SaveData.Voice = v);
-            {
-                var grow = Ui.Div(card, "dialog-row");
-                var glabel = Ui.Text(grow, "", "dialog-label");
-                void Show() => glabel.text = "Skiers shown: " + SaveData.MaxGhosts;
-                Show();
-                var gs = new SliderInt(1, 15) { value = SaveData.MaxGhosts };
-                gs.AddToClassList("slider");
-                gs.RegisterValueChangedCallback(e => { SaveData.MaxGhosts = e.newValue; Show(); });
-                grow.Add(gs);
-            }
-            // The walkman: on or off, and which song.
+            // The walkman: on or off, which song, again and again or the next one.
             if (SaveData.HasWalkman && Songs.All.Count > 0)
             {
                 ToggleRow(card, "Walkman (N)", SaveData.WalkmanOn, v => { SaveData.WalkmanOn = v; SaveData.Save(); AudioDirector.I?.RefreshMusic(true); });
@@ -82,7 +97,62 @@ namespace Ski.Game
                 Ui.Text(wrow, "Song (M)", "dialog-label");
                 Button songBtn = null;
                 songBtn = Ui.Btn(wrow, Songs.Get(Walkman.Current)?.title ?? "-", () => { Walkman.Next(); songBtn.text = Songs.Get(Walkman.Current)?.title ?? "-"; }, "btn-plain btn-small");
+                ToggleRow(card, "Repeat song", SaveData.WalkmanRepeat, v => SaveData.WalkmanRepeat = v);
             }
+        }
+
+        static void GraphicsSection(VisualElement card)
+        {
+            var row = Ui.Div(card, "dialog-row");
+            Ui.Text(row, "Quality", "dialog-label");
+            var pick = Ui.Div(row, "row");
+            var qs = new Button[GraphicsQuality.Names.Length];
+            for (int i = 0; i < qs.Length; i++)
+            {
+                int k = i;
+                qs[i] = Ui.Btn(pick, GraphicsQuality.Names[i], () =>
+                {
+                    SaveData.Quality = k;
+                    for (int j = 0; j < qs.Length; j++) qs[j].EnableInClassList("btn-selected", j == k);
+                    GraphicsQuality.Apply();
+                }, "btn-plain btn-small");
+                qs[i].EnableInClassList("btn-selected", i == SaveData.Quality);
+            }
+            SliderRow(card, "Resolution", SaveData.RenderScale, 0.5f, 1f, v => { SaveData.RenderScale = v; GraphicsQuality.Apply(); });
+            Ui.Text(card, "Lower both if the game stutters.", "small");
+        }
+
+        static void ControlsSection(VisualElement card)
+        {
+            SliderRow(card, "Mouse sensitivity", SaveData.MouseSensitivity, 0.03f, 0.35f, v => SaveData.MouseSensitivity = v);
+            ToggleRow(card, "Invert look up/down", SaveData.InvertLook, v => SaveData.InvertLook = v);
+            var cols = Ui.Div(card, "row keys-columns");
+            var ski = Ui.Div(cols, "keys-column");
+            Ui.Text(ski, "SKIING", "keys-heading");
+            Ui.Keys(ski, "A D", "turn");
+            Ui.Keys(ski, "W", "tuck");
+            Ui.Keys(ski, "S", "brake");
+            Ui.Keys(ski, "SPACE", "jump");
+            Ui.Keys(ski, "CLICK", "pole push");
+            Ui.Keys(ski, "1 2 3 4 5", "tricks in the air");
+            Ui.Keys(ski, "R", "back on the line");
+            Ui.Keys(ski, "C", "camera");
+            var other = Ui.Div(cols, "keys-column");
+            Ui.Text(other, "TAVERN", "keys-heading");
+            Ui.Keys(other, "W A S D", "walk");
+            Ui.Keys(other, "SPACE", "jump");
+            Ui.Keys(other, "E", "use, sit, request");
+            Ui.Keys(other, "CLICK", "punch");
+            Ui.Keys(other, "ESC", "leave the bar game");
+            Ui.Text(other, "ANYWHERE", "keys-heading");
+            Ui.Keys(other, "V", "hold to talk");
+            Ui.Keys(other, "M", "next song");
+            Ui.Keys(other, "N", "walkman on / off");
+            Ui.Keys(other, "ESC", "pause");
+        }
+
+        static void OnlineSection(VisualElement card)
+        {
             // The name this device goes by on the boards.
             var row = Ui.Div(card, "dialog-row");
             Ui.Text(row, "Your name", "dialog-label");
@@ -91,6 +161,17 @@ namespace Ski.Game
             name.RegisterValueChangedCallback(e => SaveData.PlayerName = e.newValue.Trim());
             name.RegisterCallback<FocusOutEvent>(_ => { SaveData.Save(); OnlineBoards.NameChanged(); LiveRooms.NameChanged(); });
             row.Add(name);
+            // Other people playing right now: on the slopes (as ghosts) and in the tavern.
+            ToggleRow(card, "Live players", SaveData.Live, v => SaveData.Live = v);
+            ToggleRow(card, "Voice chat (hold V)", SaveData.Voice, v => SaveData.Voice = v);
+            var grow = Ui.Div(card, "dialog-row");
+            var glabel = Ui.Text(grow, "", "dialog-label");
+            void Show() => glabel.text = "Skiers shown: " + SaveData.MaxGhosts;
+            Show();
+            var gs = new SliderInt(1, 15) { value = SaveData.MaxGhosts };
+            gs.AddToClassList("slider");
+            gs.RegisterValueChangedCallback(e => { SaveData.MaxGhosts = e.newValue; Show(); });
+            grow.Add(gs);
         }
 
         public static void Settings(Action onClose = null)

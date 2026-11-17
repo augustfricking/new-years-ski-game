@@ -29,8 +29,7 @@ namespace Ski.Game
 
             var card = Ui.Div(_root, "card shadowed results");
             var head = Ui.Div(card, "row");
-            var chip = Ui.Div(head, "slope-chip" + (s.Slope == SlopeId.Green ? " slope-chip-round" : s.Slope == SlopeId.Black ? " slope-chip-diamond" : ""));
-            chip.style.backgroundColor = Palette.Slope(s.Slope);
+            Ui.Div(head, "slope-chip").Add(new SlopeIcon(s.Slope));
             Ui.Text(head, s.Course.Name.ToUpperInvariant(), "h2");
             Ui.Text(card, Leaderboards.Format(s.Slope, s.ResultValue), "results-big");
             if (s.ScoreBased)

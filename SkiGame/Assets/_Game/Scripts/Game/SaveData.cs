@@ -30,9 +30,12 @@ namespace Ski.Game
         /// <summary>Meet the other people playing right now (on by default).</summary>
         public static bool Live = true;
         /// <summary>The walkman from the tavern: picked up, playing, and which song.</summary>
-        public static bool HasWalkman, WalkmanOn = true;
+        public static bool HasWalkman, WalkmanOn = true, WalkmanRepeat;
         /// <summary>Voice chat with the other players (hold V to talk).</summary>
         public static bool Voice = true;
+        /// <summary>Graphics: 0 low, 1 medium, 2 high; and the share of the screen resolution the 3D view is drawn at.</summary>
+        public static int Quality = 1;
+        public static float RenderScale = 1f;
         public static string WalkmanSong = "";
 
         /// <summary>The recording of this device's best run on a slope, or null.</summary>
@@ -45,29 +48,32 @@ namespace Ski.Game
 
         // ---- the shop: outfits and what has been earned --------------------------------------
 
-        static Progress _progress;
+        static readonly Progress[] _progress = new Progress[4];
         static readonly Outfit[] _outfits = new Outfit[4];
         /// <summary>Called with each thing newly earned.</summary>
         public static event System.Action<Unlock> Unlocked;
 
-        public static Progress Progress
+        /// <summary>What one character has done on this device (each earns their own things).</summary>
+        public static Progress ProgressOf(CharacterId who)
         {
-            get
-            {
-                if (_progress != null) return _progress;
-                try { _progress = JsonUtility.FromJson<Progress>(PlayerPrefs.GetString("progress", "")); } catch (System.Exception) { }
-                return _progress ??= new Progress();
-            }
+            int i = (int)who;
+            if (_progress[i] != null) return _progress[i];
+            string json = PlayerPrefs.GetString("progress_" + i, "");
+            // Before items belonged to one friend, progress was shared: each friend starts from it.
+            if (json.Length == 0) json = PlayerPrefs.GetString("progress", "");
+            try { _progress[i] = JsonUtility.FromJson<Progress>(json); } catch (System.Exception) { }
+            return _progress[i] ??= new Progress();
         }
 
-        /// <summary>Changes the progress, saves it and announces anything newly earned.</summary>
-        public static void Record(System.Action<Progress> change)
+        /// <summary>Changes one character's progress, saves it and announces anything newly earned.</summary>
+        public static void Record(CharacterId who, System.Action<Progress> change)
         {
-            var before = JsonUtility.FromJson<Progress>(JsonUtility.ToJson(Progress));
-            change(Progress);
-            PlayerPrefs.SetString("progress", JsonUtility.ToJson(Progress));
+            var p = ProgressOf(who);
+            var before = JsonUtility.FromJson<Progress>(JsonUtility.ToJson(p));
+            change(p);
+            PlayerPrefs.SetString("progress_" + (int)who, JsonUtility.ToJson(p));
             PlayerPrefs.Save();
-            foreach (var u in Unlocks.NewlyEarned(before, Progress)) Unlocked?.Invoke(u);
+            foreach (var u in Unlocks.NewlyEarned(who, before, p)) Unlocked?.Invoke(u);
         }
 
         /// <summary>How a character is dressed on this device (a copy: change it with <see cref="SetOutfit"/>).</summary>
@@ -79,7 +85,7 @@ namespace Ski.Game
                 try { _outfits[i] = JsonUtility.FromJson<Outfit>(PlayerPrefs.GetString("outfit_" + i, "")); } catch (System.Exception) { }
                 _outfits[i] ??= new Outfit();
             }
-            return Unlocks.Allowed(Progress, _outfits[i]);
+            return Unlocks.Allowed(who, ProgressOf(who), _outfits[i]);
         }
 
         public static void SetOutfit(CharacterId who, Outfit o)
@@ -90,7 +96,7 @@ namespace Ski.Game
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() { _boards = null; _chug = null; _progress = null; System.Array.Clear(_outfits, 0, 4); Unlocked = null; }
+        static void ResetStatics() { _boards = null; _chug = null; System.Array.Clear(_progress, 0, 4); System.Array.Clear(_outfits, 0, 4); Unlocked = null; }
 
         public static void Load()
         {
@@ -109,7 +115,10 @@ namespace Ski.Game
             Live = PlayerPrefs.GetInt("live", 1) == 1;
             HasWalkman = PlayerPrefs.GetInt("walkman", 0) == 1;
             Voice = PlayerPrefs.GetInt("voice", 1) == 1;
+            Quality = PlayerPrefs.GetInt("quality", 1);
+            RenderScale = PlayerPrefs.GetFloat("render_scale", 1f);
             WalkmanOn = PlayerPrefs.GetInt("walkman_on", 1) == 1;
+            WalkmanRepeat = PlayerPrefs.GetInt("walkman_repeat", 0) == 1;
             WalkmanSong = PlayerPrefs.GetString("walkman_song", "");
             LastCharacter = (CharacterId)Mathf.Clamp(PlayerPrefs.GetInt("who", 2), 0, 3);
             Apply();
@@ -132,7 +141,10 @@ namespace Ski.Game
             PlayerPrefs.SetInt("live", Live ? 1 : 0);
             PlayerPrefs.SetInt("walkman", HasWalkman ? 1 : 0);
             PlayerPrefs.SetInt("voice", Voice ? 1 : 0);
+            PlayerPrefs.SetInt("quality", Quality);
+            PlayerPrefs.SetFloat("render_scale", RenderScale);
             PlayerPrefs.SetInt("walkman_on", WalkmanOn ? 1 : 0);
+            PlayerPrefs.SetInt("walkman_repeat", WalkmanRepeat ? 1 : 0);
             PlayerPrefs.SetString("walkman_song", WalkmanSong ?? "");
             PlayerPrefs.SetInt("who", (int)LastCharacter);
             PlayerPrefs.Save();

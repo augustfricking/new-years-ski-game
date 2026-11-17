@@ -62,14 +62,10 @@ namespace Ski.Game
             _carveBox.Add(_carve);
 
             _hints = Ui.Div(_root, "hud-corner hud-bl");
-            Ui.Keys(_hints, "A D", "turn");
-            Ui.Keys(_hints, "W", "tuck");
-            Ui.Keys(_hints, "S", "brake");
-            Ui.Keys(_hints, "SPACE", "jump");
-            Ui.Keys(_hints, "CLICK", "push");
-            if (SaveData.Voice && SaveData.Live) Ui.Keys(_hints, "V", "talk");
-            Ui.Keys(_hints, "R", "reset");
-            Ui.Keys(_hints, "C", "camera");
+            var more = new System.Collections.Generic.List<(string, string)> { ("R", "reset"), ("C", "camera") };
+            if (SaveData.Voice && SaveData.Live) more.Add(("V", "talk"));
+            if (SaveData.HasWalkman) more.Add(("M", "next song"));
+            Ui.Controls(_hints, "tuck", "turn", "brake", "turn", "CLICK", "push", "jump", more.ToArray());
 
             // The trick list stays up for the whole park run.
             _tricks = Ui.Div(_root, "hud-corner hud-br");
@@ -148,8 +144,8 @@ namespace Ski.Game
             if (!_visible || _run == null) return;
             var s = _run.Session; var sim = s.Sim;
 
-            string time = FormatTime(s.Time);
-            if (s.ScoreBased) { _score.text = s.Score.ToString("N0", System.Globalization.CultureInfo.InvariantCulture); _timer.text = time; }
+            string time = _run.VillageOnly ? "" : FormatTime(s.Time);
+            if (s.ScoreBased) { _score.text = _run.VillageOnly ? "" : s.Score.ToString("N0", System.Globalization.CultureInfo.InvariantCulture); _timer.text = time; }
             else _timer.text = time;
             _penalty.text = s.Penalty > 0f ? "+" + s.Penalty.ToString("0") + " s penalty" : "";
             _speed.text = Mathf.RoundToInt(sim.Speed * 3.6f).ToString();

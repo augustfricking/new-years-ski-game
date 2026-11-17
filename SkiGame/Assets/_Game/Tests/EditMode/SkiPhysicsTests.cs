@@ -49,6 +49,24 @@ namespace Ski.Tests
         }
 
         [Test]
+        public void AfterACrashThereIsAMomentWithoutAnother()
+        {
+            var s = Make(10f);
+            Run(s, 2f, default);
+            s.Crash(CrashReason.Person);
+            Assert.IsTrue(s.Crashed);
+            int guard = 0;
+            while (s.Crashed && guard++ < 3000) { s.Step(default, Dt); s.Events.Clear(); }
+            Assert.IsFalse(s.Crashed, "up again");
+            Assert.That(s.Shield, Is.GreaterThan(SkiSim.ShieldTime - 0.2f), "blinking");
+            s.Crash(CrashReason.Person);
+            Assert.IsFalse(s.Crashed, "no second crash while blinking");
+            Run(s, SkiSim.ShieldTime + 0.1f, default);
+            s.Crash(CrashReason.Person);
+            Assert.IsTrue(s.Crashed, "crashes again once it is over");
+        }
+
+        [Test]
         public void StaysPutOnFlatGround()
         {
             var s = Make(0f);

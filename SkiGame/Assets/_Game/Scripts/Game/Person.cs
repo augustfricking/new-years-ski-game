@@ -24,7 +24,7 @@ namespace Ski.Game
         /// <summary>The sculpted body in Resources/Models to wear (null: simple shapes, as for kids).</summary>
         public string Model;
         /// <summary>From the shop: a printed pattern, special headgear, a whole suit (see <see cref="Unlocks"/>).</summary>
-        public int Pattern, Headgear, Suit;
+        public int Pattern, Headgear, Suit, GearDesign;
         public GearKind Gear = GearKind.Skis;
         public float GearLength = 1.6f;
         public bool TwinTip, Poles = true;
@@ -49,6 +49,8 @@ namespace Ski.Game
             Color Pick(int i, Color own) => i >= 0 && i < OutfitPaint.Colours.Length ? OutfitPaint.Colours[i] : own;
             Jacket = Pick(o.jacket, Jacket); Trim = Pick(o.trim, Trim); Pants = Pick(o.pants, Pants); Helmet = Pick(o.helmet, Helmet);
             Pattern = o.pattern; Headgear = o.headgear; Suit = o.suit;
+            GearDesign = o.gear;
+            GearColour = Pick(o.gearColour, GearColour); GearAccent = Pick(o.gearAccent, GearAccent);
             if (Suit == 1) { Jacket = GoldA; Trim = GoldB; Pants = GoldA; Gloves = GoldB; Boots = GoldA; if (o.helmet < 0) Helmet = GoldA; }
             if (Suit == 2) { Jacket = BananaA; Trim = BananaB; Pants = BananaA; Gloves = BananaB; if (o.helmet < 0) Helmet = BananaA; }
             Color H(string hex) => Palette.Hex(hex);
@@ -165,6 +167,12 @@ namespace Ski.Game
         public Transform Torso => _torso;
         public Transform FootL => _footL;
         public Transform FootR => _footR;
+        public Transform ThighL => _hipL;
+        public Transform ThighR => _hipR;
+        public Transform KneeL => _kneeL;
+        public Transform KneeR => _kneeR;
+        /// <summary>The pose being shown right now (it eases toward <see cref="Target"/>).</summary>
+        public Pose Current => _pose;
         public Transform Board => _board;
         public Transform GogglesPivot => _goggles;
         public float Scale => _s;
@@ -204,6 +212,17 @@ namespace Ski.Game
         public void Snap(in Pose pose) { Target = pose; _pose = pose; Apply(); }
         /// <summary>Goggles on the helmet (1) or over the eyes (0).</summary>
         public void SetGogglesUp(bool up, bool instant = false) { _goggleUpTarget = up ? 1f : 0f; if (instant) { _goggleUp = _goggleUpTarget; PlaceGoggles(); } }
+        Renderer[] _all;
+        bool _visible = true;
+        /// <summary>Shows or hides the whole figure (for blinking while protected after a crash).</summary>
+        public void SetVisible(bool on)
+        {
+            if (on == _visible) return;
+            _visible = on;
+            _all ??= GetComponentsInChildren<Renderer>(true);
+            foreach (var r in _all) if (r != null) r.enabled = on;
+        }
+
         /// <summary>Hides the head (first person: the camera sits inside it).</summary>
         public void SetHeadVisible(bool visible)
         {
@@ -803,6 +822,9 @@ namespace Ski.Game
                 var go = new GameObject(part.Name);
                 go.transform.SetParent(transform, false);
                 var r = go.AddComponent<SkinnedMeshRenderer>();
+                r.skinnedMotionVectors = false;
+                r.quality = look.Hero ? SkinQuality.Bone4 : SkinQuality.Bone2;
+                if (!look.Hero && GraphicsQuality.Light) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 // A printed pattern: the jacket (and for some prints the pants) gets its own textured material.
                 int pattern = look.Pattern;
                 bool prints = !skin && pattern > 0 && (part.Name == "jacket" || part.Name == "pants");
@@ -857,7 +879,7 @@ namespace Ski.Game
                 if (look.Gear == GearKind.Skis)
                 {
                     b.Push(new Vector3(0, -_ankle - 0.022f, 0));
-                    GearModels.Ski(b, look.GearLength, look.TwinTip, look.GearColour, look.GearAccent, 0.085f * Mathf.Lerp(s, 1f, 0.5f));
+                    GearModels.Ski(b, look.GearLength, look.TwinTip, look.GearColour, look.GearAccent, 0.085f * Mathf.Lerp(s, 1f, 0.5f), look.GearDesign);
                     b.Pop();
                 }
                 Skin(b, Node("Boot", foot, Vector3.zero), "Foot", Mats.Props);
@@ -865,7 +887,7 @@ namespace Ski.Game
             if (look.Gear == GearKind.Board)
             {
                 _board = Node("Board", _footL, Vector3.zero);
-                GearModels.Board(b, look.GearLength, look.GearColour, look.GearAccent);
+                GearModels.Board(b, look.GearLength, look.GearColour, look.GearAccent, look.GearDesign);
                 Skin(b, _board, "Board", Mats.Props);
             }
 
@@ -1329,7 +1351,7 @@ namespace Ski.Game
                 if (look.Gear == GearKind.Skis)
                 {
                     b.Push(new Vector3(0, -_ankle - 0.022f, 0));
-                    GearModels.Ski(b, look.GearLength, look.TwinTip, look.GearColour, look.GearAccent, 0.085f * Mathf.Lerp(s, 1f, 0.5f));
+                    GearModels.Ski(b, look.GearLength, look.TwinTip, look.GearColour, look.GearAccent, 0.085f * Mathf.Lerp(s, 1f, 0.5f), look.GearDesign);
                     b.Pop();
                 }
                 Skin(b, foot, "Foot", Mats.Props);
@@ -1338,16 +1360,22 @@ namespace Ski.Game
             if (look.Gear == GearKind.Board)
             {
                 _board = Node("Board", _footL, Vector3.zero);
-                GearModels.Board(b, look.GearLength, look.GearColour, look.GearAccent);
+                GearModels.Board(b, look.GearLength, look.GearColour, look.GearAccent, look.GearDesign);
                 Skin(b, _board, "Board", Mats.Props);
             }
         }
 
         // ---- animation -------------------------------------------------------------------------
 
+        Renderer _probe;
+        int _frame;
+
         void Update()
         {
             float dt = Time.deltaTime;
+            // Someone nobody can see is only brought up to date now and then.
+            _probe ??= GetComponentInChildren<Renderer>();
+            if (Look != null && !Look.Hero && _probe != null && !_probe.isVisible && ((++_frame + (int)(_seed * 10f)) & 7) != 0) { _time += dt; return; }
             _time += dt;
             _pose = Pose.Lerp(_pose, Target, 1f - Mathf.Exp(-PoseSpeed * dt));
             if (Mathf.Abs(_goggleUp - _goggleUpTarget) > 0.001f)

@@ -19,74 +19,74 @@ WORK = os.path.join(HERE, "_work")
 OUT = os.path.abspath(os.path.join(HERE, "..", "..", "SkiGame", "Assets", "StreamingAssets", "Music"))
 
 SONGS = [
-    dict(id="techno", title="Gondola Pulse", style="Techno", bpm=130, duration=150, key="A minor",
-         caption="Dark driving techno, four-on-the-floor kick, rolling bassline, hypnotic analog synth stabs, "
-                 "crisp hi-hats, warehouse reverb, a breathy whispered vocal hook repeated over the drop, "
-                 "steady and relentless, built for dancing in ski boots",
-         lyrics="[Intro]\n\n[Verse]\nLast run\nLast run\nInto the white\n\n[Build]\nHold on\nHold on\nTo the night\n\n"
-                "[Drop]\n\n[Breakdown]\nLast run\nInto the light\n\n[Drop]\n\n[Outro]"),
-    dict(id="edm", title="Midnight on the Mountain", style="EDM", bpm=126, duration=165, key="F major",
-         caption="Euphoric festival EDM, big supersaw chords, punchy sidechained kick, soaring bright female pop vocal, "
-                 "huge build-ups with snare rolls, uplifting anthem drop, New Year's Eve celebration energy",
-         lyrics="[Verse 1]\nTen more minutes till the year runs out\nSnow on the rooftops, we can hear them shout\n"
-                "Boots on the tables and the lights turned low\nEveryone's waiting for the countdown glow\n\n"
-                "[Pre-Chorus]\nHold my hand, don't let go\nTen, nine, eight, here we go\n\n"
-                "[Chorus]\nMidnight on the mountain\nFireworks in the sky\nMidnight on the mountain\nWe were born to fly\n\n"
-                "[Drop]\n\n[Verse 2]\nCheeks still frozen from the final run\nWe raced the sunset and the sunset won\n"
-                "Now the music's loud and the night is young\nEvery heartbeat is a song unsung\n\n"
-                "[Chorus]\nMidnight on the mountain\nFireworks in the sky\nMidnight on the mountain\nWe were born to fly\n\n"
-                "[Drop]\n\n[Outro]\nHappy new year"),
-    dict(id="pop", title="Snow Globe Heart", style="Pop", bpm=112, duration=160, key="D major",
-         caption="Bright catchy modern pop, bouncy synth bass, handclaps, sleigh bell sparkle, warm female lead vocal "
-                 "with harmonies in the chorus, playful and romantic winter love song",
-         lyrics="[Verse 1]\nYou showed up in a borrowed coat\nGoggles on your head and a song in your throat\n"
-                "Fell on the bunny hill and laughed it off\nHot chocolate kisses, a little too soft\n\n"
-                "[Chorus]\nShake me up, my snow globe heart\nEverything's glitter when we're not apart\n"
-                "Turn me over, watch me fall\nYou're the only one in the snowfall\n\n"
-                "[Verse 2]\nChair lift swinging over sleepy pines\nYour hand in my mitten, it's a perfect sign\n"
-                "Down in the village all the windows glow\nI don't ever want to let this go\n\n"
-                "[Chorus]\nShake me up, my snow globe heart\nEverything's glitter when we're not apart\n"
-                "Turn me over, watch me fall\nYou're the only one in the snowfall\n\n"
-                "[Bridge]\nOoh, the flakes keep coming down\nOoh, a crown on every town\n\n"
-                "[Chorus]\nShake me up, my snow globe heart\nEverything's glitter when we're not apart"),
-    dict(id="country", title="Boots by the Fire", style="Country", bpm=96, duration=160, key="G major",
-         caption="Warm country song, acoustic guitar strumming, pedal steel, fiddle, brushed drums, "
-                 "friendly male baritone vocal with a smile, cozy cabin singalong storytelling",
-         lyrics="[Verse 1]\nWell I came down the mountain with snow in my beard\nMy knees were a-shaking, my skis disappeared\n"
-                "But the tavern was singing and the beer was cold\nAnd a fiddle was playing some song from of old\n\n"
-                "[Chorus]\nSo leave your boots by the fire, darling\nHang your hat on the wall\n"
-                "The lift may be closed but the night's still young\nAnd there's room for us all\n\n"
-                "[Verse 2]\nThere's a girl from the valley who dances like snow\nAnd a fella from Texas who's never seen it before\n"
-                "We'll toast to the hill and the friends that we found\nTill the last of the candles burns all the way down\n\n"
-                "[Chorus]\nSo leave your boots by the fire, darling\nHang your hat on the wall\n"
-                "The lift may be closed but the night's still young\nAnd there's room for us all\n\n"
-                "[Outro]\nRoom for us all"),
-    dict(id="hiphop", title="Fresh Powder", style="Hip hop", bpm=92, duration=150, key="C minor",
-         caption="Laid-back boom bap hip hop, dusty drums, deep bass, jazzy piano loop, scratches, "
-                 "confident male rapper with clear rhythmic flow, playful braggadocio about skiing",
-         lyrics="[Verse 1]\nWoke up early, first chair, nobody there\nFresh powder on the run and the cold in the air\n"
-                "Edges sharp like a pencil, carving my name\nThey see me from the gondola, they know the game\n"
-                "Goggles mirror gold, I don't need to say a word\nSlide past the ski school like a low-flying bird\n\n"
-                "[Hook]\nFresh powder, fresh powder\nTurn it up a little louder\nFresh powder, fresh powder\nEvery run I'm getting prouder\n\n"
-                "[Verse 2]\nPark lap, switch landing, ask the crowd how it went\nHalf the money that I had went on the lift pass rent\n"
-                "Après in the evening, boots up on the bench\nTelling stories bigger than the black run's trench\n\n"
-                "[Hook]\nFresh powder, fresh powder\nTurn it up a little louder\nFresh powder, fresh powder\nEvery run I'm getting prouder"),
-    dict(id="classical", title="Waltz of the Falling Snow", style="Classical", bpm=84, duration=150, key="E flat major",
-         caption="Elegant classical orchestral waltz in three-four time, strings, flutes, French horns, harp glissandos, "
-                 "a ballroom on New Year's Eve, romantic and sparkling, concert hall recording",
-         lyrics="[Instrumental]", instrumental=True, timesig="3"),
-    dict(id="rock", title="Black Run", style="Rock", bpm=140, duration=160, key="E minor",
-         caption="High-energy arena rock, distorted electric guitars, driving bass, big pounding drums, "
-                 "gritty powerful male rock vocal, shout-along chorus, guitar solo, adrenaline",
-         lyrics="[Verse 1]\nStanding at the top where the warning signs are red\nWind is screaming stories of the ones who went ahead\n"
-                "Heart is like a hammer and my legs are made of stone\nOne more breath and I'm going down alone\n\n"
-                "[Chorus]\nBlack run, black run\nNo turning back when the night has begun\nBlack run, black run\nRiding the edge till the mountain is done\n\n"
-                "[Guitar Solo]\n\n[Verse 2]\nIce beneath the moguls and the shadows getting long\nEvery bump's a drumbeat, every turn's a song\n"
-                "If I hit the bottom then I'll raise a glass up high\nAnd if I don't, you'll hear me in the sky\n\n"
-                "[Chorus]\nBlack run, black run\nNo turning back when the night has begun\nBlack run, black run\nRiding the edge till the mountain is done\n\n"
-                "[Outro]\nBlack run"),
+    dict(id="techno", title="Pass Denied", style="Techno", bpm=132, duration=160, key="F minor",
+         caption="dark minimal Berlin techno, pounding four-on-the-floor kick, acid 303 bassline, metallic percussion, "
+                 "industrial warehouse reverb, deadpan deep MALE spoken-word vocal, monotone German-accented narrator, "
+                 "robotic vocoder on the hook, no singing, hypnotic and dry, no pop elements",
+         lyrics="[Intro]\n\n[Verse - spoken, male, deadpan]\nIt is New Year's Eve\nI am at the turnstile\nMy ski pass\nhas expired\n\n"
+                "[Hook - vocoder]\nBeep\nDenied\nBeep beep\nDenied\n\n[Drop]\n\n"
+                "[Verse - spoken, male, deadpan]\nI have been in this queue\nsince last year\nMy toes are techno now\nThey only feel the kick\n\n"
+                "[Hook - vocoder]\nBeep\nDenied\nBeep beep\nDenied\n\n[Breakdown]\nScan me again\nScan me again\n\n[Drop]\n\n[Outro]\nHappy new year\nDenied"),
+    dict(id="edm", title="Countdown in My Ski Boots", style="EDM", bpm=128, duration=165, key="G major",
+         caption="huge festival big room EDM, supersaw leads, sidechained pumping kick, snare roll build-ups, airhorns, "
+                 "euphoric drop with chopped vocal samples, DUET: bright young FEMALE vocal on verses and a hyped MALE MC shouting "
+                 "the hype lines, crowd chanting numbers in the countdown",
+         lyrics="[Verse 1 - female]\nTen to midnight and I lost my glove\nKissed a stranger in a puffer, call it love\nSequins on my helmet, glitter in my snow\nFireworks are ready, baby, here we go\n\n"
+                "[Build - male MC]\nEverybody on the tables!\nHands up if you can't feel your face!\n\n[Pre-Chorus - crowd]\nTen! Nine! Eight! Seven!\n\n"
+                "[Chorus - female]\nCountdown in my ski boots\nJumping till the roof breaks loose\nCountdown in my ski boots\nNew year, same old bruise\n\n[Drop]\n\n"
+                "[Verse 2 - female]\nMy resolution is to fall less down\nBroke it in the gondola, the year's not out\n\n[Build - male MC]\nOne more time for the people in the queue!\n\n"
+                "[Chorus - female]\nCountdown in my ski boots\nJumping till the roof breaks loose\n\n[Drop]\n\n[Outro - crowd]\nHappy new year!"),
+    dict(id="pop", title="Snow Globe Heart", style="Pop", bpm=116, duration=160, key="D major",
+         caption="sugary 2000s bubblegum pop, bouncy synth bass, handclaps, sleigh bells, glossy production, "
+                 "sweet breathy high FEMALE lead vocal, a cheeky smooth MALE R&B vocal answers in the second verse, "
+                 "flirty and playful duet, catchy whistle hook",
+         lyrics="[Verse 1 - female]\nYou showed up in a borrowed coat\nGoggles on your head and a cold in your throat\nFell off the button lift, fell for me too\nHot chocolate kisses taste like snow and glue\n\n"
+                "[Chorus - female]\nShake me up, my snow globe heart\nGlitter everywhere when we're apart\nTurn me over, watch me fall\nI'm the only snowflake at the ball\n\n"
+                "[Verse 2 - male]\nGirl, I lost my ski poles and my dignity\nBut I found your number on the gondola seat\nCall me on the chair lift, call me after ski\nCall me anything but late for apres with me\n\n"
+                "[Chorus - both]\nShake me up, my snow globe heart\nGlitter everywhere when we're apart\n\n[Bridge - female, whisper]\nIt's cold outside\nSo come inside\n\n"
+                "[Chorus - both]\nTurn me over, watch me fall\nI'm the only snowflake at the ball"),
+    dict(id="country", title="My Truck's Stuck at the Ski Lodge", style="Country", bpm=104, duration=160, key="A major",
+         caption="honky tonk country, twangy telecaster, banjo rolls, fiddle, pedal steel, upright bass, train beat drums, "
+                 "deep twangy Southern MALE baritone lead, a sassy FEMALE country singer joins on harmony in the chorus, "
+                 "barroom singalong, humorous storytelling",
+         lyrics="[Verse 1 - male]\nWell I drove up the mountain in a two wheel drive\nSaid the snow won't stop me, I'm a Texas guy\nNow my truck's in a snowbank and my dog's in the bar\nAnd the ski patrol is laughing at my brand new car\n\n"
+                "[Chorus - male and female]\nMy truck's stuck at the ski lodge\nAnd my heart's stuck on you\nI got snow in my boots and beer on my shirt\nAnd a hangover due\n\n"
+                "[Verse 2 - female]\nI said honey, take the tow rope, not the T-bar lift\nHe said darling, I'm a cowboy, and a cowboy don't quit\nThen he rode it like a bronco right into a tree\nNow he's sleeping on a sled and he's blaming me\n\n"
+                "[Chorus - male and female]\nMy truck's stuck at the ski lodge\nAnd my heart's stuck on you\n\n[Fiddle Solo]\n\n[Outro - male]\nYeehaw, happy new year, y'all"),
+    dict(id="hiphop", title="Fresh Powder", style="Hip hop", bpm=88, duration=160, key="C minor",
+         caption="hard trap hip hop, booming 808 bass, rolling hi-hats, dark piano and choir samples, "
+                 "aggressive gritty MALE rapper with fast confident flow and ad-libs, a raspy FEMALE rapper takes the second verse, "
+                 "braggadocio, no singing on verses, chanted hook",
+         lyrics="[Verse 1 - male rap]\nFirst chair, cold air, nobody there\nGoggles mirror gold so they can't see me stare\nCarving through the kids like a holiday sale\nSki school in a line like a snowman jail\nYeah, my pass got stamped, my nose got frost\nI'm the boss of the slope, ask Santa who lost\n\n"
+                "[Hook - chant]\nFresh powder, fresh powder\nTurn it up a little louder\nFresh powder, fresh powder\nNew year, I got power\n\n"
+                "[Verse 2 - female rap]\nI don't need a lift, I got hype in my legs\nMy snowboard's sharper than your Christmas eggnog dregs\nYou said black run, baby, I said bet\nNow you're in the trees sending me a regret\n\n"
+                "[Hook - chant]\nFresh powder, fresh powder\nTurn it up a little louder\n\n[Outro - male]\nYeah, happy new year, stay icy"),
+    dict(id="classical", title="Inverno Furioso", style="Classical", bpm=96, duration=165, key="F minor",
+         caption="baroque concerto in the style of Vivaldi's Winter from The Four Seasons, fierce staccato string orchestra, solo violin, "
+                 "harpsichord continuo, comic opera buffa in the style of Mozart, operatic SOPRANO aria and a booming BASS buffo, "
+                 "dramatic, theatrical, concert hall, no drums, no electronics, no pop",
+         lyrics="[Instrumental - strings, furious tremolo]\n\n[Aria - soprano]\nAh! Ah! The snow, the snow!\nMy frozen toes, oh woe, oh woe!\nThe lift is stuck, the wind does blow\nAh, ah, ah, where did my ski poles go!\n\n"
+                "[Bass buffo]\nSilence, silence, little goose!\nYour bindings, madam, they are loose!\nI warned you at the top, you see\nNow you must ski it down with me!\n\n"
+                "[Duet - soprano and bass]\nInverno, inverno furioso!\nA glass of mulled wine, molto grazioso!\n\n[Instrumental - solo violin]\n\n"
+                "[Aria - soprano, coloratura]\nAh, ah, ah, ah, ah, the new year comes!\n\n[Finale - duet]\nInverno furioso! Bravo! Bravo!"),
+    dict(id="rock", title="Black Run", style="Rock", bpm=150, duration=160, key="E minor",
+         caption="loud punk rock and hard rock, distorted guitars, fast driving drums, gang vocals, "
+                 "raspy screaming MALE punk vocalist, a powerful gritty FEMALE rock singer duets the bridge, "
+                 "rebellious, sweaty, shout-along chorus, guitar solo, garage energy",
+         lyrics="[Verse 1 - male]\nStanding at the top with a hangover head\nSign says experts only, sign says you're dead\nMy mum is on the phone and my legs are on fire\nI've been in this helmet since nineteen ninety-nine\n\n"
+                "[Chorus - gang vocals]\nBlack run! Black run!\nNo turning back till the night is done\nBlack run! Black run!\nI fell on my face and I'm having fun\n\n[Guitar Solo]\n\n"
+                "[Bridge - female]\nI'll see you at the bottom or I'll see you in the snow\nIf you can't stop, then don't you dare go slow\n\n"
+                "[Chorus - gang vocals]\nBlack run! Black run!\nNo turning back till the night is done\n\n[Outro - male scream]\nHappy new year!"),
+    dict(id="afterski", title="Boots on the Table", style="Afterski", bpm=138, duration=170, key="C major",
+         caption="Alpine apres-ski schlager party anthem, oom-pah dance beat, accordion, brass section, tuba, cowbells, "
+                 "cheesy cheerful MALE party singer with a hoarse voice, a big DRUNK CROWD SINGALONG choir shouting the chorus in the background, "
+                 "live tavern atmosphere, clapping, cheering, whistles, beer hall, ski lodge",
+         lyrics="[Intro - crowd cheering]\nHey! Hey! Hey!\n\n[Verse 1 - male]\nThe lift is closed, the sun is gone\nMy boots are wet but I'm keeping them on\nThe barman says it's time to dance\nI've lost my skis but not my pants\n\n"
+                "[Chorus - male and crowd]\nBoots on the table! (Hey!)\nBeer in the air! (Hey!)\nBoots on the table!\nSnow in my hair!\nLa la la la la la la\nLa la la la la!\n\n"
+                "[Verse 2 - male]\nGranny's on the bench and she's doing the splits\nUncle in a helmet and nothing else fits\nWe sing it once and we sing it loud\nThe whole mountain's singing with the tavern crowd\n\n"
+                "[Chorus - male and crowd]\nBoots on the table! (Hey!)\nBeer in the air! (Hey!)\nBoots on the table!\nSnow in my hair!\nLa la la la la la la\nLa la la la la!\n\n"
+                "[Breakdown - crowd clapping]\nOne more time!\n\n[Chorus - crowd]\nBoots on the table! Boots on the table!\n\n[Outro - crowd cheering]\nHey!"),
 ]
-
 
 def toml_str(s):
     return '"' + s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n") + '"'
@@ -121,6 +121,11 @@ def main():
             "vocal_language": "en",
             "task_type": "text2music",
             "thinking": True,
+            "use_cot_caption": False,
+            "use_cot_metas": False,
+            "use_cot_language": False,
+            "use_cot_lyrics": False,
+            "lm_temperature": 0.9,
             "batch_size": 1,
             "seeds": [20261231 + len(song["id"])],
             "shift": 3.0,

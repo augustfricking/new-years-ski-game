@@ -25,7 +25,7 @@ namespace Ski.Game
             // --- tavern -----------------------------------------------------------------------
             Vector3 tav = c.PointOnSurface(x0 + 33f, z0 + 94f);
             tav.y = c.Height(x0 + 25f, z0 + 94f) - 0.1f;
-            b.Push(tav);
+            b.Push(tav); glow.Push(tav);   // the glowing panes belong on the building too
             Props.Cabin(b, new Vector3(16f, 5.8f, 22f), -1, true, Palette.Timber);
             for (int i = -2; i <= 2; i++)
             {
@@ -47,17 +47,17 @@ namespace Ski.Game
             b.Box(new Vector3(-8.4f, 4.1f, 0f), new Vector3(0.14f, 1.1f, 5.6f));
             glow.Col = Palette.Lamp;
             glow.Box(new Vector3(-8.5f, 4.1f, 0f), new Vector3(0.06f, 0.85f, 5.3f));
-            b.Pop();
+            b.Pop(); glow.Pop();
             Sign(root.transform, "AFTER SKI", tav + new Vector3(-8.56f, 4.1f, 0f), Quaternion.Euler(0, 90, 0), 0.62f, Palette.Ink);
 
             // --- lift base --------------------------------------------------------------------
             Vector3 hut = c.PointOnSurface(x0 - 33f, z0 + 82f);
             hut.y = c.Height(x0 - 27f, z0 + 82f) - 0.1f;
-            b.Push(hut);
+            b.Push(hut); glow.Push(hut);   // the glowing panes belong on the building too
             Props.Cabin(b, new Vector3(10f, 3.6f, 14f), 1, false, Palette.TimberLight);
             Props.WindowPane(glow, b, new Vector3(5.03f, 2.0f, 3.6f), 1, 1.6f, 1.1f);
             Props.WindowPane(glow, b, new Vector3(5.03f, 2.0f, -3.6f), 1, 1.6f, 1.1f);
-            b.Pop();
+            b.Pop(); glow.Pop();
             Vector3 gate = LiftGate(c);
             b.Push(gate, Quaternion.Euler(0, 90, 0));
             Props.Arch(b, 7.5f, Palette.SignalYellow, 3.6f);
@@ -75,7 +75,7 @@ namespace Ski.Game
             // --- ski shop -----------------------------------------------------------------------
             Vector3 shop = c.PointOnSurface(x0 - 32f, z0 + 112f);
             shop.y = c.Height(x0 - 27f, z0 + 112f) - 0.1f;
-            b.Push(shop);
+            b.Push(shop); glow.Push(shop);   // the glowing panes belong on the building too
             Props.Cabin(b, new Vector3(10f, 4.2f, 12f), 1, true, Palette.Hex("#B5523B"));
             Props.WindowPane(glow, b, new Vector3(5.03f, 1.9f, 3.4f), 1, 2.2f, 1.6f);
             Props.WindowPane(glow, b, new Vector3(5.03f, 1.9f, -3.4f), 1, 2.2f, 1.6f);
@@ -91,7 +91,7 @@ namespace Ski.Game
             b.Box(new Vector3(5.3f, 3.5f, 0f), new Vector3(0.14f, 0.9f, 4.6f));
             glow.Col = Palette.Lamp;
             glow.Box(new Vector3(5.38f, 3.5f, 0f), new Vector3(0.06f, 0.7f, 4.3f));
-            b.Pop();
+            b.Pop(); glow.Pop();
             Sign(root.transform, "SKI SHOP", shop + new Vector3(5.46f, 3.5f, 0f), Quaternion.Euler(0, -90, 0), 0.55f, Palette.Ink);
 
             // --- trigger pads: visible spots to ski onto ----------------------------------------
@@ -249,7 +249,7 @@ namespace Ski.Game
             go.transform.SetParent(parent, false);
             go.transform.SetPositionAndRotation(position, rotation);
             var tm = go.AddComponent<TextMesh>();
-            var font = Resources.Load<Font>("Fonts/ComicNeue-Bold");
+            var font = Resources.Load<Font>("Fonts/BarlowSemiCondensed-SemiBold");
             if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             tm.font = font;
             tm.text = text;

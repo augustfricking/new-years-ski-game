@@ -58,8 +58,8 @@ namespace Ski.Core
         public float LeanInCarve = 0.72f;   // 1/s while held inside the carve band: the carve lasts, then still over-turns
         public float LeanOut = 3.6f;        // 1/s when released, or steering the other way
         public float LeanHold = 0.55f;      // 1/s when released inside the carve band: tapping keeps the edge
-        public float TurnRateLow = 2.15f;   // rad/s cap at low speed
-        public float LatAccelMax = 15.5f;   // m/s^2, limits yaw rate at speed
+        public float TurnRateLow = 2.43f;   // rad/s cap at low speed
+        public float LatAccelMax = 17.5f;   // m/s^2, limits yaw rate at speed
         public float TuckTurnFactor = 0.7f; // turn-rate multiplier in a full tuck
         public float Grip = 11f;            // 1/s, how fast sideways slip is killed
         public float GripPlough = 5f;

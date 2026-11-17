@@ -213,6 +213,9 @@ namespace Ski.Game
             float turned = Mathf.DeltaAngle(headingDeg, _visualYaw);
             Body.transform.localRotation = Quaternion.Euler(0f, turned + (_board ? -plough * 55f - _hopSide * hop * 16f : 0f), -lean * 12f * (Mathf.Abs(turned) > 90f ? -1f : 1f));
 
+            // Just back on your feet: you blink, and nothing can knock you down for a moment.
+            Body.SetVisible(sim.Shield <= 0f || Mathf.Repeat(sim.Shield * 7f, 1f) < 0.6f);
+
             // --- camera ----------------------------------------------------------------------
             _third = Mathf.MoveTowards(_third, ThirdPerson ? 1f : 0f, dt * 3.2f);
             Body.SetHeadVisible(_third > 0.2f);

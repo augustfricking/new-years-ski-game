@@ -22,26 +22,52 @@ namespace Ski.Game
             root.SetParent(parent, false);
             BuildFlanks(c, root);
             if (c is OffPisteCourse off) BuildTracks(off, root);
-            else BuildLift(c, root);
+            BuildLift(c, root);
         }
 
-        // ---- the lift beside the piste ---------------------------------------------------------
+        // ---- the lift ----------------------------------------------------------------------------
+        // On the piste map the lift climbs up the middle, between Parken and Slalombacken: skiing
+        // Parken it is on your left, skiing Slalombacken on your right. From the other runs only its
+        // bottom station in the village is seen, with the line leaving into the forest behind it.
 
-        public static float LiftSide(PisteCourse c) => c.LiftZone.X < c.VillageX ? -1f : 1f;
+        const float StubLength = 240f;
 
-        /// <summary>Where the lift line runs: beside the piste, bending in to the lift base in the village.</summary>
+        public static bool LiftAlongside(PisteCourse c) => c.Id == SlopeId.Blue || c.Id == SlopeId.Red;
+
+        public static float LiftSide(PisteCourse c) => c.Id == SlopeId.Red ? 1f : -1f;
+
+        /// <summary>Where the lift line runs at a given z (far away where there is none).</summary>
         public static float LiftX(PisteCourse c, float z)
         {
+            float station = c.LiftZone.X + 5f, z1 = c.LiftZone.Z - 4f;
+            if (!LiftAlongside(c))
+            {
+                if (z < z1 - StubLength || z > z1 + 1f) return 1e6f;
+                float x = station - (z1 - z) * 0.55f;
+                if (z < c.FinishZ + 10f) x = Mathf.Min(x, c.CenterX(Mathf.Min(z, c.FinishZ)) - c.HalfWidth(Mathf.Min(z, c.FinishZ)) - 26f);
+                return x;
+            }
             float bendZ = c.FinishZ - 70f;
             float zz = Mathf.Clamp(z, 0f, bendZ);
             float beside = c.CenterX(zz) + LiftSide(c) * (c.HalfWidth(zz) + LiftOffset);
             if (z <= bendZ) return beside;
-            return Mathf.Lerp(beside, c.LiftZone.X - LiftSide(c) * 5f, M.Smooth(Mathf.InverseLerp(bendZ, c.LiftZone.Z - 12f, z)));
+            // Near the bottom it swings across to the station (over the piste, on Slalombacken).
+            return Mathf.Lerp(beside, station, M.Smooth(Mathf.InverseLerp(bendZ, c.LiftZone.Z - 12f, z)));
+        }
+
+        /// <summary>Whether a point is on the run or the village plaza, where no pylon may stand.</summary>
+        static bool OnTheRun(PisteCourse c, float x, float z)
+        {
+            if (z < c.MinZ || z > c.FinishZ + Course.PlazaLength) return false;
+            float zz = Mathf.Min(z, c.FinishZ);
+            float half = z <= c.FinishZ ? c.HalfWidth(zz) : Course.PlazaHalfWidthAt(z - c.FinishZ, c.HalfWidth(c.FinishZ));
+            return Mathf.Abs(x - c.CenterX(zz)) < half + 4f;
         }
 
         static void BuildLift(PisteCourse c, Transform parent)
         {
-            float z0 = -26f, z1 = c.LiftZone.Z - 4f;
+            bool along = LiftAlongside(c);
+            float z1 = c.LiftZone.Z - 4f, z0 = along ? -26f : z1 - StubLength;
             var steel = new MeshBuilder();
             var pts = new List<Vector3>();
             int pylons = Mathf.Max(2, Mathf.RoundToInt((z1 - z0) / 58f));
@@ -49,6 +75,7 @@ namespace Ski.Game
             {
                 float z = Mathf.Lerp(z0, z1, i / (float)pylons);
                 float x = LiftX(c, z);
+                if (i > 0 && i < pylons && OnTheRun(c, x, z)) continue;   // the cable spans over the piste
                 float ground = c.SnowHeight(x, z);
                 steel.Push(new Vector3(x, ground - 0.3f, z));
                 Props.Pylon(steel, CableHeight + 0.3f, CableHalf);
@@ -64,6 +91,7 @@ namespace Ski.Game
             // Stations: a drive house at the top, a return wheel at the bottom.
             foreach (int end in new[] { 0, pts.Count - 1 })
             {
+                if (end == 0 && !along) continue;   // the line goes on, out of sight
                 Vector3 p = pts[end];
                 steel.Col = Palette.SteelDark;
                 steel.Box(p + new Vector3(0f, 0.2f, 0f), new Vector3(CableHalf * 2f + 1.6f, 0.5f, 3.4f));
@@ -135,7 +163,7 @@ namespace Ski.Game
             for (int j = 0; j < 5; j++)
             {
                 if (j == me) continue;
-                bandOff.Add((j - me) * 150f);
+                bandOff.Add((me - j) * 150f);   // runs to the left on the map are on your right, skiing down
                 bandWidth.Add(j == (int)SlopeId.OffPiste ? 6f : j == (int)SlopeId.Blue ? 22f : 15f);
                 bandBroken.Add(j == (int)SlopeId.OffPiste);
             }
@@ -206,19 +234,26 @@ namespace Ski.Game
             }
             // The summit behind the start gate, between the two flanks.
             {
-                int cols = 12, rows = 0;
+                // It starts exactly where the piste ends, at the piste's own height, so there is no
+                // gap to see the sky through when you look back up from the start.
+                int cols = 16, rows = 0;
                 var rowZ = new List<float>();
-                for (float z = top - 260f; z <= top + 6f; z += 15f) { rowZ.Add(z); rows++; }
+                for (float z = top - 260f; z < top - 20f; z += 15f) { rowZ.Add(z); rows++; }
+                foreach (float z in new[] { top - 20f, top - 12f, top - 6f, top - 2f, top + 2f }) { rowZ.Add(z); rows++; }
                 var v = new Vector3[rows * cols]; var col = new Color32[rows * cols];
+                float pisteL = c.CenterX(top) - c.HalfWidth(top), pisteR = c.CenterX(top) + c.HalfWidth(top);
                 for (int r = 0; r < rows; r++)
                 {
                     float z = rowZ[r];
                     float xl = EdgeX(z, -1), xr = EdgeX(z, 1), cx = c.CenterX(top);
                     for (int k = 0; k < cols; k++)
                     {
-                        float x = Mathf.Lerp(xl, xr, k / (float)(cols - 1));
+                        float t = k / (float)(cols - 1);
+                        float x = Mathf.Lerp(xl, xr, t);
                         float hl = Ground(xl, z, -1, 0f), hr = Ground(xr, z, 1, 0f);
-                        float y = Mathf.Lerp(hl, hr, k / (float)(cols - 1)) + 5f * Mathf.Sin(k / (float)(cols - 1) * Mathf.PI) * M.Smooth((top - z) / 60f);
+                        float edgeY = Mathf.Lerp(hl, hr, t);
+                        float centreY = c.SnowHeight(Mathf.Clamp(x, pisteL, pisteR), top) - 0.25f + Mathf.Max(0f, top - z) * 0.42f;
+                        float y = Mathf.Lerp(centreY, edgeY, Mathf.Pow(Mathf.Abs(t - 0.5f) * 2f, 3f)) + 5f * Mathf.Sin(t * Mathf.PI) * M.Smooth((top - z) / 60f);
                         v[r * cols + k] = new Vector3(x, y, z);
                         col[r * cols + k] = Paint(x, z, 0f, cx);
                     }

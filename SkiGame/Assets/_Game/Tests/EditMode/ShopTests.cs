@@ -5,38 +5,33 @@ namespace Ski.Tests
 {
     public class ShopTests
     {
+        const CharacterId J = CharacterId.Jonte, M = CharacterId.Maja, E = CharacterId.Erik, L = CharacterId.Linn;
+
         [Test]
-        public void ColoursAndPlainPatternsAreFreeTheRestIsEarned()
+        public void FreeThingsForEveryoneTheRestBelongsToOneFriend()
         {
             var p = new Progress();
-            Assert.IsTrue(Unlocks.Available(p, ItemKind.Pattern, 1), "stripes are free");
-            Assert.IsTrue(Unlocks.Available(p, ItemKind.Headgear, 1), "the beanie is free");
-            Assert.IsFalse(Unlocks.Available(p, ItemKind.Headgear, 3), "the goalie mask is earned");
-            Assert.IsFalse(Unlocks.Available(p, ItemKind.Headgear, 6), "the unicorn is earned last");
-
-            p.kidsHitOneRun = 10;
-            Assert.IsTrue(Unlocks.Available(p, ItemKind.Headgear, 3), "ten kids in one run: goalie mask");
+            foreach (CharacterId who in System.Enum.GetValues(typeof(CharacterId)))
+            {
+                Assert.IsTrue(Unlocks.Available(who, p, ItemKind.Pattern, 1), "stripes are free");
+                Assert.IsTrue(Unlocks.Available(who, p, ItemKind.Headgear, 1), "the beanie is free");
+                Assert.IsTrue(Unlocks.Available(who, p, ItemKind.Gear, 2), "neon is free");
+            }
+            foreach (var u in Unlocks.All)
+            {
+                int owners = 0;
+                foreach (CharacterId who in System.Enum.GetValues(typeof(CharacterId))) if (Unlocks.Listed(who, u.Kind, u.Value)) owners++;
+                Assert.AreEqual(1, owners, u.Id + " belongs to exactly one friend");
+            }
         }
 
         [Test]
-        public void TheUnicornNeedsEverythingElse()
+        public void TheGoalieMaskIsJontesAndOnlyHis()
         {
-            var p = new Progress { kidsHitOneRun = 12, slopesFinished = 31, bestChug = 7f, bestPark = 3500f, bestBlack = 65f, bestTrick = 1200, knockouts = 30, songsRequested = 5 };
-            Assert.IsTrue(Unlocks.Available(p, ItemKind.Headgear, 6));
-            p.songsRequested = 4;
-            Assert.IsFalse(Unlocks.Available(p, ItemKind.Headgear, 6));
-            Assert.IsFalse(Unlocks.Available(p, ItemKind.Suit, 2), "and the banana suit waits for the fifth song");
-        }
-
-        [Test]
-        public void NewlyEarnedIsAnnouncedOnce()
-        {
-            var before = new Progress { knockouts = 24 };
-            var after = new Progress { knockouts = 25 };
-            var got = Unlocks.NewlyEarned(before, after);
-            Assert.AreEqual(1, got.Count);
-            Assert.AreEqual("boxer", got[0].Id);
-            Assert.AreEqual(0, Unlocks.NewlyEarned(after, after).Count);
+            var p = new Progress { kidsHitOneRun = 10 };
+            Assert.IsTrue(Unlocks.Available(J, p, ItemKind.Headgear, 3));
+            Assert.IsFalse(Unlocks.Available(E, p, ItemKind.Headgear, 3), "not Erik's, however many kids he hits");
+            Assert.IsFalse(Unlocks.Listed(M, ItemKind.Headgear, 3));
         }
 
         [Test]
@@ -57,34 +52,58 @@ namespace Ski.Tests
         public void SlopeItemsFollowTheBestRun()
         {
             var p = new Progress();
-            Assert.IsFalse(Unlocks.Available(p, ItemKind.Pattern, 7), "nothing yet");
+            Assert.IsFalse(Unlocks.Available(M, p, ItemKind.Pattern, 7), "nothing yet");
             p.Offer(SlopeId.Green, 50f, false);
-            Assert.IsTrue(Unlocks.Available(p, ItemKind.Pattern, 7), "a solid run: candy");
-            Assert.IsFalse(Unlocks.Available(p, ItemKind.Headgear, 7));
+            Assert.IsTrue(Unlocks.Available(M, p, ItemKind.Pattern, 7), "a solid run: candy");
+            Assert.IsFalse(Unlocks.Available(M, p, ItemKind.Headgear, 7));
             p.Offer(SlopeId.Green, 60f, false);
             Assert.AreEqual(50f, p.Best(SlopeId.Green), "a slower run keeps the best");
             p.Offer(SlopeId.Green, 34f, false);
-            Assert.IsTrue(Unlocks.Available(p, ItemKind.Suit, 3), "near perfect: gingerbread");
-            p.Offer(SlopeId.Blue, 3600f, true);
-            Assert.IsTrue(Unlocks.Available(p, ItemKind.Headgear, 8), "3500 in the park: snapback");
-            Assert.IsFalse(Unlocks.Available(p, ItemKind.Suit, 4));
-            // The unicorn is about the other challenges, not the slope times.
-            var q = new Progress { kidsHitOneRun = 12, slopesFinished = 31, bestChug = 7f, bestPark = 3500f, bestBlack = 65f, bestTrick = 1200, knockouts = 30, songsRequested = 5 };
-            Assert.IsTrue(Unlocks.Available(q, ItemKind.Headgear, 6));
+            Assert.IsTrue(Unlocks.Available(M, p, ItemKind.Suit, 3), "near perfect: gingerbread");
+            var q = new Progress();
+            q.Offer(SlopeId.Blue, 3600f, true);
+            Assert.IsTrue(Unlocks.Available(J, q, ItemKind.Headgear, 8), "3500 in the park: Jonte's snapback");
+            Assert.IsFalse(Unlocks.Available(J, q, ItemKind.Suit, 4));
+        }
+
+        [Test]
+        public void SkisAndBoardsComeWithRuns()
+        {
+            var p = new Progress { runs = 24 };
+            Assert.IsTrue(Unlocks.Available(L, p, ItemKind.Gear, 12), "camo after 10 runs");
+            Assert.IsFalse(Unlocks.Available(L, p, ItemKind.Gear, 13), "wolf after 25");
+            p.runs = 25;
+            Assert.IsTrue(Unlocks.Available(L, p, ItemKind.Gear, 13));
+            Assert.IsFalse(Unlocks.Available(E, p, ItemKind.Gear, 13), "Linn's, not Erik's");
+        }
+
+        [Test]
+        public void NewlyEarnedIsAnnouncedOnce()
+        {
+            var before = new Progress { knockouts = 24 };
+            var after = new Progress { knockouts = 25 };
+            var got = Unlocks.NewlyEarned(J, before, after);
+            Assert.AreEqual(1, got.Count);
+            Assert.AreEqual("boxer", got[0].Id);
+            Assert.AreEqual(0, Unlocks.NewlyEarned(J, after, after).Count);
+            Assert.AreEqual(0, Unlocks.NewlyEarned(M, before, after).Count, "Maja earns nothing from Jonte's punches");
         }
 
         [Test]
         public void OutfitsTravelAsShortCodesAndLockedItemsFallBack()
         {
-            var o = new Outfit { jacket = 4, trim = 0, pants = -1, helmet = 11, pattern = 5, headgear = 3, suit = 1 };
+            var o = new Outfit { jacket = 4, trim = 0, pants = -1, helmet = 11, pattern = 5, headgear = 3, suit = 1, gear = 4, gearColour = 2, gearAccent = 7 };
             var back = Outfit.Parse(o.Code);
             Assert.AreEqual(o.Code, back.Code);
             Assert.AreEqual(0, Outfit.Parse("rubbish").pattern);
-            var allowed = Unlocks.Allowed(new Progress(), o);
+            Assert.AreEqual(0, Outfit.Parse("1,2,3,4,0,0,0").gear, "codes from before the skis existed still read");
+            var allowed = Unlocks.Allowed(J, new Progress(), o);
             Assert.AreEqual(0, allowed.pattern);
             Assert.AreEqual(0, allowed.headgear);
             Assert.AreEqual(0, allowed.suit);
+            Assert.AreEqual(0, allowed.gear);
             Assert.AreEqual(4, allowed.jacket, "colours are always yours");
+            Assert.AreEqual(2, allowed.gearColour);
         }
     }
 }

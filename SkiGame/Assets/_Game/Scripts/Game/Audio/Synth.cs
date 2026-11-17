@@ -54,6 +54,7 @@ namespace Ski.Game
                 case "door": d = Mix(Thump(0.25f, 90f, 0.6f), SnowBurst(0.12f, 600f, 0.25f)); break;
                 case "gulp": d = Gulp(); break;
                 case "spill": d = Spill(); break;
+                case "flush": d = Flush(); break;
                 case "clink": d = Chime(new[] { 2350f, 3180f, 4700f }, 0.5f, 0.25f); break;
                 case "burp": d = Burp(); break;
                 case "cheer": d = Cheer(2.6f); break;
@@ -315,6 +316,23 @@ namespace Ski.Game
                     float t = i / (0.05f * Rate);
                     ph += Mathf.Lerp(f0, f0 * 1.6f, t) / Rate;
                     d[at + i] += Sin(ph) * (1f - t) * 0.25f;
+                }
+            }
+            return d;
+        }
+
+        static float[] Flush()
+        {
+            // A toilet: a rush of water swirling away, then a gurgle down the pipe.
+            var d = Whoosh(1.9f, 300f, 1400f, 0.35f);
+            for (int k = 0; k < 7; k++)
+            {
+                int at = (int)((0.95f + k * 0.12f) * Rate); float ph = 0f, f0 = 240f + Rnd01() * 260f;
+                for (int i = 0; i < 0.09f * Rate && at + i < d.Length; i++)
+                {
+                    float t = i / (0.09f * Rate);
+                    ph += Mathf.Lerp(f0, f0 * 1.8f, t) / Rate;
+                    d[at + i] += Sin(ph) * (1f - t) * 0.16f;
                 }
             }
             return d;

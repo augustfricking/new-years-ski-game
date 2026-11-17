@@ -35,17 +35,27 @@ NAME, OUT, PREVIEW = argv[0], argv[1], argv[2]
 #   cheek: cheekbones out.                    hollow: the cheek under them drawn in.
 #   brow: the ridge forward.                  nose_w: nostril width factor.   lips: fuller (forward).
 #   neck: neck width factor.                  detail: how many triangles are kept (1 = close-up).
+#   face_len: the face below the eyes, longer (>1) or shorter.   face_w: the lower face wider or narrower.
+#   cheek_full: round cheeks (m).   eye_gap: eyes further apart (m).   eye_tilt: outer corners up (m).
+#   nose_up: tip turned up (m).    nose_hook: a bump on the bridge (m).   ears: ear size factor.
+#   belly, chest, waist, hips: the body (m, + out / - in).    neck_len: a longer neck (m).
 BASE = dict(head=1.1, hands=1.14, eyes=1.1, nose=1.0, nose_w=1.0, legs=1.04, shoulders=0.0, jaw=0.0, chin=(0.0, 0.0, 1.0),
-            cheek=0.003, hollow=0.002, brow=0.0, lips=0.0, neck=1.0, detail=0.72)
+            cheek=0.003, hollow=0.002, brow=0.0, lips=0.0, neck=1.0, detail=0.72,
+            face_len=1.0, face_w=1.0, cheek_full=0.0, eye_gap=0.0, eye_tilt=0.0, nose_up=0.0, nose_hook=0.0, ears=1.0,
+            belly=0.0, chest=0.0, waist=0.0, hips=0.0, neck_len=0.0)
 PROFILES = {
-    # The leading man: square jaw, strong chin, straight nose.
-    "erik": dict(sex="male", style="retro", shoulders=0.012, jaw=0.0055, chin=(0.004, 0.003, 1.1), brow=0.0025, nose=1.06, hollow=0.0035),
-    # The snowboarder: broad, soft face, big nose, heavy brow, thick neck.
-    "jonte": dict(sex="male", style="baggy", shoulders=0.016, jaw=0.008, chin=(0.001, -0.002, 1.25), brow=0.004, nose=1.2, nose_w=1.22, cheek=0.001, hollow=0.0, neck=1.12, eyes=1.05),
-    # Heart-shaped face, big eyes, small nose.
-    "maja": dict(sex="female", style="onepiece", jaw=-0.003, chin=(0.001, 0.001, 0.82), cheek=0.0045, nose=0.9, nose_w=0.9, eyes=1.17, lips=0.002, hollow=0.0015),
-    # Longer and sharper: high cheekbones, pointed chin, straight nose.
-    "linn": dict(sex="female", style="sleek", jaw=0.001, chin=(0.003, 0.004, 0.9), cheek=0.0035, hollow=0.0035, nose=1.03, nose_w=0.92, eyes=1.12, lips=0.001),
+    # The leading man: long angular face, square jaw and a jutting chin, deep-set eyes, a V-shaped athlete.
+    "erik": dict(sex="male", style="retro", shoulders=0.022, jaw=0.009, chin=(0.008, 0.006, 1.2), brow=0.005, nose=1.1, nose_hook=0.003,
+                 hollow=0.006, cheek=0.005, face_len=1.12, face_w=0.97, eyes=1.0, waist=-0.018, chest=0.01, neck_len=0.01),
+    # The snowboarder: round, wide, fleshy face, a big flat turned-up nose, small eyes under a heavy brow, a belly.
+    "jonte": dict(sex="male", style="baggy", shoulders=0.02, jaw=0.012, chin=(-0.002, -0.004, 1.35), brow=0.006, nose=1.3, nose_w=1.45, nose_up=0.004,
+                  cheek=0.0, hollow=-0.002, cheek_full=0.0055, neck=1.2, eyes=0.95, face_len=0.92, face_w=1.08, ears=1.25, belly=0.05, waist=0.03, neck_len=-0.012),
+    # Round, heart-shaped face: big wide-set eyes, a little button nose turned up, full cheeks and lips; petite.
+    "maja": dict(sex="female", style="onepiece", jaw=-0.006, chin=(0.0, 0.0, 0.75), cheek=0.003, cheek_full=0.006, nose=0.82, nose_w=0.88, nose_up=0.004,
+                 eyes=1.25, eye_gap=0.004, lips=0.003, hollow=0.0, face_len=0.9, face_w=1.06, hips=0.012),
+    # Long and sharp: high cheekbones over hollow cheeks, a pointed chin, a long nose, almond eyes tilted up; tall and slim.
+    "linn": dict(sex="female", style="sleek", jaw=0.001, chin=(0.004, 0.004, 0.86), cheek=0.007, hollow=0.007, nose=1.12, nose_w=0.88, nose_hook=0.002,
+                 eyes=1.12, eye_tilt=0.003, lips=0.0015, face_len=1.06, face_w=0.94, waist=-0.015, neck_len=0.018),
     "male": dict(sex="male", shoulders=0.01, jaw=0.004, chin=(0.002, 0.001, 1.08), brow=0.002, detail=0.3),
     "female": dict(sex="female", chin=(0.001, 0.001, 0.9), eyes=1.12, lips=0.001, detail=0.3),
 }
@@ -324,13 +334,52 @@ def make_warp():
             w = g2(co.x, co.z - mouth_z, 0.03, 0.012) * smoothstep(mouth_y + 0.02, mouth_y + 0.006, co.y)
             p.y -= P["lips"] * w
             p.z += (co.z - mouth_z) * P["lips"] * 60.0 * w
+            # Round cheeks: the flesh under the cheekbone, out and forward.
+            w = g2(ax - 0.048, co.z - (mouth_z + 0.004), 0.024, 0.022) * side
+            p.x += sgn * P["cheek_full"] * w
+            p.y -= P["cheek_full"] * 0.5 * w * face
+            # Eyes apart, outer corners up (the whole eye region moves with them).
+            for e in eyes:
+                d = co - e
+                w = math.exp(-(d.length / 0.026) ** 2) * (1.0 if co.x * e.x > 0 else 0.0)
+                p.x += sgn * P["eye_gap"] * w
+                p.z += P["eye_tilt"] * (ax - abs(e.x)) / 0.015 * w
+            # Nose: tip up, a bump on the bridge.
+            w = g2(co.x, co.z - (nose.z - 0.004), 0.012, 0.012) * smoothstep(nose.y + 0.02, nose.y + 0.002, co.y)
+            p.z += P["nose_up"] * w
+            p.y += P["nose_up"] * 0.4 * w
+            w = g2(co.x, co.z - (nose.z + 0.02), 0.009, 0.01) * smoothstep(nose.y + 0.03, nose.y + 0.012, co.y)
+            p.y -= P["nose_hook"] * w
+            # Ears, bigger or smaller about their middle.
+            for e_side in (1, -1):
+                ec = Vector((e_side * abs(ear.x), ear.y, ear.z))
+                d = co - ec
+                if co.x * e_side > 0 and d.length < 0.05:
+                    p += d * (P["ears"] - 1.0) * smoothstep(0.05, 0.02, d.length)
+            # The lower face: longer or shorter (from the eyes down), wider or narrower.
+            below = smoothstep(eye_z + 0.005, eye_z - 0.02, co.z) * smoothstep(chin_z - 0.07, chin_z - 0.015, co.z)
+            p.z += (co.z - eye_z) * (P["face_len"] - 1.0) * below * side
+            p.x += co.x * (P["face_w"] - 1.0) * below * side
             # Neck thickness.
             w = smoothstep(chin_z - 0.005, chin_z - 0.03, co.z) * smoothstep(0.075, 0.05, ax)
             p.x += co.x * (P["neck"] - 1.0) * w
             p.y += (co.y - neck.y) * (P["neck"] - 1.0) * w
-        # The head as a whole, about the base of the neck.
+        # The head as a whole, about the base of the neck; a longer or shorter neck lifts it.
         w = smoothstep(chin_z - 0.07, chin_z - 0.005, co.z) * smoothstep(0.2, 0.14, ax)
         p = neck + (p - neck) * (1.0 + (P["head"] - 1.0) * w)
+        p.z += P["neck_len"] * smoothstep(chin_z - 0.09, chin_z - 0.03, co.z) * smoothstep(0.2, 0.14, ax)
+        # The body: belly, chest, waist, hips.
+        if co.z < chest_z + 0.15 and co.z > hip_z - 0.25 and ax < 0.22:
+            front = smoothstep(J["Torso"].y + 0.02, J["Torso"].y - 0.08, co.y)
+            w = g2(co.x, co.z - (hip_z + 0.15), 0.13, 0.12)
+            p.y -= P["belly"] * w * front
+            p.x += sgn * P["belly"] * 0.5 * w * smoothstep(0.02, 0.1, ax)
+            w = g2(ax - 0.07, co.z - (chest_z + 0.02), 0.08, 0.07) * front
+            p.y -= P["chest"] * w
+            w = g2(0.0, co.z - (hip_z + 0.12), 1.0, 0.06) * smoothstep(0.08, 0.14, ax)
+            p.x += sgn * P["waist"] * w
+            w = g2(0.0, co.z - (hip_z - 0.08), 1.0, 0.08) * smoothstep(0.06, 0.14, ax)
+            p.x += sgn * P["hips"] * w
         # Hands: fingers closed, then the whole hand bigger about the wrist.
         if ax > 0.25 and (co - wrist[1 if co.x > 0 else -1]).length < 0.28:
             s = 1 if co.x > 0 else -1

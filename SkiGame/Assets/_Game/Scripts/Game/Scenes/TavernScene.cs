@@ -15,7 +15,8 @@ namespace Ski.Game
     /// The après-ski: a packed timber beer hall on New Year's Eve. Long tables with benches, people
     /// singing along shoulder to shoulder, a few dancing on the tables, a log fire, and behind the
     /// bar a painting of last year's midnight kiss. Walk around in first person; the bar offers the
-    /// beer-chugging game, the door leads back to the lift.
+    /// beer-chugging game, the door leads back out to the village. Jump onto the benches and tables;
+    /// the toilet is in the corner past the bar.
     /// </summary>
     public sealed class TavernScene : MonoBehaviour
     {
@@ -39,10 +40,23 @@ namespace Ski.Game
             public Knock State; public Vector3 Centre, Vel, SpinAxis, Home; public Quaternion Rot, HomeRot;
             public float SpinRate, Timer, WalkPhase; public int Bounces;
             public Transform Tag;
+            public Ragdoll Doll;
         }
+        /// <summary>The ways a punch can land, each throwing a body differently.</summary>
+        enum Blow { Jab, Hook, Uppercut, Gut, Haymaker }
+        static readonly string[][] BlowWords = { new[] { "POW!", "BAM!" }, new[] { "WHAM!", "SMACK!" }, new[] { "UPPERCUT!", "KAPOW!" }, new[] { "OOF!", "BONK!" }, new[] { "HAYMAKER!", "KA-BOOM!" } };
+        Blow _blow, _lastBlow = Blow.Haymaker;
         struct Flame { public Transform T; public float Phase, Speed, Lean; }
 
+        // Solid things in the room, as seen from above, with how high they reach (and from how high:
+        // a table top hangs above the floor). Low ones can be stepped or jumped onto.
         readonly List<Rect> _blocks = new List<Rect>();
+        readonly List<float> _tops = new List<float>(), _bottoms = new List<float>();
+        Transform _solids;
+        const float StepUp = 0.35f, JumpSpeed = 4.8f, Gravity = 12f;
+        float _vy;
+        bool _grounded = true;
+        static readonly Vector3 ToiletSpot = new Vector3(7.15f, 0f, -10.35f);
         readonly List<Guest> _guests = new List<Guest>();
         readonly List<Light> _lights = new List<Light>();
         readonly List<Flame> _flames = new List<Flame>();
@@ -127,8 +141,9 @@ namespace Ski.Game
             foreach (var t in Tables) LongTable(b, glow, t, rng);
             b.Col = Palette.Roof;
             b.Box(new Vector3(-6.3f, 0.15f, 9.2f), new Vector3(3f, 0.3f, 3.2f)); // stage
-            _blocks.Add(new Rect(-7.8f, 7.6f, 3f, 3.2f));
+            Block(new Rect(-7.8f, 7.6f, 3f, 3.2f), 0.3f);
             BuildDecor(b, bulbs, rng);
+            BuildToilet(b, glow);
 
             b.ToObject("Tavern", Mats.Props, transform);
             glow.ToObject("Tavern glow", _glow, transform, false, false);
@@ -181,7 +196,7 @@ namespace Ski.Game
             {
                 AudioDirector.I.Silence();
                 PlayDj(Songs.Loaded ? null : "");   // the DJ's song (or, until the list is in, nothing yet)
-                AudioDirector.I.Ambience("crowd", "fire");
+                AudioDirector.I.Ambience("fire");
                 AudioDirector.I.Play("door", 0.8f);
             }
             var ui = Ui.Instance;
@@ -192,11 +207,9 @@ namespace Ski.Game
                 _prompt = Ui.Text(box, "", "h2 outlined");
                 _pow = Ui.Text(Ui.Div(_ui, "hud-centre"), "", "toast toast-hidden");
                 var keys = Ui.Div(_ui, "hud-corner hud-bl");
-                Ui.Keys(keys, "W A S D", "walk");
-                Ui.Keys(keys, "MOUSE", "look");
-                Ui.Keys(keys, "E", "use");
-                Ui.Keys(keys, "CLICK", "punch");
-                if (SaveData.Voice && SaveData.Live) Ui.Keys(keys, "V", "talk");
+                var more = new System.Collections.Generic.List<(string, string)> { ("E", "use") };
+                if (SaveData.Voice && SaveData.Live) more.Add(("V", "talk"));
+                Ui.Controls(keys, "walk", "", "", "", "CLICK", "punch", "jump", more.ToArray());
             }
             UnityEngine.Cursor.lockState = CursorLockMode.Locked;
             PlaceCamera(0f);
@@ -226,7 +239,16 @@ namespace Ski.Game
             for (int i = -3; i <= 3; i++) b.Box(new Vector3(0f, Ceiling - 0.2f, i * 3.2f), new Vector3(HalfX * 2f, 0.3f, 0.3f));
             // Posts holding the beams.
             foreach (float z in new[] { -9.6f, 9.6f })
-                foreach (float x in new[] { -7.7f, 3.2f }) b.Box(new Vector3(x, Ceiling * 0.5f, z), new Vector3(0.3f, Ceiling, 0.3f));
+                foreach (float x in new[] { -7.7f, 3.2f })
+                {
+                    b.Box(new Vector3(x, Ceiling * 0.5f, z), new Vector3(0.3f, Ceiling, 0.3f));
+                    Block(new Rect(x - 0.15f, z - 0.15f, 0.3f, 0.3f), Ceiling);
+                }
+            // Floor, walls and ceiling, for anyone sent flying.
+            Solid(new Vector3(0f, -0.1f, 0f), new Vector3(HalfX * 2f + 1f, 0.2f, HalfZ * 2f + 1f));
+            Solid(new Vector3(0f, Ceiling + 0.1f, 0f), new Vector3(HalfX * 2f + 1f, 0.2f, HalfZ * 2f + 1f));
+            foreach (float sx in new[] { -1f, 1f }) Solid(new Vector3(sx * (HalfX + 0.2f), Ceiling * 0.5f, 0f), new Vector3(0.4f, Ceiling, HalfZ * 2f + 1f));
+            foreach (float sz in new[] { -1f, 1f }) Solid(new Vector3(0f, Ceiling * 0.5f, sz * (HalfZ + 0.2f)), new Vector3(HalfX * 2f + 1f, Ceiling, 0.4f));
 
             // Door and frosty windows on the entrance wall.
             b.Col = Palette.TimberDark;
@@ -258,7 +280,7 @@ namespace Ski.Game
             b.Box(new Vector3(5.1f, 1.13f, 0f), new Vector3(1.3f, 0.08f, 13.4f));
             b.Col = Palette.Steel;
             b.Tube(new Vector3(4.6f, 0.22f, -6.5f), new Vector3(4.6f, 0.22f, 6.5f), 0.03f, 6);   // foot rail
-            _blocks.Add(new Rect(4.45f, -6.7f, 3.6f, 13.4f));
+            Block(new Rect(4.45f, -6.7f, 3.6f, 13.4f), 1.17f);
             // Shelves with bottles, leaving the wall free where the painting hangs.
             for (int shelf = 0; shelf < 3; shelf++)
             {
@@ -286,7 +308,7 @@ namespace Ski.Game
                 if (Mathf.Abs(z) < 1.2f) continue; // room to stand at the taps
                 b.Col = Palette.TimberDark; b.Cylinder(new Vector3(4.05f, 0f, z), 0.05f, 0.05f, 0.72f, 5); b.Cylinder(new Vector3(4.05f, 0f, z), 0.22f, 0.2f, 0.04f, 8);
                 b.Col = Palette.SignalRed; b.Cylinder(new Vector3(4.05f, 0.72f, z), 0.2f, 0.2f, 0.08f, 10);
-                _blocks.Add(new Rect(3.8f, z - 0.25f, 0.5f, 0.5f));
+                Block(new Rect(3.8f, z - 0.25f, 0.5f, 0.5f), 0.8f);
             }
         }
 
@@ -324,7 +346,8 @@ namespace Ski.Game
                 b.Col = Palette.White; b.Cylinder(new Vector3(cx + dx, 2.57f, front + 0.14f), 0.035f, 0.035f, 0.16f + dx * 0.02f, 6);
                 glow.Col = Palette.Lamp; glow.Sphere(new Vector3(cx + dx, 2.78f + dx * 0.02f, front + 0.14f), new Vector3(0.022f, 0.05f, 0.022f), 5, 4);
             }
-            _blocks.Add(new Rect(-4.2f, -HalfZ, 3.4f, 1.9f));
+            Block(new Rect(-4.2f, -HalfZ, 3.4f, 1.9f), 1.2f);   // the fire is not for standing in
+            Solid(new Vector3(cx, Ceiling * 0.5f, -HalfZ + 0.45f), new Vector3(3.2f, Ceiling, 0.9f));
 
             var fire = new GameObject("Fire").transform;
             fire.SetParent(transform, false);
@@ -403,7 +426,10 @@ namespace Ski.Game
                 b.Col = Palette.TimberDark;
                 foreach (float sx in new[] { -1f, 1f }) b.Box(c + new Vector3(sx * (half - 0.35f), (BenchTop - 0.06f) * 0.5f, sz), new Vector3(0.08f, BenchTop - 0.06f, 0.28f));
             }
-            _blocks.Add(new Rect(c.x - half - 0.05f, c.z - 0.92f, TableLen + 0.1f, 1.84f));
+            // Table top and benches: things to stand on, and to land on.
+            Block(new Rect(c.x - half, c.z - 0.4f, TableLen, 0.8f), TableTop, TableTop - 0.07f);
+            foreach (float sz in new[] { -0.72f, 0.72f }) Block(new Rect(c.x - half, c.z + sz - 0.16f, TableLen, 0.32f), BenchTop, BenchTop - 0.06f);
+            foreach (float sx in new[] { -1f, 1f }) Solid(c + new Vector3(sx * (half - 0.45f), 0.37f, 0f), new Vector3(0.1f, 0.74f, 0.62f));
             // Steins, a candle lantern and a basket of pretzels.
             for (int g = 0; g < 7; g++)
                 Stein(_beer, b, c + new Vector3(rng.Range(-half + 0.3f, half - 0.3f), TableTop + 0.012f, rng.Range(-0.2f, 0.2f)), rng.Range(0.2f, 1f));
@@ -460,6 +486,120 @@ namespace Ski.Game
             }
         }
 
+        /// <summary>
+        /// The toilet, in the corner past the end of the bar: an accessible one, with a wide door
+        /// standing open, the wheelchair sign, a raised seat between a wall rail and a fold-down
+        /// rail, a sink low enough to roll under, a tilted mirror and the red emergency cord.
+        /// </summary>
+        void BuildToilet(MeshBuilder b, MeshBuilder glow)
+        {
+            const float x0 = 4.6f, z1 = -7.4f, doorZ0 = -9.35f, doorZ1 = -8.35f, doorH = 2.2f, t = 0.12f;
+            Color tile = Palette.Mix(Palette.White, Palette.SignalBlue, 0.12f), wall = Palette.TimberLight;
+            Color porcelain = Palette.White, steel = Palette.Steel;
+            // Walls: one along the bar's end, one facing the room with the doorway in it.
+            b.Col = wall;
+            b.Box(new Vector3((x0 + HalfX) * 0.5f, Ceiling * 0.5f, z1), new Vector3(HalfX - x0, Ceiling, t));
+            Block(new Rect(x0, z1 - t * 0.5f, HalfX - x0, t), Ceiling);
+            b.Box(new Vector3(x0, Ceiling * 0.5f, (-HalfZ + doorZ0) * 0.5f), new Vector3(t, Ceiling, doorZ0 + HalfZ));
+            Block(new Rect(x0 - t * 0.5f, -HalfZ, t, doorZ0 + HalfZ), Ceiling);
+            b.Box(new Vector3(x0, Ceiling * 0.5f, (doorZ1 + z1) * 0.5f), new Vector3(t, Ceiling, z1 - doorZ1));
+            Block(new Rect(x0 - t * 0.5f, doorZ1, t, z1 - doorZ1), Ceiling);
+            b.Box(new Vector3(x0, (doorH + Ceiling) * 0.5f, (doorZ0 + doorZ1) * 0.5f), new Vector3(t, Ceiling - doorH, doorZ1 - doorZ0));
+            Block(new Rect(x0 - t * 0.5f, doorZ0, t, doorZ1 - doorZ0), Ceiling, doorH);
+            b.Col = Palette.TimberDark;   // door frame
+            foreach (float z in new[] { doorZ0, doorZ1 }) b.Box(new Vector3(x0, doorH * 0.5f, z), new Vector3(t + 0.04f, doorH, 0.06f));
+            b.Box(new Vector3(x0, doorH, (doorZ0 + doorZ1) * 0.5f), new Vector3(t + 0.04f, 0.06f, doorZ1 - doorZ0 + 0.06f));
+            // Tiles inside, on all four walls, with grout lines.
+            b.Col = tile;
+            b.Box(new Vector3((x0 + HalfX) * 0.5f, 1.2f, z1 - t * 0.5f - 0.011f), new Vector3(HalfX - x0, 2.4f, 0.02f));
+            b.Box(new Vector3((x0 + HalfX) * 0.5f, 1.2f, -HalfZ + 0.011f), new Vector3(HalfX - x0, 2.4f, 0.02f));
+            b.Box(new Vector3(HalfX - 0.011f, 1.2f, (z1 - HalfZ) * 0.5f), new Vector3(0.02f, 2.4f, z1 + HalfZ));
+            b.Box(new Vector3(x0 + t * 0.5f + 0.011f, 1.2f, (-HalfZ + doorZ0) * 0.5f), new Vector3(0.02f, 2.4f, doorZ0 + HalfZ));
+            b.Col = Palette.Mul(tile, 0.8f);
+            for (float y = 0.3f; y < 2.4f; y += 0.3f)
+            {
+                b.Box(new Vector3((x0 + HalfX) * 0.5f, y, -HalfZ + 0.023f), new Vector3(HalfX - x0, 0.012f, 0.004f));
+                b.Box(new Vector3(HalfX - 0.023f, y, (z1 - HalfZ) * 0.5f), new Vector3(0.004f, 0.012f, z1 + HalfZ));
+            }
+            // The door, wide open into the room, with a pull rail across it.
+            b.Col = Palette.Hex("#3E6FA8");
+            b.Box(new Vector3(x0 + 0.48f, 1.05f, doorZ0 + 0.05f), new Vector3(0.95f, 2.1f, 0.05f));
+            Block(new Rect(x0, doorZ0 + 0.01f, 0.95f, 0.08f), 2.1f);
+            b.Col = steel;
+            b.Tube(new Vector3(x0 + 0.15f, 0.95f, doorZ0 + 0.11f), new Vector3(x0 + 0.8f, 0.95f, doorZ0 + 0.11f), 0.015f, 6);
+            // The sign beside the doorway: the wheelchair symbol, white on blue, and WC above the door.
+            Vector3 plaque = new Vector3(x0 - t * 0.5f - 0.012f, 1.55f, -7.88f);
+            b.Col = Palette.Hex("#1F5FA8");
+            b.Box(plaque, new Vector3(0.02f, 0.3f, 0.3f));
+            b.Col = Palette.White;
+            Vector3 o = plaque + new Vector3(-0.012f, 0f, 0f);
+            b.Sphere(o + new Vector3(0f, 0.095f, 0.03f), new Vector3(0.006f, 0.022f, 0.022f), 8, 4);   // head
+            b.Box(o + new Vector3(0f, 0.035f, 0.035f), new Vector3(0.006f, 0.07f, 0.024f));            // back
+            b.Box(o + new Vector3(0f, -0.005f, 0.0f), new Vector3(0.006f, 0.022f, 0.07f));             // seat
+            b.Box(o + new Vector3(0f, -0.045f, -0.04f), new Vector3(0.006f, 0.07f, 0.02f));            // shins
+            b.Box(o + new Vector3(0f, 0.03f, -0.01f), new Vector3(0.006f, 0.016f, 0.06f));             // arm
+            for (int i = 0; i < 16; i++)                                                                  // the wheel
+            {
+                float a0 = i / 16f * Mathf.PI * 2f, a1 = (i + 1) / 16f * Mathf.PI * 2f;
+                Vector3 c = o + new Vector3(0f, -0.045f, 0.035f);
+                b.Tube(c + new Vector3(0f, Mathf.Sin(a0), Mathf.Cos(a0)) * 0.065f, c + new Vector3(0f, Mathf.Sin(a1), Mathf.Cos(a1)) * 0.065f, 0.007f, 4);
+            }
+            var wc = VillageBuilder.Sign(transform, "WC", Vector3.zero, Quaternion.identity, 0.3f, Palette.White);
+            wc.transform.localPosition = new Vector3(x0 - t * 0.5f - 0.02f, doorH + 0.32f, (doorZ0 + doorZ1) * 0.5f);
+            wc.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+
+            // The toilet: raised seat, against the back wall, a rail on the wall beside it and a fold-down one on the open side.
+            Vector3 bowl = new Vector3(7.5f, 0f, -10.35f);
+            b.Col = porcelain;
+            b.Push(bowl, Quaternion.identity, new Vector3(1.25f, 1f, 1f));
+            b.Cylinder(Vector3.zero, 0.15f, 0.19f, 0.36f, 14);
+            b.Cylinder(new Vector3(0f, 0.36f, 0f), 0.2f, 0.21f, 0.06f, 16);
+            b.Col = Palette.Mul(porcelain, 0.92f);
+            b.Cylinder(new Vector3(0f, 0.42f, 0f), 0.205f, 0.2f, 0.03f, 16);
+            b.Pop();
+            b.Col = porcelain;
+            b.Box(new Vector3(7.88f, 0.72f, bowl.z), new Vector3(0.22f, 0.5f, 0.44f));    // tank
+            b.Col = steel;
+            b.Cylinder(new Vector3(7.88f, 0.97f, bowl.z), 0.035f, 0.035f, 0.02f, 10);     // flush button
+            Block(new Rect(7.2f, bowl.z - 0.24f, 0.8f, 0.48f), 0.45f);
+            b.Col = steel;
+            b.Tube(new Vector3(7.95f, 0.78f, -HalfZ + 0.06f), new Vector3(6.85f, 0.78f, -HalfZ + 0.06f), 0.018f, 8);   // wall rail
+            foreach (float x in new[] { 7.9f, 6.9f }) b.Tube(new Vector3(x, 0.78f, -HalfZ + 0.06f), new Vector3(x, 0.78f, -HalfZ + 0.005f), 0.012f, 6);
+            b.Tube(new Vector3(7.95f, 0.78f, bowl.z + 0.38f), new Vector3(7.05f, 0.78f, bowl.z + 0.38f), 0.018f, 8);     // fold-down rail, lowered
+            b.Tube(new Vector3(7.05f, 0.78f, bowl.z + 0.38f), new Vector3(7.05f, 0.72f, bowl.z + 0.38f), 0.018f, 6);
+            b.Col = Palette.SteelDark;
+            b.Box(new Vector3(7.95f, 0.82f, bowl.z + 0.38f), new Vector3(0.06f, 0.16f, 0.1f));                          // its hinge
+            b.Col = Palette.White;
+            b.Cylinder(new Vector3(7.4f, 0.68f, bowl.z + 0.38f), 0.055f, 0.055f, 0.1f, 10);                             // the roll on it
+            // The red emergency cord, down to the floor.
+            b.Col = Palette.SignalRed;
+            b.Tube(new Vector3(6.95f, Ceiling - 0.02f, -10.85f), new Vector3(6.95f, 0.12f, -10.85f), 0.006f, 4);
+            b.Cylinder(new Vector3(6.95f, 0.1f, -10.85f), 0.035f, 0.035f, 0.03f, 8);
+            // A sink low enough to roll under, a lever tap, a mirror tilted down.
+            Vector3 sink = new Vector3(6.1f, 0.8f, z1 - t * 0.5f - 0.22f);
+            b.Col = porcelain;
+            b.Box(sink, new Vector3(0.55f, 0.13f, 0.42f));
+            b.Col = Palette.Mul(porcelain, 0.8f);
+            b.Box(sink + new Vector3(0f, 0.055f, -0.02f), new Vector3(0.4f, 0.03f, 0.28f));
+            b.Col = steel;
+            b.Tube(sink + new Vector3(0f, 0.06f, 0.17f), sink + new Vector3(0f, 0.2f, 0.17f), 0.016f, 6);
+            b.Tube(sink + new Vector3(0f, 0.2f, 0.17f), sink + new Vector3(0f, 0.18f, 0.06f), 0.014f, 6);
+            b.Box(sink + new Vector3(0.07f, 0.2f, 0.17f), new Vector3(0.14f, 0.02f, 0.025f));
+            Block(new Rect(sink.x - 0.28f, sink.z - 0.21f, 0.56f, 0.42f), 0.87f, 0.7f);
+            b.Push(new Vector3(sink.x, 1.5f, z1 - t * 0.5f - 0.04f), Quaternion.Euler(-8f, 0f, 0f));
+            b.Col = Palette.TimberDark;
+            b.Box(Vector3.zero, new Vector3(0.56f, 0.76f, 0.03f));
+            b.Pop();
+            glow.Col = Palette.Mix(Palette.SkyTop, Palette.White, 0.55f);
+            glow.Push(new Vector3(sink.x, 1.5f, z1 - t * 0.5f - 0.06f), Quaternion.Euler(-8f, 0f, 0f));
+            glow.Box(Vector3.zero, new Vector3(0.5f, 0.7f, 0.01f));
+            glow.Pop();
+            // A lamp of its own.
+            glow.Col = Palette.Lamp;
+            glow.Sphere(new Vector3(6.3f, Ceiling - 0.3f, -9.2f), new Vector3(0.18f, 0.08f, 0.18f), 8, 4);
+            AddLight(transform, new Vector3(6.3f, Ceiling - 0.6f, -9.2f), Palette.Lamp, 5f, 4f);
+        }
+
         static Light AddLight(Transform parent, Vector3 localPos, Color colour, float range, float intensity)
         {
             var go = new GameObject("Light");
@@ -470,12 +610,23 @@ namespace Ski.Game
             return l;
         }
 
+        /// <summary>The colour of glass: pale, a little blue, so an empty part of a stein still reads as glass.</summary>
+        public static readonly Color GlassColour = Palette.Mix(Palette.White, Palette.SignalBlue, 0.16f);
+
         /// <summary>A beer stein: glass body, beer inside, foam on top and a handle.</summary>
         public static void Stein(MeshBuilder glow, MeshBuilder solid, Vector3 at, float fill, float k = 0.72f)
         {
+            float f = Mathf.Clamp01(fill), h = 0.2f * k;
             glow.Col = Palette.Mix(Palette.Lamp, Palette.SafetyOrange, 0.35f);
-            glow.Cylinder(at, 0.062f * k, 0.066f * k, 0.2f * k * Mathf.Clamp01(fill), 10);
-            if (fill > 0.05f) { solid.Col = Palette.White; solid.Cylinder(at + Vector3.up * 0.2f * k * fill, 0.068f * k, 0.06f * k, 0.035f * k, 10); }
+            glow.Cylinder(at, 0.062f * k, 0.066f * k, h * f, 10);
+            if (fill > 0.05f) { solid.Col = Palette.White; solid.Cylinder(at + Vector3.up * h * fill, 0.068f * k, 0.06f * k, 0.035f * k, 10); }
+            // The empty part of the glass: a thin wall from the beer up to the rim, open at the top.
+            if (f < 0.97f)
+            {
+                solid.Col = GlassColour;
+                float y0 = h * f + (fill > 0.05f ? 0.03f * k : 0f);
+                solid.Lathe(at, new[] { new Vector2(0.066f * k, y0), new Vector2(0.07f * k, h + 0.01f * k), new Vector2(0.062f * k, h + 0.01f * k), new Vector2(0.058f * k, y0 + 0.004f) }, 12, false, false);
+            }
             solid.Col = Palette.Mix(Palette.Snow, Palette.SnowShadow, 0.35f);
             solid.Cylinder(at + Vector3.down * 0.01f * k, 0.072f * k, 0.072f * k, 0.012f, 10);
             solid.Tube(at + new Vector3(0.07f, 0.04f, 0) * k, at + new Vector3(0.12f, 0.1f, 0) * k, 0.012f * k, 0.012f * k, 4, false);
@@ -511,7 +662,7 @@ namespace Ski.Game
             PersonLook Partygoer()
             {
                 var look = PersonLook.Random(rng, false);
-                look.Hero = true;   // close-up people: animated faces and inked shading
+                look.Hero = !GraphicsQuality.Light;   // close-up people: animated faces and inked shading (not on low)
                 look.Gear = GearKind.None; look.Poles = false; look.HasHelmet = false; look.GogglesDown = false;
                 look.HasGoggles = rng.Chance(0.3f);
                 look.Beanie = rng.Chance(0.4f); look.Helmet = Palette.Jackets[rng.Range(0, Palette.Jackets.Length)];
@@ -575,7 +726,7 @@ namespace Ski.Game
         {
             var b = new MeshBuilder();
             var glow = new MeshBuilder();
-            b.Push(DjDesk);
+            b.Push(DjDesk); glow.Push(DjDesk);   // the lights belong on the booth, not in the middle of the room
             // The booth: a desk with two decks and a mixer, speakers either side, lights along the front.
             b.Col = Palette.Ink;
             b.Box(new Vector3(0f, 0.5f, 0f), new Vector3(0.7f, 1.0f, 2.1f));
@@ -603,14 +754,16 @@ namespace Ski.Game
             for (int i = 0; i < 6; i++)
             {
                 glow.Col = i % 2 == 0 ? Palette.Hex("#FF4FA3") : Palette.Hex("#4FD8FF");
-                glow.Box(new Vector3(0.36f, 0.3f + i * 0.12f, 0f), new Vector3(0.02f, 0.05f, 1.9f));
+                glow.Box(new Vector3(0.36f, 0.12f + i * 0.075f, 0f), new Vector3(0.02f, 0.035f, 1.9f));
             }
-            b.Pop();
+            b.Pop(); glow.Pop();
+            Block(new Rect(DjDesk.x - 0.35f, DjDesk.z - 1.05f, 0.7f, 2.1f), DjDesk.y + 1.05f);
+            foreach (float sz in new[] { -1.5f, 1.5f }) Block(new Rect(DjDesk.x - 0.5f, DjDesk.z + sz - 0.275f, 0.6f, 0.55f), DjDesk.y + 1.5f);
             b.ToObject("DJ booth", Mats.Props, transform);
-            glow.ToObject("DJ lights", _glowHot, transform, false, false);
-            var sign = VillageBuilder.Sign(transform, "DJ", Vector3.zero, Quaternion.identity, 0.32f, Palette.White);
-            sign.transform.localPosition = DjDesk + new Vector3(0.37f, 0.75f, 0f);
-            sign.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+            glow.ToObject("DJ lights", _glow, transform, false, false);
+            var sign = VillageBuilder.Sign(transform, "DJ", Vector3.zero, Quaternion.identity, 0.5f, Palette.White);
+            sign.transform.localPosition = DjDesk + new Vector3(0.37f, 0.76f, 0f);
+            sign.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
 
             // The DJ, behind the decks, headphones on.
             var look = PersonLook.Random(rng, false);
@@ -687,7 +840,9 @@ namespace Ski.Game
                 if (Songs.All.Count > 1 && Songs.All[i].id == now) i = (i + 1) % Songs.All.Count;
                 id = Songs.All[i].id;
             }
+            bool same = AudioDirector.I.CurrentSong == id;
             AudioDirector.I.Music("song:" + id, 1.1f);
+            if (same) AudioDirector.I.RestartMusic();
             _djFlourish = 2.5f;
         }
 
@@ -708,7 +863,7 @@ namespace Ski.Game
                 {
                     ClosePicker();
                     PlayDj(song.id);
-                    SaveData.Record(p => p.songsRequested++);
+                    SaveData.Record(_who, p => p.songsRequested++);
                     Ui.Instance?.Notice("NOW PLAYING", song.title, 2.4f);
                 }, "btn-plain song-row" + (s.id == now ? " btn-selected" : ""));
             }
@@ -826,9 +981,24 @@ namespace Ski.Game
 
         // ---- punching ----------------------------------------------------------------------------
 
+        /// <summary>A different blow each time: mostly jabs, hooks, uppercuts and body blows, now and then a haymaker.</summary>
+        Blow PickBlow()
+        {
+            Blow b;
+            do
+            {
+                float r = UnityEngine.Random.value;
+                b = r < 0.24f ? Blow.Jab : r < 0.48f ? Blow.Hook : r < 0.7f ? Blow.Uppercut : r < 0.9f ? Blow.Gut : Blow.Haymaker;
+            } while (b == _lastBlow);
+            return _lastBlow = b;
+        }
+
+        static Blow BlowFromYaw(float yaw) => (Blow)(Mathf.Abs(Mathf.RoundToInt(yaw * 7.3f)) % 5);
+
         void Punch()
         {
             _punch = 0f;
+            _blow = PickBlow();
             AudioDirector.Sfx("jump", 0.5f, 1.5f);
             // Whoever is nearest in front of the fist takes it.
             Vector3 eye = _pos + Vector3.up * 1.3f;
@@ -856,38 +1026,50 @@ namespace Ski.Game
             }
             if (liveHit != null)
             {
+                _blow = BlowFromYaw(_yaw);   // every screen works out the same blow from the punch's direction
                 LiveRooms.SendPunch(liveId, _yaw);
                 LaunchLive(liveHit, fwd);
             }
             else if (hit == null) return;
-            else Launch(hit, fwd, 1f);
+            else Launch(hit, fwd, 1f, _blow);
             Knockouts++;
-            SaveData.Record(p => p.knockouts++);
+            SaveData.Record(_who, p => p.knockouts++);
             AudioDirector.Sfx("land_heavy", 1f, 1.25f);
             AudioDirector.Sfx("crash", 0.6f, 1.2f);
             if (_pow != null)
             {
-                string[] words = { "POW!", "WHAM!", "BONK!", "KAPOW!", "SMACK!" };
+                var words = BlowWords[(int)_blow];
                 _pow.text = words[Knockouts % words.Length];
                 _pow.RemoveFromClassList("toast-hidden");
                 _powLeft = 0.55f;
             }
         }
 
-        /// <summary>Sends a guest flying: up and away, tumbling head over heels.</summary>
-        void Launch(Guest g, Vector3 dir, float power)
+        /// <summary>Sends a guest flying, limp: how depends on the blow (straight back, spun round, up and over, folded in half, or across the room).</summary>
+        void Launch(Guest g, Vector3 dir, float power, Blow blow)
         {
             var p = g.P;
-            g.Centre = transform.InverseTransformPoint(p.Hips.position);
-            g.Rot = p.transform.localRotation;
+            p.Talking = false; p.MouthOpen = 1f; p.BrowRaise = 1f; p.Smile = 0f; p.EyesClosed = false;
+            if (g.Doll == null)
+            {
+                foreach (var smr in p.GetComponentsInChildren<SkinnedMeshRenderer>()) smr.updateWhenOffscreen = true;
+                g.Doll = Ragdoll.Make(p);
+            }
+            g.Doll.Age = 0f;
             g.State = Knock.Flying; g.Timer = 0f; g.Bounces = 0;
-            g.Vel = dir * (9.5f * power) + Vector3.up * (5.2f * power + 1.2f);
-            g.SpinAxis = Vector3.Cross(Vector3.up, dir).normalized;
-            g.SpinRate = -620f * power;   // head goes back first
-            p.Talking = false; p.MouthOpen = 1f; p.BrowRaise = 1f; p.Smile = 0f; p.PoseSpeed = 14f;
-            var flail = Pose.Cheer;
-            flail.LegOut = 26f; flail.ThighL = 40f; flail.ThighR = -10f; flail.KneeL = 50f; flail.KneeR = 30f; flail.TorsoPitch = -14f; flail.HeadPitch = -20f;
-            p.Snap(flail);
+            dir.y = 0f; dir = dir.sqrMagnitude > 1e-4f ? dir.normalized : Vector3.forward;
+            Vector3 side = Vector3.Cross(Vector3.up, dir).normalized, up = Vector3.up;
+            float k = power;
+            var d = g.Doll;
+            switch (blow)
+            {
+                case Blow.Jab:      d.Throw((dir * 5f + up * 1.6f) * k, side * 3f * k, d.HeadBody, dir * 5f * k); break;
+                case Blow.Hook:     d.Throw((dir * 3.8f + side * 2.6f + up * 2.2f) * k, (up * 10f - dir * 3f) * k, d.HeadBody, side * 7f * k); break;
+                case Blow.Uppercut: d.Throw((dir * 3f + up * 6.2f) * k, -side * 7.5f * k, d.HeadBody, (up * 5f + dir * 2f) * k); break;
+                case Blow.Gut:      d.Throw((dir * 6.5f + up * 2.4f) * k, side * 5f * k, d.Pelvis, dir * 4.5f * k); break;
+                default:            d.Throw((dir * 11f + up * 4.6f) * k, (up * 6f - side * 8f) * k, d.HeadBody, dir * 6f * k); break;
+            }
+            g.Vel = d.Pelvis.linearVelocity;
         }
 
         // ---- live players ------------------------------------------------------------------
@@ -910,7 +1092,7 @@ namespace Ski.Game
             v.Body.transform.localPosition = at; v.Body.transform.localRotation = rot;
             v.ShowName(false);
             lg.Knock = new Guest { P = v.Body, Kind = Act.Stand, Home = at, HomeRot = rot, Base = Pose.Stand };
-            Launch(lg.Knock, dir, 1f);
+            Launch(lg.Knock, dir, 1f, BlowFromYaw(Quaternion.LookRotation(dir).eulerAngles.y));
             AudioDirector.Sfx("land_heavy", 0.8f, 1.2f);
         }
 
@@ -1004,7 +1186,7 @@ namespace Ski.Game
             if (_seatTable >= 0) flags |= LiveFlags.Sit;
             VoiceChat.MyPos = _pos; VoiceChat.Place = "tavern"; VoiceChat.MyTable = _seatTable;
             _rec.PacketSeconds = Time.time - _lastMove < 2f || flags != LiveFlags.None ? 2f : 4.9f;
-            LiveRooms.Send(_rec.Tick(now, new LiveSample { Pos = new Vector3(_pos.x, 0f, _pos.z), Yaw = _yaw, Flags = flags }));
+            LiveRooms.Send(_rec.Tick(now, new LiveSample { Pos = new Vector3(_pos.x, _pos.y, _pos.z), Yaw = _yaw, Flags = flags }));
         }
 
         float FloorAt(Vector3 c)
@@ -1023,51 +1205,40 @@ namespace Ski.Game
             {
                 case Knock.Flying:
                 {
-                    g.Vel += Vector3.down * 15f * dt;
-                    g.Centre += g.Vel * dt;
-                    g.Rot = Quaternion.AngleAxis(g.SpinRate * dt, g.SpinAxis) * g.Rot;
-                    // Walls: bounce back into the room.
-                    if (Mathf.Abs(g.Centre.x) > HalfX - 0.5f) { g.Centre.x = Mathf.Sign(g.Centre.x) * (HalfX - 0.5f); g.Vel.x *= -0.55f; g.SpinRate *= -0.6f; Thud(0.5f); }
-                    if (Mathf.Abs(g.Centre.z) > HalfZ - 0.5f) { g.Centre.z = Mathf.Sign(g.Centre.z) * (HalfZ - 0.5f); g.Vel.z *= -0.55f; g.SpinRate *= -0.6f; Thud(0.5f); }
-                    if (g.Centre.y > Ceiling - 0.6f) { g.Centre.y = Ceiling - 0.6f; g.Vel.y = -Mathf.Abs(g.Vel.y) * 0.4f; }
-                    float floor = FloorAt(g.Centre) + body;
-                    if (g.Centre.y < floor && g.Vel.y < 0f)
-                    {
-                        g.Centre.y = floor;
-                        g.Bounces++;
-                        Thud(Mathf.Clamp01(-g.Vel.y / 8f));
-                        g.Vel = new Vector3(g.Vel.x * 0.62f, -g.Vel.y * 0.42f, g.Vel.z * 0.62f);
-                        g.SpinRate *= 0.55f;
-                        if (g.Bounces >= 3 || g.Vel.magnitude < 1.6f)
-                        {
-                            // Flat on their back, head the way they were going.
-                            Vector3 along = new Vector3(g.Vel.x, 0f, g.Vel.z);
-                            if (along.sqrMagnitude < 0.01f) along = g.Rot * Vector3.up;
-                            along.y = 0f;
-                            g.Rot = Quaternion.LookRotation(Vector3.up, along.sqrMagnitude > 1e-4f ? along.normalized : Vector3.forward);
-                            g.Centre.y = FloorAt(g.Centre) + 0.2f;
-                            g.State = Knock.Down; g.Timer = 0f;
-                            var flat = Pose.Stand;
-                            flat.ArmOutL = 70f; flat.ArmOutR = 55f; flat.LegOut = 14f; flat.KneeL = 20f; flat.HeadYaw = 30f;
-                            p.Target = flat; p.MouthOpen = 0.3f; p.EyesClosed = true;
-                        }
-                    }
+                    var doll = g.Doll;
+                    if (doll == null) { g.State = Knock.GettingUp; g.Timer = 0.9f; break; }
+                    doll.Age += dt;
+                    Vector3 vel = doll.Pelvis.linearVelocity;
+                    // A thud for every hard knock against the floor, a table, a wall.
+                    float jolt = (vel - g.Vel).magnitude;
+                    if (jolt > 2.6f && g.Bounces < 6) { g.Bounces++; Thud(Mathf.Clamp01(jolt / 9f)); }
+                    g.Vel = vel;
                     // Anybody in the way goes down too.
-                    if (g.Vel.sqrMagnitude > 12f)
+                    if (vel.sqrMagnitude > 12f)
+                    {
+                        Vector3 at = transform.InverseTransformPoint(doll.Pelvis.position);
                         foreach (var o in _guests)
                         {
                             if (o == g || o.State != Knock.None) continue;
-                            if ((transform.InverseTransformPoint(o.P.Hips.position) - g.Centre).sqrMagnitude > 0.75f * 0.75f) continue;
-                            Vector3 d = g.Vel; d.y = 0f;
-                            Launch(o, d.normalized, 0.62f);
-                            g.Vel *= 0.7f;
+                            if ((transform.InverseTransformPoint(o.P.Hips.position) - at).sqrMagnitude > 0.7f * 0.7f) continue;
+                            Launch(o, vel, 0.6f, Blow.Gut);
                             Thud(0.8f);
                         }
-                    p.transform.localRotation = g.Rot;
-                    p.transform.localPosition = g.Centre - g.Rot * new Vector3(0f, hipHeight * p.Scale, 0f);
+                    }
+                    // Come to rest (or long enough): lie there a moment.
+                    if (doll.Age > 0.5f && doll.Speed < 0.5f || doll.Age > 4.5f)
+                    {
+                        g.State = Knock.Down; g.Timer = 0f;
+                        p.MouthOpen = 0.3f; p.EyesClosed = true;
+                    }
                     break;
                 }
                 case Knock.Down:
+                    if (g.Doll != null)
+                    {
+                        if (g.Timer > 1.7f) GetUp(g);
+                        break;
+                    }
                     p.transform.localRotation = g.Rot;
                     p.transform.localPosition = g.Centre - g.Rot * new Vector3(0f, hipHeight * p.Scale, 0f);
                     if (g.Timer > 2.4f) { g.State = Knock.GettingUp; g.Timer = 0f; p.EyesClosed = false; p.MouthOpen = 0f; p.BrowRaise = -0.6f; p.Target = Pose.Stand; }
@@ -1076,7 +1247,7 @@ namespace Ski.Game
                 {
                     // Back on their feet where they landed (down off the table if that is where they ended up).
                     float k = Mathf.SmoothStep(0f, 1f, g.Timer / 0.9f);
-                    Vector3 feet = new Vector3(g.Centre.x, 0f, g.Centre.z);
+                    Vector3 feet = new Vector3(g.Centre.x, GroundAt(g.Centre), g.Centre.z);   // on a table or the bar, if that is where they landed
                     Vector3 home = g.Home - feet; home.y = 0f;
                     Quaternion upright = Quaternion.LookRotation(home.sqrMagnitude > 0.01f ? home.normalized : Vector3.forward, Vector3.up);
                     p.transform.localRotation = Quaternion.Slerp(g.Rot, upright, k);
@@ -1097,6 +1268,8 @@ namespace Ski.Game
                         break;
                     }
                     g.Centre += to / d * Mathf.Min(1.9f * dt, d);
+                    float below = GroundAt(g.Centre);
+                    if (below < g.Centre.y) g.Centre.y = Mathf.MoveTowards(g.Centre.y, below, 5f * dt);   // off the edge and down
                     g.WalkPhase += dt * 8f;
                     p.Target = VillageLife.Walk(g.WalkPhase);
                     p.transform.localPosition = g.Centre;
@@ -1104,6 +1277,30 @@ namespace Ski.Game
                     break;
                 }
             }
+        }
+
+        /// <summary>The physics lets go: the body lies as it fell, then gets up from there.</summary>
+        void GetUp(Guest g)
+        {
+            const float hipHeight = 0.9f;
+            var p = g.P;
+            Vector3 hips = p.Hips.position, head = p.Head.position;
+            Vector3 up = head - hips;
+            up = up.sqrMagnitude > 1e-4f ? up.normalized : Vector3.up;
+            Vector3 fwd = Vector3.ProjectOnPlane(p.Torso.forward, up);
+            if (fwd.sqrMagnitude < 1e-4f) fwd = Vector3.ProjectOnPlane(Vector3.forward, up);
+            g.Rot = Quaternion.Inverse(transform.rotation) * Quaternion.LookRotation(fwd.normalized, up);
+            g.Centre = transform.InverseTransformPoint(hips);
+            g.Doll.End();
+            g.Doll = null;
+            foreach (var smr in p.GetComponentsInChildren<SkinnedMeshRenderer>()) smr.updateWhenOffscreen = false;
+            p.transform.localRotation = g.Rot;
+            p.transform.localPosition = g.Centre - g.Rot * new Vector3(0f, hipHeight * p.Scale, 0f);
+            var flat = Pose.Stand;
+            flat.ArmOutL = 60f; flat.ArmOutR = 50f; flat.LegOut = 12f; flat.KneeL = 20f;
+            p.Snap(flat);
+            g.State = Knock.GettingUp; g.Timer = 0f;
+            p.EyesClosed = false; p.MouthOpen = 0f; p.BrowRaise = -0.6f; p.Target = Pose.Stand;
         }
 
         void Thud(float strength)
@@ -1262,11 +1459,22 @@ namespace Ski.Game
             // The fist: out, and back.
             if (_punch < 1f)
             {
-                _punch = Mathf.Min(1f, _punch + dt / 0.3f);
+                _punch = Mathf.Min(1f, _punch + dt / (_blow == Blow.Haymaker ? 0.42f : 0.3f));
                 float jab = Mathf.Sin(Mathf.PI * Mathf.Pow(_punch, 0.6f));
                 _fist.gameObject.SetActive(true);
-                _fist.localPosition = Vector3.Lerp(new Vector3(0.24f, -0.34f, 0.3f), new Vector3(0.06f, -0.1f, 0.78f), jab);
-                _fist.localRotation = Quaternion.Euler(Mathf.Lerp(-18f, 0f, jab), Mathf.Lerp(-22f, -4f, jab), 0f);
+                Vector3 from = new Vector3(0.24f, -0.34f, 0.3f), to = new Vector3(0.06f, -0.1f, 0.78f);
+                float roll = 0f;
+                switch (_blow)
+                {
+                    case Blow.Hook: from = new Vector3(0.55f, -0.22f, 0.22f); to = new Vector3(-0.02f, -0.06f, 0.7f); roll = -70f; break;
+                    case Blow.Uppercut: from = new Vector3(0.16f, -0.62f, 0.32f); to = new Vector3(0.04f, 0.06f, 0.62f); break;
+                    case Blow.Gut: from = new Vector3(0.26f, -0.42f, 0.28f); to = new Vector3(0.05f, -0.46f, 0.82f); break;
+                    case Blow.Haymaker: from = new Vector3(0.75f, -0.05f, -0.05f); to = new Vector3(-0.04f, -0.08f, 0.86f); roll = -55f; break;
+                }
+                // A hook and a haymaker come round in an arc, not straight.
+                Vector3 arc = (_blow == Blow.Hook || _blow == Blow.Haymaker) ? new Vector3(0.12f, 0f, 0.25f) * Mathf.Sin(Mathf.PI * jab) : Vector3.zero;
+                _fist.localPosition = Vector3.Lerp(from, to, jab) + arc;
+                _fist.localRotation = Quaternion.Euler(Mathf.Lerp(_blow == Blow.Uppercut ? -60f : -18f, 0f, jab), Mathf.Lerp(-22f, -4f, jab), roll * jab);
             }
             else if (_fist.gameObject.activeSelf) _fist.gameObject.SetActive(false);
             if (_powLeft > 0f) { _powLeft -= dt; if (_powLeft <= 0f) _pow.AddToClassList("toast-hidden"); }
@@ -1302,9 +1510,10 @@ namespace Ski.Game
             {
                 move = Quaternion.Euler(0f, _yaw, 0f) * move.normalized * 2.6f * dt;
                 TryMove(move);
-                _bob += dt * 9f;
+                if (_grounded) _bob += dt * 9f;
                 _lastMove = Time.time;
             }
+            if (_seatTable < 0) Climb(kb != null && kb.spaceKey.wasPressedThisFrame, dt);
             PlaceCamera(dt);
 
             // What can we do here?
@@ -1312,15 +1521,17 @@ namespace Ski.Game
             bool atDoor = _pos.x < -6.2f && Mathf.Abs(_pos.z) < 1.4f && _time > 1.5f;
             bool atDj = new Vector2(_pos.x - DjDesk.x, _pos.z - DjDesk.z).magnitude < 2.1f && Songs.All.Count > 0;
             bool atWalkman = _walkman != null && new Vector2(_pos.x - WalkmanSpot.x, _pos.z - WalkmanSpot.z).magnitude < 1.4f;
+            bool atToilet = new Vector2(_pos.x - ToiletSpot.x, _pos.z - ToiletSpot.z).magnitude < 1.1f;
             Vector3 seatPos = default; float seatSide = 0f; int seat = -1;
-            if (_seatTable < 0 && !atBar && !atDj && !atWalkman && !atDoor) seat = FreeSeat(out seatPos, out seatSide);
-            if (_prompt != null) _prompt.text = _seatTable >= 0 ? "[E]  STAND UP" : atBar ? "[E]  BEER CHALLENGE" : atDj ? "[E]  REQUEST A SONG" : atWalkman ? "[E]  TAKE THE WALKMAN" : atDoor ? "[E]  BACK TO THE LIFT" : seat >= 0 ? "[E]  SIT DOWN" : "";
+            if (_seatTable < 0 && !atBar && !atDj && !atWalkman && !atDoor && !atToilet && _grounded && _pos.y < 0.05f) seat = FreeSeat(out seatPos, out seatSide);
+            if (_prompt != null) _prompt.text = _seatTable >= 0 ? "[E]  STAND UP" : atBar ? "[E]  BEER CHALLENGE" : atDj ? "[E]  REQUEST A SONG" : atWalkman ? "[E]  TAKE THE WALKMAN" : atDoor ? "[E]  OUTSIDE" : atToilet ? "[E]  FLUSH" : seat >= 0 ? "[E]  SIT DOWN" : "";
             if (kb != null && kb.eKey.wasPressedThisFrame)
             {
                 if (_seatTable >= 0) StandUp();
-                else if (seat >= 0) { _seatTable = seat; _seatPos = seatPos; _seatSide = seatSide; _pos = new Vector3(seatPos.x, 0f, seatPos.z); _yaw = seatSide > 0f ? 180f : 0f; AudioDirector.Sfx("land", 0.3f, 1.3f); }
+                else if (seat >= 0) { _seatTable = seat; _seatPos = seatPos; _seatSide = seatSide; _pos = new Vector3(seatPos.x, 0f, seatPos.z); _vy = 0f; _grounded = true; _yaw = seatSide > 0f ? 180f : 0f; AudioDirector.Sfx("land", 0.3f, 1.3f); }
                 else if (atDj) OpenPicker();
                 else if (atWalkman) TakeWalkman();
+                else if (atToilet) AudioDirector.Sfx("flush", 0.8f);
                 else if (atBar) StartGame();
                 else if (atDoor) { AudioDirector.Sfx("door", 0.8f); OnLeave?.Invoke(); }
             }
@@ -1338,11 +1549,65 @@ namespace Ski.Game
                 bool hit = false;
                 for (int i = 0; i < _blocks.Count && !hit; i++)
                 {
+                    // Low enough to step onto (or already above it), or high enough to pass under.
+                    if (_tops[i] <= _pos.y + StepUp || _bottoms[i] >= _pos.y + 1.75f) continue;
                     var b = _blocks[i];
                     hit = p.x > b.xMin - r && p.x < b.xMax + r && p.z > b.yMin - r && p.z < b.yMax + r;
                 }
                 if (!hit) _pos = p;
             }
+        }
+
+        /// <summary>The highest thing under your feet that you can stand on from where you are.</summary>
+        float GroundAt(Vector3 p)
+        {
+            const float foot = 0.16f;
+            float g = 0f;
+            for (int i = 0; i < _blocks.Count; i++)
+            {
+                if (_tops[i] > p.y + StepUp || _tops[i] >= Ceiling - 0.5f) continue;
+                var b = _blocks[i];
+                if (p.x > b.xMin - foot && p.x < b.xMax + foot && p.z > b.yMin - foot && p.z < b.yMax + foot) g = Mathf.Max(g, _tops[i]);
+            }
+            return g;
+        }
+
+        /// <summary>Jumping, falling, stepping up: onto the benches, the tables, the bar if you dare.</summary>
+        void Climb(bool jump, float dt)
+        {
+            float ground = GroundAt(_pos);
+            if (jump && _grounded) { _vy = JumpSpeed; _grounded = false; AudioDirector.Sfx("jump", 0.3f, 1.3f); }
+            if (!_grounded || _pos.y > ground + 0.02f)
+            {
+                _grounded = false;
+                _vy -= Gravity * dt;
+                _pos.y += _vy * dt;
+                ground = GroundAt(_pos);
+                if (_pos.y <= ground && _vy <= 0f)
+                {
+                    if (_vy < -2.5f) AudioDirector.Sfx("land", Mathf.Clamp01(-_vy / 7f) * 0.6f, 1.2f);
+                    _pos.y = ground; _vy = 0f; _grounded = true;
+                }
+                else if (_pos.y < ground) _pos.y = ground;   // stepped up onto it on the way up
+            }
+            else _pos.y = ground;
+        }
+
+        /// <summary>Something solid in the room: walked around (or climbed onto, if low enough), and hit by anyone flying.</summary>
+        void Block(Rect r, float top, float bottom = 0f)
+        {
+            _blocks.Add(r); _tops.Add(top); _bottoms.Add(bottom);
+            Solid(new Vector3(r.center.x, (top + bottom) * 0.5f, r.center.y), new Vector3(r.width, top - bottom, r.height));
+        }
+
+        /// <summary>A collider only (for bodies sent flying).</summary>
+        void Solid(Vector3 centre, Vector3 size)
+        {
+            if (_solids == null) { _solids = new GameObject("Solids").transform; _solids.SetParent(transform, false); }
+            var go = new GameObject("Solid");
+            go.transform.SetParent(_solids, false);
+            go.transform.localPosition = centre;
+            go.AddComponent<BoxCollider>().size = size;
         }
 
         // ---- the beer game ---------------------------------------------------------------

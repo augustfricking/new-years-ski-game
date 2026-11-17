@@ -166,6 +166,42 @@ namespace Ski.Game
             return row;
         }
 
+        /// <summary>
+        /// The controls as they sit on the keyboard: W above A S D with what each does, the mouse to
+        /// the right of them, the space bar underneath, and any other keys in a column below.
+        /// </summary>
+        public static VisualElement Controls(VisualElement parent, string w, string a, string s, string d, string mouseKey, string mouse, string space, params (string keys, string what)[] more)
+        {
+            var box = Div(parent, "controls");
+            var top = Div(box, "controls-top");
+            var pad = Div(top, "controls-pad");
+            VisualElement Cap(VisualElement row, string key, string what)
+            {
+                var cell = Div(row, "controls-cell");
+                Text(cell, key, "key key-square");
+                Text(cell, what ?? "", "controls-what");
+                return cell;
+            }
+            var r1 = Div(pad, "controls-keys");
+            Cap(r1, "W", w);
+            var r2 = Div(pad, "controls-keys");
+            Cap(r2, "A", a); Cap(r2, "S", s); Cap(r2, "D", d);
+            if (!string.IsNullOrEmpty(space))
+            {
+                var r3 = Div(pad, "controls-keys controls-space-row");
+                Text(r3, "SPACE", "key key-space");
+                Text(r3, space, "controls-what");
+            }
+            if (!string.IsNullOrEmpty(mouse))
+            {
+                var m = Div(top, "controls-mouse");
+                m.Add(new MouseIcon(mouseKey == "CLICK" ? MouseIcon.Lit.Left : mouseKey == "RCLICK" ? MouseIcon.Lit.Right : MouseIcon.Lit.None));
+                Text(m, mouse, "controls-what");
+            }
+            foreach (var (keys, what) in more) Keys(box, keys, what);
+            return box;
+        }
+
         public static string ColourTag(Color c, string text) => "<color=#" + ColorUtility.ToHtmlStringRGB(c) + ">" + text + "</color>";
 
         void OnDestroy() { if (Instance == this) Instance = null; }

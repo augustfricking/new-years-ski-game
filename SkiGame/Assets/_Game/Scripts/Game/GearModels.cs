@@ -5,19 +5,84 @@ namespace Ski.Game
     /// <summary>Skis, boards, poles and boots. Local space: lying on the snow, +Z forward, origin under the boot.</summary>
     public static class GearModels
     {
+        enum Look { Own, Stripes, Gradient, Dots, Patches }
+        struct Design { public Look Look; public Color A, B, C; public int Count; }
+
+        static Color H(string hex) => Palette.Hex(hex);
+
+        /// <summary>The ski and board designs from the shop (see Unlocks.Gear), by index.</summary>
+        static Design DesignOf(int i, Color colour, Color accent)
+        {
+            switch (i)
+            {
+                case 1: return new Design { Look = Look.Stripes, A = H("#A8743F"), B = H("#8A5A34"), C = H("#C99A62"), Count = 14 };   // wood
+                case 2: return new Design { Look = Look.Stripes, A = H("#39FF88"), B = H("#FF4FA3"), C = H("#22202E"), Count = 6 };    // neon
+                case 3: return new Design { Look = Look.Stripes, A = H("#F7F4EE"), B = H("#1A1726"), C = H("#F7F4EE"), Count = 18 };   // zebra
+                case 4: return new Design { Look = Look.Gradient, A = H("#2A1B1B"), B = H("#E8452B"), C = H("#FFD54A") };              // lava
+                case 5: return new Design { Look = Look.Dots, A = H("#1E1640"), B = H("#F7F4EE"), C = H("#F27BA8"), Count = 22 };      // galaxy
+                case 6: return new Design { Look = Look.Stripes, A = H("#F7F4EE"), B = H("#D9342B"), C = H("#2F9E6E"), Count = 16 };   // candy cane
+                case 7: return new Design { Look = Look.Gradient, A = H("#9FD8F5"), B = H("#DFF4FF"), C = H("#FFFFFF") };              // ice
+                case 8: return new Design { Look = Look.Dots, A = H("#EAF8FF"), B = H("#4FD8FF"), C = H("#B7F0FF"), Count = 26 };      // diamond
+                case 9: return new Design { Look = Look.Stripes, A = H("#D9342B"), B = H("#F7F4EE"), C = H("#1A1726"), Count = 3 };    // racing
+                case 10: return new Design { Look = Look.Gradient, A = H("#7E8694"), B = H("#E4E8EE"), C = H("#A9B0BC") };             // chrome
+                case 11: return new Design { Look = Look.Gradient, A = H("#9C6B1E"), B = H("#F2C94C"), C = H("#FFF2B0") };             // gold
+                case 12: return new Design { Look = Look.Patches, A = H("#4B5B33"), B = H("#2F3A20"), C = H("#8A8A5A"), Count = 10 }; // camo
+                case 13: return new Design { Look = Look.Patches, A = H("#8C8E98"), B = H("#2A2A33"), C = H("#E8E9EE"), Count = 9 };  // wolf
+                case 14: return new Design { Look = Look.Gradient, A = H("#142040"), B = H("#2FD88A"), C = H("#9A5CF2") };             // aurora
+            }
+            return new Design { Look = Look.Own, A = colour, B = accent, C = accent };
+        }
+
+        /// <summary>The top of a ski or board between two points along its length, in a design.</summary>
+        static void TopSheet(MeshBuilder b, Design d, float z0, float z1, float width, float th)
+        {
+            float len = z1 - z0;
+            if (d.Look == Look.Own) { b.Col = d.A; b.Box(new Vector3(0, th * 0.5f, (z0 + z1) * 0.5f), new Vector3(width, th, len)); return; }
+            const int n = 24;
+            var rng = new Ski.Core.Rng(d.Count * 31 + 7);
+            for (int i = 0; i < n; i++)
+            {
+                float a = z0 + len * i / n, c = z0 + len * (i + 1) / n, t = (i + 0.5f) / n;
+                switch (d.Look)
+                {
+                    case Look.Stripes: b.Col = Mathf.FloorToInt(t * d.Count) % 2 == 0 ? d.A : d.B; break;
+                    case Look.Gradient: b.Col = t < 0.5f ? Color.Lerp(d.A, d.B, t * 2f) : Color.Lerp(d.B, d.C, t * 2f - 1f); break;
+                    default: b.Col = d.A; break;
+                }
+                b.Box(new Vector3(0, th * 0.5f, (a + c) * 0.5f), new Vector3(width, th, c - a + 0.001f));
+            }
+            if (d.Look == Look.Dots || d.Look == Look.Patches)
+            {
+                for (int i = 0; i < d.Count; i++)
+                {
+                    b.Col = rng.Chance(0.5f) ? d.B : d.C;
+                    float z = rng.Range(z0 + 0.03f, z1 - 0.03f), x = rng.Range(-width * 0.32f, width * 0.32f);
+                    float s = d.Look == Look.Dots ? rng.Range(0.008f, 0.016f) : rng.Range(0.025f, 0.06f);
+                    b.Box(new Vector3(x, th + 0.002f, z), new Vector3(Mathf.Min(s * 1.4f, width * 0.6f), 0.004f, s * 2f));
+                }
+            }
+            if (d.Look == Look.Stripes && d.Count <= 3)
+            {
+                // Racing: a band down the middle.
+                b.Col = d.C;
+                b.Box(new Vector3(0, th + 0.002f, (z0 + z1) * 0.5f), new Vector3(width * 0.18f, 0.004f, len * 0.92f));
+            }
+        }
+
         /// <summary>One ski. The tip curls up; twin-tips curl up at the tail too.</summary>
-        public static void Ski(MeshBuilder b, float length, bool twinTip, Color colour, Color accent, float width = 0.09f)
+        public static void Ski(MeshBuilder b, float length, bool twinTip, Color colour, Color accent, float width = 0.09f, int design = 0)
         {
             float front = length * 0.56f, back = -length * 0.44f;
             const float th = 0.022f;
             float tipLen = Mathf.Min(0.22f, length * 0.16f);
+            var d = DesignOf(design, colour, accent);
+            colour = d.Look == Look.Own ? colour : d.A;
             // Flat running surface.
             float flat0 = back + (twinTip ? tipLen : 0.03f), flat1 = front - tipLen;
-            b.Col = colour;
-            b.Box(new Vector3(0, th * 0.5f, (flat0 + flat1) * 0.5f), new Vector3(width, th, flat1 - flat0));
+            TopSheet(b, d, flat0, flat1, width, th);
             // Top sheet stripe and binding plates.
-            b.Col = accent;
-            b.Box(new Vector3(0, th + 0.003f, flat1 - 0.22f), new Vector3(width * 0.6f, 0.006f, 0.3f));
+            b.Col = d.Look == Look.Own ? accent : d.B;
+            if (d.Look == Look.Own) b.Box(new Vector3(0, th + 0.003f, flat1 - 0.22f), new Vector3(width * 0.6f, 0.006f, 0.3f));
             b.Col = Palette.Ink;
             b.Box(new Vector3(0, th + 0.02f, 0.17f), new Vector3(width * 0.8f, 0.04f, 0.1f));
             b.Box(new Vector3(0, th + 0.025f, -0.17f), new Vector3(width * 0.8f, 0.05f, 0.1f));
@@ -49,14 +114,15 @@ namespace Ski.Game
         }
 
         /// <summary>A snowboard, long axis along +Z, origin at its centre.</summary>
-        public static void Board(MeshBuilder b, float length, Color colour, Color accent)
+        public static void Board(MeshBuilder b, float length, Color colour, Color accent, int design = 0)
         {
             const float w = 0.27f, th = 0.024f;
             float tip = 0.2f, half = length * 0.5f - tip;
-            b.Col = colour;
-            b.Box(new Vector3(0, th * 0.5f, 0), new Vector3(w, th, half * 2f));
+            var d = DesignOf(design, colour, accent);
+            colour = d.Look == Look.Own ? colour : d.A;
+            TopSheet(b, d, -half, half, w, th);
             b.Col = accent;
-            b.Box(new Vector3(0, th + 0.003f, 0), new Vector3(w * 0.5f, 0.006f, half * 0.9f));
+            if (d.Look == Look.Own) b.Box(new Vector3(0, th + 0.003f, 0), new Vector3(w * 0.5f, 0.006f, half * 0.9f));
             Curl(b, half, 1f, tip, w, th, colour);
             Curl(b, -half, -1f, tip, w, th, colour);
             // Bindings.

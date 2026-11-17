@@ -178,6 +178,41 @@ Ghosts and boards
       human runs on the world boards, not from the bot (`Unlocks.SlopeGoals`).
 - [x] A replayed skier who runs into a kid goes down too, as in a real run
 
+## M12 Owner's playtest list (round 4)
+- [x] The ski shop is a red house in every village (ski onto its pad); the SHOP button is gone
+- [x] Sounds asked for too often are held back (no machine-gun clicks); songs end by the clock
+- [x] Shop: one friend at a time, only their own items; every item belongs to one friend;
+      patterns, headgear, suits and skis/boards all clickable; dragging holds the turntable
+      still; gear stands on the turntable, not through it
+- [x] Fifteen ski and board designs to unlock (wood, neon, zebra, lava, galaxy, candy cane,
+      ice, diamond, racing, chrome, gold, camo, wolf, aurora...), plus gear colours
+- [x] Faces and bodies more their own (Erik long and angular, Jonte round-faced and solid,
+      Maja big-eyed and small, Linn long-necked with tilted eyes); hard ink creases back
+- [x] Barlow for all text except the comic buttons and headings (Bangers)
+- [x] Graphics settings (low / medium / high, resolution), 60 fps cap, far people skip frames
+- [x] After a crash, 3 s of blinking in which you cannot crash again
+- [x] Voice badge at the bottom of the screen; tavern chatter sound removed
+- [x] Settings in sections: Audio, Graphics, Controls, Online
+- [x] Controls drawn as a keyboard: WASD, the mouse to the right, space below, the rest in a list
+- [x] Beer game: the space tip alone in the middle, R and Esc set apart
+- [x] Eight new songs with sung parts for men and women, goofier lyrics; an after-ski
+      singalong with a crowd; a Vivaldi/Mozart-style piece with soprano and bass; repeat a song
+- [x] Tavern: jump onto benches, tables and the bar; an accessible toilet (wide open door,
+      wheelchair sign, rails, low sink, tilted mirror, emergency cord, flush); steins show
+      their glass; the DJ's lights sit on the booth (they were the stripes in the middle of
+      the room); punches land five ways (jab, hook, uppercut, body blow, haymaker) and throw
+      people as ragdolls into tables, walls and each other
+- [x] Leaving the tavern puts you outside its door in the village (lift and shop are there)
+- [x] The lift runs up the middle of the piste map: on your left down Parken, on your right down
+      Slalombacken (crossing over the finish to the station); from the other runs only its
+      village station shows
+- [x] Grade symbols as on piste maps: Slalombacken a wide rectangle, Ravinen a warning triangle
+- [x] No floating glowing panes at the top; the summit closes the gap behind the start; no grey
+      band ahead on the slopes; rocks off-piste are solid even when you fall
+- [x] Turns about 13 % sharper again; carving still the fastest way down
+- [x] More kids and families on Barnbacken
+- [x] Bot runs are not on the world boards (ArbitraryExpandingHelicopter is a real player)
+
 ## Known gaps and ideas
 - Voice chat needs a free public signalling server (PeerJS) and peer-to-peer connections,
   which some strict networks block. It was not tested with two real microphones.

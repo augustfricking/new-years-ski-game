@@ -138,8 +138,11 @@ namespace Ski.Game
                 if (tint != null) col = tint(part.Vertices[i], part.Slot[i], col);
                 if (printed != null && printed(part.Slot[i])) { col = Color.white; uv[i] = printUv(part.Vertices[i], part.Slot[i]); }
                 float crease = part.Crease[i] / 255f;
-                // Skin takes only a little of this: a face must stay light enough to read from afar.
-                c[i] = Color.Lerp(col, Color.Lerp(col, Palette.Ink, part.Slot[i] == SlotSkin ? 0.14f : 0.3f), crease * crease);
+                // Deep creases are drawn in, like an inker's line: eye sockets, nose wings, the corners
+                // of the mouth, the folds of the cloth. Shallow ones stay clean.
+                float line = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(part.Slot[i] == SlotSkin ? 0.32f : 0.4f, part.Slot[i] == SlotSkin ? 0.55f : 0.65f, crease));
+                float shade = crease * crease * (part.Slot[i] == SlotSkin ? 0.12f : 0.25f);
+                c[i] = Color.Lerp(col, Palette.Ink, Mathf.Max(shade, line * (part.Slot[i] == SlotSkin ? 0.7f : 0.8f)));
             }
             var mesh = new Mesh { name = part.Name };
             mesh.SetVertices(v);

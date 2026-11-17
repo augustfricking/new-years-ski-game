@@ -34,8 +34,14 @@ The game design lives in `docs/GAME_SPEC.md` (source of truth). The plan and mil
   `Songs`; `AudioDirector.Music("song:<id>")` plays one. Voice chat is `VoiceChat` +
   `Plugins/WebGL/LastRunVoice.jslib` (WebRTC via PeerJS 1.5.4 from unpkg); it does nothing in
   the Editor, so test it in a WebGL build.
-- **Shop.** `Unlocks` (Core) holds the items and their challenges; `SaveData.Progress` counts what
-  the player has done; `PersonLook.Apply(Outfit)` dresses a character; `OutfitPaint` prints patterns.
+- **Shop.** A house in every village (`ShopStage`, `ShopPanel`). `Unlocks` (Core) holds the items
+  and their challenges; every item belongs to one character (`Unlock.Who`), progress is counted
+  per character (`SaveData.ProgressOf`); `PersonLook.Apply(Outfit)` dresses a character;
+  `OutfitPaint` prints patterns; `GearModels.DesignOf` paints skis and boards.
+- **Settings.** `Dialogs` (sections Audio, Graphics, Controls, Online); `GraphicsQuality.Apply`
+  sets the render pipeline from `SaveData.Quality` and `RenderScale`.
+- **Fonts.** Barlow Semi Condensed (OFL) for text, Bangers for buttons and headings.
+- **Physics** is used only for the tavern's ragdolls (`Ragdoll`); everything else is `SkiSim`.
 - **Live players.** `LiveRooms` (Multiplayer sessions used as rooms, player data only, no game
   networking). Nothing is sent from the Editor or the bot (`LiveRooms.SendFromEditor`). Test
   only in the private room `test` with `tools/diag/live_test.cs` + `live_standin.cs` (a second

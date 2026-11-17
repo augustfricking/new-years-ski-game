@@ -102,7 +102,7 @@ namespace Ski.Game
             // A sculpt has far more small forms than the simple shapes had. Kept clean: only the
             // strong folds and features are drawn, the shadow is a clear coloured shape, not black.
             bool skin = key.EndsWith("skin");
-            m.SetFloat("_InkSoft", skin ? 0.5f : 0.42f);
+            m.SetFloat("_InkSoft", skin ? 0.18f : 0.12f);
             m.SetFloat("_InkShadow", 0f);
             m.SetFloat("_OutlineWidth", 0f);
             m.SetShaderPassEnabled("SRPDefaultUnlit", false);
