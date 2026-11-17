@@ -42,10 +42,14 @@ The game design lives in `docs/GAME_SPEC.md` (source of truth). The plan and mil
   sets the render pipeline from `SaveData.Quality` and `RenderScale`.
 - **Fonts.** Barlow Semi Condensed (OFL) for text, Bangers for buttons and headings.
 - **Physics** is used only for the tavern's ragdolls (`Ragdoll`); everything else is `SkiSim`.
-- **Live players.** `LiveRooms` (Multiplayer sessions used as rooms, player data only, no game
-  networking). Nothing is sent from the Editor or the bot (`LiveRooms.SendFromEditor`). Test
-  only in the private room `test` with `tools/diag/live_test.cs` + `live_standin.cs` (a second
-  signed-in player inside the Editor). Replays of board rows are watched, never raced.
+- **Live players.** `LiveRooms`: one shared world room for everyone (`WorldSize` 24, then a queue
+  room), Multiplayer sessions with player data only, no game networking. Each packet carries its
+  place (`LivePlace`: slope, tavern, lift); `LiveCrowd` shows other runs' players on those runs
+  (`MountainBuilder.OnOtherRun`) and everyone past a finish in the shared village. The Editor never
+  joins the public world (it uses `lastrun-editor-1`). Nothing is sent from the Editor or the bot
+  (`LiveRooms.SendFromEditor`). Test only in the private room `test` with `tools/diag/live_test.cs`
+  + `live_standin.cs` (`join 1` makes a one-place world to try the queue). Replays of board rows
+  are watched, never raced.
 - **Hints and labels** are one to three words. The owner finds longer ones over-explained.
 - **Flow.** `GameApp`: lift menu -> cutscene -> ski map -> run -> village -> lift ride or tavern.
 - One MonoBehaviour per file, file named after the class.

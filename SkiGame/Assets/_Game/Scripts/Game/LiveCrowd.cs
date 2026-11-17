@@ -5,10 +5,11 @@ using UnityEngine;
 namespace Ski.Game
 {
     /// <summary>
-    /// The other people on this slope right now, from <see cref="LiveRooms"/>: pale ghosts while
-    /// they ski (they cannot be hit), their own solid selves once they are past the finish line.
-    /// There are no computer skiers and no replays here: replays are watched from the boards.
-    /// Never more than the cap from the settings, nearest first.
+    /// The other people on the mountain right now, from <see cref="LiveRooms"/>: pale ghosts while
+    /// they ski (they cannot be hit) on this slope, and far off on the other runs across the flanks;
+    /// their own solid selves once they are down in the village, which every run shares. There are
+    /// no computer skiers and no replays here: replays are watched from the boards. Never more than
+    /// the cap from the settings, nearest first.
     /// </summary>
     public sealed class LiveCrowd
     {
@@ -16,6 +17,7 @@ namespace Ski.Game
         readonly List<string> _drop = new List<string>();
         readonly List<(float, GhostView)> _order = new List<(float, GhostView)>();
         readonly RunSession _s;
+        readonly PisteCourse _pc;
         readonly Transform _parent;
 
         public int Shown { get; private set; }
@@ -23,6 +25,7 @@ namespace Ski.Game
         public LiveCrowd(RunSession session, Transform parent)
         {
             _s = session;
+            _pc = session.Course as PisteCourse;
             var root = new GameObject("LivePlayers");
             root.transform.SetParent(parent, false);
             _parent = root.transform;
@@ -37,7 +40,9 @@ namespace Ski.Game
             _order.Clear();
             foreach (var r in LiveRooms.Others.Values)
             {
-                bool there = r.Timeline.Visible(now) && r.Timeline.At(now, out var s, out float speed, out var mode) && mode != LiveMode.Tavern;
+                byte place = r.Timeline.Place;
+                bool onMountain = place == LivePlace.Unknown || LivePlace.IsSlope(place);   // unknown: an older version, on this slope
+                bool there = onMountain && r.Timeline.Visible(now) && r.Timeline.At(now, out var s, out float speed, out var mode) && mode != LiveMode.Tavern;
                 if (_views.TryGetValue(r.Id, out var v) && v.OutfitCode != r.Outfit) { Object.Destroy(v.gameObject); _views.Remove(r.Id); v = null; }
                 if (v == null)
                 {
@@ -46,13 +51,30 @@ namespace Ski.Game
                 }
                 v.Rename(r.Name);
                 if (!there || !r.Timeline.At(now, out s, out speed, out mode)) { v.Hide(); continue; }
-                Vector3 p = new Vector3(s.Pos.x, c.Height(s.Pos.x, s.Pos.z) + s.Pos.y, s.Pos.z);
+                // Where they are in this world: on this slope as they are; in the village (shared by
+                // all the runs) by where they stand in it; on another run, far off across the flanks.
+                int theirs = LivePlace.IsSlope(place) ? (int)LivePlace.Slope(place) : (int)_s.Slope;
+                float yaw = s.Yaw * Mathf.Deg2Rad;
+                Vector3 p;
+                if (theirs == (int)_s.Slope) p = new Vector3(s.Pos.x, c.Height(s.Pos.x, s.Pos.z) + s.Pos.y, s.Pos.z);
+                else if (mode == LiveMode.Finished || s.Pos.z > Courses.FinishZ[theirs])
+                {
+                    float z = s.Pos.z - Courses.FinishZ[theirs] + c.FinishZ;
+                    p = new Vector3(s.Pos.x, c.Height(s.Pos.x, z) + s.Pos.y, z);
+                }
+                else if (_pc != null)
+                {
+                    p = MountainBuilder.OnOtherRun(_pc, theirs, s.Pos.x, s.Pos.z, out float along);
+                    p.y += s.Pos.y;
+                    yaw += along;
+                }
+                else { v.Hide(); continue; }
                 bool solid = mode == LiveMode.Finished;
                 if (v.Solid != solid) v.SetSolid(solid);
                 // A ghost only appears once it is clear of the player: nobody stands inside you.
                 if (!solid && (p - me).sqrMagnitude < 9f) { v.Hide(); continue; }
                 float tuck = (s.Flags & LiveFlags.Tuck) != 0 ? 1f : 0f, plough = (s.Flags & LiveFlags.Plough) != 0 ? 1f : 0f;
-                v.Show(p, s.Yaw * Mathf.Deg2Rad, speed, s.Pos.y, tuck, plough, cam, dt, (s.Flags & LiveFlags.Crashed) != 0);
+                v.Show(p, yaw, speed, s.Pos.y, tuck, plough, cam, dt, (s.Flags & LiveFlags.Crashed) != 0);
                 v.SetTalking(VoiceChat.IsTalking(r.Id));
                 _order.Add(((p - me).sqrMagnitude, v));
             }

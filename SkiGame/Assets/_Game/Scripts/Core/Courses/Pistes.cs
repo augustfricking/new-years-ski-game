@@ -155,6 +155,8 @@ namespace Ski.Core
         }
 
         public static readonly string[] Names = { "Barnbacken", "Parken", "Slalombacken", "Svarta Väggen", "Ravinen" };
+        /// <summary>Where each run's finish line is (its FinishZ), without building the run (a test keeps these true).</summary>
+        public static readonly float[] FinishZ = { 660f, 1190f, 860f, 1180f, 1258f };
         public static readonly string[] Goals =
         {
             "Fastest time. Mind the kids.",

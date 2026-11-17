@@ -8,7 +8,7 @@ using UnityEngine;
 
 // A second, separately signed-in player inside the Editor, for testing live players against the
 // real room service. It only ever joins the private test room "lastrun-test-1". Arguments in
-// Screenshots/pose.txt:  join | send N ski|done|tavern | punch <playerId> | leave
+// Screenshots/pose.txt:  join [max players] | send N ski|done|tavern | punch <playerId> | leave
 string[] a = System.IO.File.ReadAllText(System.IO.Path.Combine(Application.dataPath, "../Screenshots/pose.txt")).Trim().Split(' ');
 var dom = System.AppDomain.CurrentDomain;
 var session = dom.GetData("standin") as ISession;
@@ -28,7 +28,8 @@ switch (a[0])
                     await services.InitializeAsync(new InitializationOptions().SetProfile("standin"));
                     await services.GetAuthenticationService().SignInAnonymouslyAsync();
                 }
-                var options = new SessionOptions { MaxPlayers = 16, PlayerProperties = new Dictionary<string, PlayerProperty> { { "n", new PlayerProperty("Tester", VisibilityPropertyOptions.Member) } } };
+                int max = a.Length > 1 ? int.Parse(a[1]) : 16;   // "join 1": a test world with room for one, to try the queue
+                var options = new SessionOptions { Name = "lastrun-test-1", MaxPlayers = max, PlayerProperties = new Dictionary<string, PlayerProperty> { { "n", new PlayerProperty("Tester", VisibilityPropertyOptions.Member) } } };
                 var s = await services.GetMultiplayerService().CreateOrJoinSessionAsync("lastrun-test-1", options);
                 dom.SetData("standin", s);
                 Debug.Log("[StandIn] in " + s.Id + " as " + s.CurrentPlayer.Id);

@@ -213,6 +213,22 @@ Ghosts and boards
 - [x] More kids and families on Barnbacken
 - [x] Bot runs are not on the world boards (ArbitraryExpandingHelicopter is a real player)
 
+## M13 One mountain (round 5)
+- [x] Park: W and S turn front and back flips by hand in the air (A and D spin); held from the snow
+      they stay a tuck or a brake until pressed again; Q and E pick grab variants; 3 is a stalefish
+- [x] The cutscene plays once per browser tab: changing skier goes straight to the map
+- [x] The lift chairs run round the cable while you ski, riders going up
+- [x] Snowboard boots on the snowboarder; on the lift the board hangs from his turned-out foot,
+      boot in the binding
+- [x] All five runs come down into the one village: from any of them the other four fan out
+      across the flanks as clearings in the forest and curve in to the plaza, with their markers
+      and a signpost each
+- [x] One shared live world: everyone in one room (24 at most), each saying where they are;
+      live players on other runs are shown on those runs, everyone past a finish in the shared
+      village; voice only connects people near each other
+- [x] When the world is full: a line, first come first served (WORLD FULL · QUEUE #n), playing
+      alone meanwhile; tested with a stand-in filling a one-place test world
+
 ## Known gaps and ideas
 - Voice chat needs a free public signalling server (PeerJS) and peer-to-peer connections,
   which some strict networks block. It was not tested with two real microphones.

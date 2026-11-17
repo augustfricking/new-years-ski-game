@@ -41,30 +41,30 @@ SKIN, LIP, MOUTH, BROW, JACKET, TRIM, PANTS, GLOVE, INK, TEETH = range(10)
 BASE = dict(sex="m", height=1.8, head=0.235, shoulders=0.19, chest=(0.175, 0.12), waist=(0.15, 0.105), hips=(0.165, 0.11),
             belly=0.0, neck=0.056, limbs=1.0, style="puffer", detail=1.0,
             skull=0.074, cheek=0.071, jaw=0.06, chin=(0.022, 0.006), brow=0.008, bone=0.004, hollow=0.003, face=1.0,
-            nose=(0.052, 0.0175, 0.022, 0.0, 0.0), eye=0.0118, eye_gap=0.0325, tilt=0.0, mouth=0.025, lips=0.004,
+            nose=(0.05, 0.0175, 0.021, 0.0, 0.0), eye=0.0127, eye_gap=0.0325, tilt=0.0, mouth=0.025, lips=0.004,
             ears=1.0, lids=0.6, lash=1.0, age=0.0)
 PROFILES = {
     # The leading man: tall, a V of a torso, a long hard face, square jaw and a cleft chin, heavy brow,
     # hooded eyes, a long straight nose with a bump. The old-school ski suit.
     "erik": dict(height=1.88, head=0.24, shoulders=0.205, chest=(0.185, 0.122), waist=(0.142, 0.1), hips=(0.155, 0.105), neck=0.058,
                  style="retro", skull=0.073, cheek=0.07, jaw=0.066, chin=(0.03, 0.011), brow=0.012, bone=0.006, hollow=0.006, face=1.1,
-                 nose=(0.058, 0.017, 0.024, -0.002, 0.003), eye=0.0115, eye_gap=0.0325, lids=0.45, mouth=0.026, lips=0.003, age=0.4),
+                 nose=(0.058, 0.017, 0.024, -0.002, 0.003), eye=0.0122, eye_gap=0.0325, lids=0.5, mouth=0.026, lips=0.003, age=0.4),
     # The snowboarder: big and soft, round fleshy face, small eyes, a wide flat nose turned up, big ears,
     # thick neck, a belly under the baggy jacket.
     "jonte": dict(height=1.82, head=0.245, shoulders=0.2, chest=(0.19, 0.135), waist=(0.18, 0.14), hips=(0.175, 0.125), belly=0.035,
                   neck=0.068, limbs=1.12, style="baggy", skull=0.078, cheek=0.081, jaw=0.072, chin=(0.026, 0.0), brow=0.009, bone=0.0,
-                  hollow=-0.006, face=0.94, nose=(0.05, 0.024, 0.02, 0.004, 0.0), eye=0.0108, eye_gap=0.034, lids=0.5, mouth=0.027,
+                  hollow=-0.006, face=0.94, nose=(0.05, 0.024, 0.02, 0.004, 0.0), eye=0.0116, eye_gap=0.034, lids=0.5, mouth=0.027,
                   lips=0.005, ears=1.25, age=0.2),
     # Small and quick: a heart-shaped face, big wide-set eyes, a little upturned nose, full cheeks
     # and lips. The one-piece suit.
     "maja": dict(sex="f", height=1.64, head=0.228, shoulders=0.165, chest=(0.15, 0.105), waist=(0.125, 0.09), hips=(0.162, 0.11), neck=0.046,
                  limbs=0.86, style="onepiece", skull=0.072, cheek=0.07, jaw=0.052, chin=(0.016, 0.002), brow=0.004, bone=0.003, hollow=-0.004,
-                 face=0.9, nose=(0.043, 0.014, 0.018, 0.005, 0.0), eye=0.0132, eye_gap=0.035, lids=0.85, mouth=0.024, lips=0.0065, lash=1.25),
+                 face=0.9, nose=(0.043, 0.014, 0.018, 0.005, 0.0), eye=0.0142, eye_gap=0.035, lids=0.85, mouth=0.024, lips=0.0065, lash=1.25),
     # Tall and sharp: high cheekbones over hollow cheeks, a pointed chin, long nose, almond eyes tilted
     # up, a long neck. The sleek futuristic shell.
     "linn": dict(sex="f", height=1.76, head=0.232, shoulders=0.172, chest=(0.152, 0.104), waist=(0.118, 0.086), hips=(0.155, 0.105), neck=0.045,
                  limbs=0.84, style="sleek", skull=0.071, cheek=0.071, jaw=0.054, chin=(0.013, 0.008), brow=0.006, bone=0.009, hollow=0.008,
-                 face=1.06, nose=(0.054, 0.0145, 0.023, 0.001, 0.0015), eye=0.0122, eye_gap=0.0335, tilt=0.004, lids=0.55, mouth=0.023,
+                 face=1.06, nose=(0.054, 0.0145, 0.023, 0.001, 0.0015), eye=0.0132, eye_gap=0.0335, tilt=0.004, lids=0.6, mouth=0.023,
                  lips=0.0055, lash=1.35),
     "male": dict(detail=0.55, age=0.2),
     "female": dict(sex="f", height=1.68, head=0.228, shoulders=0.168, chest=(0.152, 0.106), waist=(0.125, 0.09), hips=(0.16, 0.11), neck=0.046,
@@ -165,9 +165,14 @@ class Loft:
             self.ids.append(row)
         n = self.n
         for i in range(len(rings) - 1):
+            upper = self.ids[i + 1]
+            # Where the colour changes from one ring to the next, the band keeps its own colour up
+            # to the edge: the next ring is doubled, so the border is a hard line, as printed.
+            if any(part.slot[self.ids[i][j]] != part.slot[upper[j]] for j in range(n)):
+                upper = [part.add(rings[i + 1][j], part.slot[self.ids[i][j]], weights(i + 1, j)) for j in range(n)]
             for j in range(n):
                 a, b = self.ids[i][j], self.ids[i][(j + 1) % n]
-                c, d = self.ids[i + 1][(j + 1) % n], self.ids[i + 1][j]
+                c, d = upper[(j + 1) % n], upper[j]
                 part.face(a, b, c, d)
         for cap, i in ((cap0, 0), (cap1, len(rings) - 1)):
             if not cap:
@@ -286,7 +291,7 @@ def stroke_on(loft, path, w, start=0.25, end=0.0, peak=0.35, slot=INK, lift=0.00
 # (half width, depth to the front, depth to the back, squareness), and on top of that the face is
 # pushed and pulled: brow ridge, eye sockets, cheekbones and hollows, the nose, lips and chin.
 YC = 0.012 * FS                    # the axis of the skull, a little behind the joint line
-SQ = 0.35 if P["jaw"] > 0.063 * FS else 0.0     # a square jaw is squarer
+SQ = 0.6 if P["jaw"] > 0.063 * FS else 0.15      # a square jaw is squarer
 
 
 def head_table():
@@ -299,16 +304,16 @@ def head_table():
         (-0.18, nk * 1.04, nk * 1.0, nk * 1.05, 2.0),
         (-0.07, jw * 0.86, 0.058 * FS, 0.064 * FS, 2.2),
         (0.00, cw + 0.017 * FS, 0.077 * FS + cf, 0.066 * FS, 2.5),
-        (0.07, lerp(cw + 0.017 * FS, jw, 0.55), 0.087 * FS + cf * 0.5, 0.07 * FS, 2.6 + SQ),
-        (0.16, jw, 0.091 * FS, 0.076 * FS, 2.65 + SQ),
-        (0.26, lerp(jw, ch, 0.6), 0.093 * FS, 0.088 * FS, 2.6),
-        (0.36, ch, 0.093 * FS, 0.098 * FS, 2.5),
-        (0.46, ch * 0.995, 0.092 * FS, 0.105 * FS, 2.4),
+        (0.07, lerp(cw + 0.017 * FS, jw, 0.55), 0.087 * FS + cf * 0.5, 0.07 * FS, 2.9 + SQ),
+        (0.16, jw, 0.091 * FS, 0.076 * FS, 2.95 + SQ),
+        (0.26, lerp(jw, ch, 0.6), 0.093 * FS, 0.088 * FS, 2.9),
+        (0.36, ch, 0.093 * FS, 0.098 * FS, 2.75),
+        (0.46, ch * 0.995, 0.092 * FS, 0.105 * FS, 2.55),
         (0.56, sk, 0.091 * FS, 0.109 * FS, 2.3),
-        (0.68, sk, 0.09 * FS, 0.111 * FS, 2.2),
-        (0.80, sk * 0.97, 0.083 * FS, 0.108 * FS, 2.1),
-        (0.90, sk * 0.83, 0.066 * FS, 0.094 * FS, 2.0),
-        (0.96, sk * 0.6, 0.044 * FS, 0.067 * FS, 2.0),
+        (0.68, sk, 0.09 * FS, 0.104 * FS, 2.2),
+        (0.80, sk * 0.95, 0.082 * FS, 0.1 * FS, 2.1),
+        (0.89, sk * 0.8, 0.064 * FS, 0.086 * FS, 2.0),
+        (0.95, sk * 0.56, 0.042 * FS, 0.06 * FS, 2.0),
         (0.995, sk * 0.18, 0.014 * FS, 0.02 * FS, 2.0),
     ]
     return rows
@@ -401,7 +406,7 @@ def face_push(theta, x, z):
     ax = abs(x)
     # Brow ridge: a hard shelf over the eyes, a dip in the middle.
     band = 1.0 - sm(0.052 * FS, 0.066 * FS, ax)
-    d += P["brow"] * FS * gauss(z - (BROW_Z - 0.004 * FS), 0.0075 * FS) * band * (1.0 - 0.35 * gauss(x, 0.01 * FS))
+    d += P["brow"] * FS * gauss(z - (BROW_Z - 0.005 * FS), 0.0062 * FS) * band * (1.0 - 0.35 * gauss(x, 0.01 * FS))
     # Forehead: slightly flat; temples in.
     d -= 0.003 * FS * gauss(ax - 0.066 * FS, 0.01 * FS) * gauss(z - (BROW_Z + 0.012 * FS), 0.016 * FS)
     # Eye sockets, deep enough for the balls to sit in.
@@ -410,14 +415,14 @@ def face_push(theta, x, z):
         d -= 0.95 * ER * g
     # Cheekbones out, the cheeks under them in (or full and round).
     for side in (1, -1):
-        d += P["bone"] * FS * gauss(x - side * 0.047 * FS, 0.019 * FS) * gauss(z - (EYE_Z - 0.026 * FS), 0.011 * FS)
+        d += P["bone"] * FS * 1.3 * gauss(x - side * 0.048 * FS, 0.016 * FS) * gauss(z - (EYE_Z - 0.026 * FS), 0.009 * FS)
         d -= P["hollow"] * FS * gauss(x - side * 0.05 * FS, 0.017 * FS) * gauss(z - (MOUTH_Z + 0.017 * FS), 0.019 * FS)
     # The muzzle round the mouth.
-    d += 0.004 * FS * gauss(x, 0.03 * FS) * gauss(z - (MOUTH_Z + 0.004 * FS), 0.02 * FS)
+    d += 0.0025 * FS * gauss(x, 0.03 * FS) * gauss(z - (MOUTH_Z + 0.004 * FS), 0.02 * FS)
     # Lips: upper and lower, a groove between.
     lip = 1.0 - sm(MOUTH_HALF * 0.75, MOUTH_HALF * 1.15, ax)
-    d += P["lips"] * FS * lip * gauss(z - (MOUTH_Z + 0.0055 * FS), 0.0045 * FS)
-    d += P["lips"] * FS * 1.15 * lip * gauss(z - (MOUTH_Z - 0.0075 * FS), 0.0055 * FS)
+    d += P["lips"] * FS * 0.7 * lip * gauss(z - (MOUTH_Z + 0.0045 * FS), 0.0038 * FS)
+    d += P["lips"] * FS * 0.85 * lip * gauss(z - (MOUTH_Z - 0.0065 * FS), 0.0048 * FS)
     d -= 0.0015 * FS * lip * gauss(z - MOUTH_Z, 0.0016 * FS)
     # The chin, forward; Erik's with a cleft.
     cw, cf = P["chin"]
@@ -506,7 +511,7 @@ def build_head(part):
             co = head_point(t, z)
             w = HEADW if h > -0.12 else blend({"Torso": 1.0}, HEADW, sm(-0.42, -0.12, h))
             slot = SKIN
-            if abs(co.x) < MOUTH_HALF * 0.95 and co.y < 0 and abs(z - MOUTH_Z) < 0.011 * FS:
+            if abs(co.x) < MOUTH_HALF * 0.9 and co.y < 0 and -0.009 * FS < z - MOUTH_Z < 0.006 * FS:
                 slot = LIP
             row.append(part.add(co, slot, w))
         rows.append(row)
@@ -723,9 +728,10 @@ def build_face_ink(part):
                 x0 = sx * (0.04 + 0.006 * k) * f
                 z0 = EYE_Z - (0.036 + 0.004 * k) * f
                 face_stroke(part, [(x0, z0), (x0 + sx * 0.012 * f, z0 - 0.009 * f)], 0.0006 * f, 0.1, 0.0, 0.4)
-        # From the nose wing down past the mouth.
-        face_stroke(part, [(sx * NW * 1.15, NB + 0.006 * f), (sx * (NW * 1.15 + 0.008 * f), NB - 0.006 * f), (sx * (MOUTH_HALF + 0.006 * f), MOUTH_Z - 0.004 * f)],
-                    0.0007 * f * (1.0 + P["age"]), 0.2, 0.0, 0.35, INK, 0.0009, {"Smile": lambda c: Vector((math.copysign(0.002 * FS, c.x), 0, 0.003 * FS))})
+        # From the nose wing down past the mouth (a line of age and character; barely there on the women).
+        if male or P["age"] > 0.0 or NAME == "linn":
+            face_stroke(part, [(sx * NW * 1.15, NB + 0.006 * f), (sx * (NW * 1.15 + 0.008 * f), NB - 0.006 * f), (sx * (MOUTH_HALF + 0.006 * f), MOUTH_Z - 0.004 * f)],
+                        0.0007 * f * (1.0 + P["age"]) * (1.0 if male else 0.45), 0.2, 0.0, 0.35, INK, 0.0009, {"Smile": lambda c: Vector((math.copysign(0.002 * FS, c.x), 0, 0.003 * FS))})
         # Nose wing: the curve round it.
         face_stroke(part, [(sx * NW * 0.5, NB + 0.0005 * f), (sx * NW * 1.05, NB + 0.003 * f), (sx * NW * 1.12, NB + 0.009 * f)], 0.0007 * f, 0.4, 0.1, 0.5)
     # The shadow side of the nose: one stroke from the brow down the bridge to the wing (on the right).
@@ -734,7 +740,8 @@ def build_face_ink(part):
     for sx in (1, -1):
         face_stroke(part, [(sx * NW * 0.15, NB + 0.0008 * f), (sx * NW * 0.45, NB + 0.0016 * f)], 0.0011 * f, 0.5, 0.3, 0.5, INK, 0.0006)
     # The mouth: the line between the lips, heavy in the middle.
-    pts = [(x * MOUTH_HALF, MOUTH_Z + (0.0004 * f if abs(x) < 0.5 else -0.0008 * f * (abs(x) - 0.5) * 2)) for x in (-1.0, -0.6, -0.25, 0.0, 0.25, 0.6, 1.0)]
+    turn = -0.0008 if NAME == "erik" else 0.0006 if NAME in ("jonte", "maja") else 0.0          # the corners: down, level or up
+    pts = [(x * MOUTH_HALF, MOUTH_Z + (0.0004 * f if abs(x) < 0.5 else turn * f * (abs(x) - 0.5) * 2)) for x in (-1.0, -0.6, -0.25, 0.0, 0.25, 0.6, 1.0)]
     face_stroke(part, pts, 0.0008 * f, 0.15, 0.15, 0.5, INK, 0.0007,
                 {"Smile": lambda c: Vector((math.copysign(0.004 * FS, c.x), 0.003 * FS, 0.0055 * FS)) * gauss(abs(c.x) - MOUTH_HALF, 0.014 * FS)})
     # Under the lower lip, a short shadow; Erik's cleft; the line under the chin.
@@ -808,12 +815,12 @@ def torso_rows():
         # z, half width, half depth, power, front, y offset
         (hem * s, ha * k + 0.012, hb * k + 0.01, 2.4, b * 0.4, 0.0),
         ((hem + 0.05) * s, ha * k + 0.01, hb * k + 0.008, 2.4, b * 0.5, 0.0),
-        (1.06 * s, wa * k + 0.012, wb * k + 0.008, 2.5, b * 1.2, 0.0),
-        (1.15 * s, lerp(wa, ca, 0.45) * k + 0.012, lerp(wb, cb, 0.45) * k + 0.008, 2.55, b * 1.0, -0.004),
-        (1.27 * s, ca * k + 0.012, cb * k + 0.01, 2.6, (0.16 if FEMALE else 0.06), -0.006),
-        (1.36 * s, ca * k + 0.016, cb * k + 0.002, 2.75, 0.04, -0.002),
-        (SH_Z - 0.002, P["shoulders"] * S + 0.045 * k, cb * 0.8 * k, 3.1, 0.0, 0.012),
-        (SH_Z + 0.032 * s, lerp(P["shoulders"] * S, P["neck"] * S, 0.55) + 0.01, 0.07 * k, 2.4, 0.0, 0.014),
+        (1.06 * s, wa * k + 0.012, wb * k + 0.008, 2.25, b * 1.2, 0.0),
+        (1.15 * s, lerp(wa, ca, 0.45) * k + 0.012, lerp(wb, cb, 0.45) * k + 0.008, 2.3, b * 1.0, -0.004),
+        (1.27 * s, ca * k + 0.012, cb * k + 0.01, 2.35, (0.16 if FEMALE else 0.06), -0.006),
+        (1.36 * s, ca * k + 0.016, cb * k + 0.002, 2.45, 0.04, -0.002),
+        (SH_Z - 0.01 * s, P["shoulders"] * S - 0.005 + 0.012 * k, cb * 0.82 * k, 2.4, 0.0, 0.012),
+        (SH_Z + 0.03 * s, lerp(P["shoulders"] * S, P["neck"] * S, 0.5) + 0.012, 0.072 * k, 2.2, 0.0, 0.014),
         (SH_Z + 0.06 * s, P["neck"] * S + 0.018, P["neck"] * S + 0.016, 2.0, 0.0, 0.014),
     ]
     return rows
@@ -872,11 +879,11 @@ def build_arm(part, side):
     tag = "L" if side > 0 else "R"
     sh, el, hd = J["Shoulder" + tag], J["Elbow" + tag], J["Hand" + tag]
     d1 = (el - sh).normalized()
-    start = sh - d1 * 0.035 * S + Vector((0, 0.004, 0.018 * S))
+    start = sh - d1 * 0.035 * S + Vector((-side * 0.012 * S, 0.004, -0.004 * S))
     k = PUFF * P["limbs"]
     pts = path([start, sh, el, hd], [2, 6, 6])
     pts[-1] = hd + (hd - el).normalized() * 0.012
-    base = [0.064, 0.071, 0.066, 0.062, 0.06, 0.058, 0.055, 0.052, 0.05, 0.05, 0.051, 0.051, 0.05, 0.05, 0.055 if BAGGY else 0.052]
+    base = [0.046, 0.066, 0.066, 0.062, 0.06, 0.058, 0.055, 0.052, 0.05, 0.05, 0.051, 0.051, 0.05, 0.05, 0.055 if BAGGY else 0.052]
     radii = [r * k * S for r in base[:len(pts)]]
     rings, frames = limb_rings(pts, radii, NL)
     n = len(rings)
@@ -1180,6 +1187,15 @@ for part, ob in objs:
         col.data[i].color = (c[0], c[1], c[2], 1.0)
     for poly in me.polygons:
         poly.use_smooth = False
+# The game puts the eyeballs in; the previews need them too.
+for e in EYE:
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=ER, location=e, segments=16, ring_count=8)
+    ball = bpy.context.active_object
+    bc = ball.data.color_attributes.new("Col", 'FLOAT_COLOR', 'POINT')
+    for i, v in enumerate(ball.data.vertices):
+        front = (v.co.normalized()).dot(Vector((0, -1, 0)))
+        c = (0.08, 0.06, 0.1) if front > 0.93 else (0.35, 0.5, 0.65) if front > 0.8 else (0.95, 0.95, 0.93)
+        bc.data[i].color = (c[0], c[1], c[2], 1.0)
 scene = bpy.context.scene
 scene.render.engine = 'BLENDER_WORKBENCH'
 scene.display.shading.light = 'STUDIO'

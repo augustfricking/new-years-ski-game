@@ -22,6 +22,9 @@ namespace Ski.Game
         public static string Place = "";
         /// <summary>The tavern table the player sits at (-1: none).</summary>
         public static int MyTable = -1;
+        /// <summary>On the mountain: which slope, and where its finish line is (the village starts there).</summary>
+        public static int MySlope = -1;
+        public static float MyFinishZ = float.NaN;
 
 #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")] static extern void LRVoiceInit(string id);
@@ -97,7 +100,7 @@ namespace Ski.Game
             foreach (var r in LiveRooms.Others.Values)
             {
                 string pid = PeerId(r.Id);
-                if (!on) continue;
+                if (!on || !Near(r, now)) continue;          // everyone shares one room: only call those close by
                 _calling.Add(pid);
                 if (ready && string.CompareOrdinal(_me, r.Id) < 0 && LRVoiceConnected(pid) == 0)
                 {
@@ -114,17 +117,37 @@ namespace Ski.Game
             foreach (var pid in _calling)
             {
                 bool here = false;
-                foreach (var r in LiveRooms.Others.Values) if (PeerId(r.Id) == pid) { here = true; break; }
+                foreach (var r in LiveRooms.Others.Values) if (PeerId(r.Id) == pid && Near(r, now)) { here = true; break; }
                 if (!here || !on) _gone.Add(pid);
             }
             foreach (var pid in _gone) { _calling.Remove(pid); _lastCall.Remove(pid); LRVoiceHang(pid); _level.Remove(pid.Substring(8)); }
+        }
+
+        /// <summary>Whether another player is somewhere we could hear them: the same place, and on the mountain not too far.</summary>
+        static bool Near(LiveRooms.Remote r, double now)
+        {
+            byte p = r.Timeline.Visible(now) ? r.Timeline.Place : LivePlace.Lift;   // nothing sent lately: on the lift or the map
+            if (Place == "tavern") return p == LivePlace.Tavern;
+            if (Place == "lift") return p == LivePlace.Lift || p == LivePlace.Unknown;
+            if (!LivePlace.IsSlope(p)) return false;
+            return Distance(r, now) < 70f;
+        }
+
+        /// <summary>Metres between us on the mountain: on the same slope, or both down in the village they share.</summary>
+        static float Distance(LiveRooms.Remote r, double now)
+        {
+            if (!r.Timeline.At(now, out var s, out _, out var mode)) return float.MaxValue;
+            int theirs = (int)LivePlace.Slope(r.Timeline.Place);
+            if (theirs == MySlope) return Vector2.Distance(new Vector2(s.Pos.x, s.Pos.z), new Vector2(MyPos.x, MyPos.z));
+            if (float.IsNaN(MyFinishZ) || mode != LiveMode.Finished || MyPos.z < MyFinishZ || theirs < 0 || theirs > 4) return float.MaxValue;
+            return Vector2.Distance(new Vector2(s.Pos.x, s.Pos.z - Courses.FinishZ[theirs]), new Vector2(MyPos.x, MyPos.z - MyFinishZ));
         }
 
         /// <summary>How loud another player is here: full close by, fading with distance.</summary>
         static float Volume(LiveRooms.Remote r, double now)
         {
             if (!r.Timeline.Visible(now) || !r.Timeline.At(now, out var s, out _, out var mode)) return 1f;   // lift, map: everyone in the room
-            float d = Vector2.Distance(new Vector2(s.Pos.x, s.Pos.z), new Vector2(MyPos.x, MyPos.z));
+            float d = Place == "tavern" ? Vector2.Distance(new Vector2(s.Pos.x, s.Pos.z), new Vector2(MyPos.x, MyPos.z)) : Distance(r, now);
             if (Place == "tavern")
             {
                 // At the same table: side by side. Elsewhere in the room: a murmur that grows as you come closer.

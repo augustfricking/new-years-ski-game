@@ -94,7 +94,7 @@ namespace Ski.Game
         readonly Dictionary<string, LiveGuest> _live = new Dictionary<string, LiveGuest>();
         readonly List<PendingPunch> _punches = new List<PendingPunch>();
         readonly List<string> _gone = new List<string>();
-        readonly LiveRecorder _rec = new LiveRecorder { Mode = LiveMode.Tavern };
+        readonly LiveRecorder _rec = new LiveRecorder { Mode = LiveMode.Tavern, Place = LivePlace.Tavern };
         Transform _liveRoot;
         // Being punched yourself: thrown back, down on the floor, up again.
         float _knock = -1f, _knockRoll, _knockDrop;

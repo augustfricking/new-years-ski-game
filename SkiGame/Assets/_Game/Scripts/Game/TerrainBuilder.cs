@@ -220,6 +220,7 @@ namespace Ski.Game
                         float zz = z + jz;
                         float x = c.CenterX(zz) + side * (c.HalfWidth(zz) + 2.6f + row * 3.6f + jx);
                         if (Mathf.Abs(x - MountainBuilder.LiftX(c, zz)) < 4.6f) continue;   // the lift line is cut through the trees
+                        if (MountainBuilder.InOtherRun(c, x, zz, 2.5f)) continue;               // and so are the other runs
                         b.Push(new Vector3(x, c.SnowHeight(x, zz) - 0.15f, zz), Quaternion.Euler(0, yaw, 0), Vector3.one * (scale * (1f + row * 0.05f)));
                         Props.Pine(b, variant, rng);
                         b.Pop();

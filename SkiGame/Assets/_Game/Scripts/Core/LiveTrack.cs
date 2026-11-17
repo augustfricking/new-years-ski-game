@@ -7,6 +7,19 @@ namespace Ski.Core
     /// <summary>Where a live player is.</summary>
     public enum LiveMode : byte { Skiing = 0, Finished = 1, Tavern = 2 }
 
+    /// <summary>
+    /// Which part of the one shared world a live player is in: a slope (1..5, by <see cref="SlopeId"/>),
+    /// the tavern, or the lift and the map. Past the finish of any slope they are in the village,
+    /// which all the slopes share.
+    /// </summary>
+    public static class LivePlace
+    {
+        public const byte Unknown = 0, Tavern = 6, Lift = 7;
+        public static byte Of(SlopeId s) => (byte)(1 + (int)s);
+        public static bool IsSlope(byte p) => p >= 1 && p <= 5;
+        public static SlopeId Slope(byte p) => (SlopeId)(p - 1);
+    }
+
     [Flags]
     public enum LiveFlags : byte { None = 0, Tuck = 1, Plough = 2, Crashed = 4, Down = 8, Punch = 16, Sit = 32 }
 
@@ -30,6 +43,7 @@ namespace Ski.Core
 
         public LiveMode Mode;
         public int Character;
+        public byte Place;
         public int Seq;
         /// <summary>The sender's clock (seconds) at the first sample.</summary>
         public double Start;
@@ -45,7 +59,7 @@ namespace Ski.Core
             b[3] = (byte)(Seq & 255); b[4] = (byte)((Seq >> 8) & 255);
             uint ms = (uint)(Math.Max(0.0, Start) * 1000.0);
             b[5] = (byte)(ms & 255); b[6] = (byte)((ms >> 8) & 255); b[7] = (byte)((ms >> 16) & 255); b[8] = (byte)(ms >> 24);
-            b[9] = (byte)n; b[10] = 0;
+            b[9] = (byte)n; b[10] = Place;
             for (int i = 0; i < n; i++)
             {
                 var s = Samples[i];
@@ -72,7 +86,7 @@ namespace Ski.Core
             if (n > MaxSamples || b.Length < 11 + n * 7 || b[1] > (byte)LiveMode.Tavern) return null;
             var p = new LivePacket
             {
-                Mode = (LiveMode)b[1], Character = b[2], Seq = b[3] | (b[4] << 8),
+                Mode = (LiveMode)b[1], Character = b[2], Place = b[10], Seq = b[3] | (b[4] << 8),
                 Start = (b[5] | (b[6] << 8) | (b[7] << 16) | ((uint)b[8] << 24)) / 1000.0,
             };
             for (int i = 0; i < n; i++)
@@ -112,6 +126,8 @@ namespace Ski.Core
         public int Count => _samples.Count;
         public LiveMode Mode { get; private set; }
         public int Character { get; private set; }
+        /// <summary>Where they are (<see cref="LivePlace"/>), from their latest packet.</summary>
+        public byte Place { get; private set; }
 
         /// <summary>Adds a packet that arrived at local time <paramref name="now"/>. Returns false for an old or repeated one.</summary>
         public bool Add(LivePacket p, double now)
@@ -123,6 +139,7 @@ namespace Ski.Core
             _lastArrival = now;
             Mode = p.Mode;
             Character = p.Character;
+            Place = p.Place;
             double guess = now - p.End;
             // The quickest delivery is the truest; a slow one only nudges the estimate.
             if (double.IsNaN(_offset) || guess < _offset) _offset = guess;
@@ -195,6 +212,7 @@ namespace Ski.Core
 
         public LiveMode Mode;
         public int Character;
+        public byte Place;
 
         /// <summary>
         /// Call every frame with the local clock. Returns an encoded packet when one is due (or
@@ -220,7 +238,7 @@ namespace Ski.Core
             _last = sample; _lastT = now;
             float span = _open.Samples.Count * LivePacket.Interval;
             if (_open.Samples.Count == 0 || (!flush && span < PacketSeconds)) return null;
-            _open.Mode = Mode; _open.Character = Character; _open.Seq = _seq = (_seq + 1) & 0xFFFF;
+            _open.Mode = Mode; _open.Character = Character; _open.Place = Place; _open.Seq = _seq = (_seq + 1) & 0xFFFF;
             string text = _open.Encode();
             _open.Samples.Clear();
             return text;

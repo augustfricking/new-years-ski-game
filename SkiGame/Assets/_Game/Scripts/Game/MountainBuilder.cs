@@ -23,6 +23,7 @@ namespace Ski.Game
             BuildFlanks(c, root);
             if (c is OffPisteCourse off) BuildTracks(off, root);
             BuildLift(c, root);
+            BuildOtherRunMarks(c, root);
         }
 
         // ---- the lift ----------------------------------------------------------------------------
@@ -129,6 +130,117 @@ namespace Ski.Game
             }
         }
 
+        // ---- the other runs ----------------------------------------------------------------------
+        // All five runs start at the top station and end in the one village. Seen from any of them,
+        // the other four fan out across the flanks (in the order of the piste map, mirrored: a run
+        // to the left on the map is on your right going down) and curve back in to enter the
+        // village plaza side by side. Live players on those runs are shown on them.
+
+        const float EntrySpacing = 72f;
+
+        static float RunHalfWidth(int j) => j == (int)SlopeId.OffPiste ? 6f : j == (int)SlopeId.Blue ? 22f : 15f;
+
+        /// <summary>How far the runs have spread apart at a height: none at the top station.</summary>
+        static float Spread(PisteCourse c, float z) => Mathf.Pow(M.Smooth(Mathf.Clamp01((z + 30f) / (0.4f * Mathf.Max(c.FinishZ, 200f)))), 0.6f);
+
+        /// <summary>How far down toward the village a height is: the runs gather in over the last few hundred metres.</summary>
+        static float Arrive(PisteCourse c, float z) => M.Smooth(Mathf.Clamp01((z - (c.FinishZ - 330f)) / 310f));
+
+        /// <summary>The middle of another run (j) at height z, in this run's world.</summary>
+        public static float OtherRunX(PisteCourse c, int j, float z)
+        {
+            int me = (int)c.Id;
+            float cx = c.CenterX(Mathf.Clamp(z, c.MinZ, c.MaxZ));
+            float spread = Spread(c, z), arrive = Arrive(c, z);
+            float x = cx + ((me - j) * 150f * spread + 22f * Mathf.Sin(z / 130f + j * 2.1f) * spread) * (1f - arrive) + (me - j) * EntrySpacing * arrive;
+            // At the bottom, a last turn in to the edge of the plaza.
+            float edge = Mathf.Sign(me - j) * (Course.PlazaHalfWidth - 8f);
+            return Mathf.Lerp(x, c.VillageX + edge, M.Smooth(Mathf.Clamp01((z - (c.FinishZ - 25f)) / 60f)) * 0.85f);
+        }
+
+        public static float OtherRunHalfWidth(PisteCourse c, int j, float z) => RunHalfWidth(j) * (1f + 0.5f * Spread(c, z) * (1f - Arrive(c, z)));
+
+        /// <summary>Whether a point is on one of the other runs (with a margin), where no tree may stand.</summary>
+        public static bool InOtherRun(PisteCourse c, float x, float z, float margin)
+        {
+            if (z > c.FinishZ + 30f) return false;
+            for (int j = 0; j < 5; j++)
+            {
+                if (j == (int)c.Id) continue;
+                if (Mathf.Abs(x - OtherRunX(c, j, z)) < OtherRunHalfWidth(c, j, z) + margin) return true;
+            }
+            return false;
+        }
+
+        /// <summary>The ground anywhere in this run's world: the run's own snow, or the flanks beyond it.</summary>
+        public static float GroundAt(PisteCourse c, float x, float z)
+        {
+            float zz = Mathf.Clamp(z, c.MinZ, c.MaxZ);
+            float cx = c.CenterX(zz), reach = c.HalfWidth(zz) + SkirtEdge - 6f;
+            if (Mathf.Abs(x - cx) <= reach) return c.SnowHeight(x, zz);
+            int side = x > cx ? 1 : -1;
+            return FlankGround(c, x, z, side, Mathf.Abs(x - cx) - reach);
+        }
+
+        static float FlankGround(PisteCourse c, float x, float z, int side, float beyond)
+        {
+            float top = c.MinZ, bottom = c.MaxZ;
+            float zz = Mathf.Clamp(z, top, bottom);
+            float edge = c.CenterX(zz) + side * (c.HalfWidth(zz) + SkirtEdge - 6f);
+            float h = c.SnowHeight(edge, zz) - 0.8f;
+            if (z < top) h += (top - z) * 0.42f;
+            if (z > bottom) h -= (z - bottom) * 0.02f;
+            h += beyond * 0.11f + 26f * (Mathf.PerlinNoise(x / 140f + 7f, z / 140f + 3f) - 0.45f) * M.Smooth(beyond / 110f);
+            return h;
+        }
+
+        /// <summary>
+        /// Where a live player on another run is shown in this run's world: as far down it as they
+        /// are down theirs, a little to the side of its middle as they are of theirs.
+        /// </summary>
+        public static Vector3 OnOtherRun(PisteCourse c, int j, float x, float z, out float heading)
+        {
+            float f = Mathf.Clamp01(z / Courses.FinishZ[j]);
+            float mz = f * c.FinishZ;
+            float mx = OtherRunX(c, j, mz);
+            float hw = OtherRunHalfWidth(c, j, mz);
+            mx += Mathf.Clamp(x * 0.25f, -hw * 0.7f, hw * 0.7f);
+            float dx = OtherRunX(c, j, mz + 3f) - OtherRunX(c, j, mz - 3f);
+            heading = Mathf.Atan2(dx, 6f);
+            return new Vector3(mx, GroundAt(c, mx, mz), mz);
+        }
+
+        /// <summary>Markers down the last stretch of each other run, and a sign where it enters the village.</summary>
+        static void BuildOtherRunMarks(PisteCourse c, Transform parent)
+        {
+            if (c is OffPisteCourse) return;
+            var b = new MeshBuilder();
+            for (int j = 0; j < 5; j++)
+            {
+                if (j == (int)c.Id) continue;
+                Color colour = Palette.Slope((SlopeId)j);
+                if (j != (int)SlopeId.OffPiste)
+                    for (float z = c.FinishZ - 380f; z < c.FinishZ - 4f; z += 30f)
+                        for (int s = -1; s <= 1; s += 2)
+                        {
+                            float x = OtherRunX(c, j, z) + s * (OtherRunHalfWidth(c, j, z) + 0.6f);
+                            b.Push(new Vector3(x, GroundAt(c, x, z), z));
+                            Props.PisteMarker(b, s < 0 ? colour : Palette.SafetyOrange);
+                            b.Pop();
+                        }
+                // Where it comes into the plaza: a post with its name, facing the village.
+                float zs = c.FinishZ + 6f, xs = OtherRunX(c, j, zs) + ((int)c.Id - j > 0 ? 1f : -1f) * (OtherRunHalfWidth(c, j, zs) + 1.5f);
+                Vector3 at = new Vector3(xs, c.SnowHeight(xs, Mathf.Min(zs, c.MaxZ)), zs);
+                b.Col = Palette.Timber;
+                b.Box(at + new Vector3(0f, 1.2f, 0f), new Vector3(0.14f, 2.4f, 0.14f));
+                b.Col = colour;
+                b.Box(at + new Vector3(0f, 2.3f, -0.08f), new Vector3(1.9f, 0.5f, 0.06f));
+                VillageBuilder.Sign(parent, Courses.Names[j].ToUpperInvariant(), at + new Vector3(0f, 2.3f, 0.0f), Quaternion.Euler(0f, 180f, 0f), 0.26f,
+                    j == (int)SlopeId.Black || j == (int)SlopeId.Blue ? Palette.White : Palette.Ink);
+            }
+            b.ToObject("Other runs", Mats.Props, parent);
+        }
+
         // ---- the flanks: forest and the other runs ---------------------------------------------
 
         static float Hash(int a, int b) { unchecked { uint h = (uint)(a * 374761393 + b * 668265263); h = (h ^ (h >> 13)) * 1274126177u; return ((h ^ (h >> 16)) & 0xFFFFFF) / (float)0x1000000; } }
@@ -138,18 +250,6 @@ namespace Ski.Game
             int me = (int)c.Id;
             float top = c.MinZ, bottom = c.MaxZ;
             float len = Mathf.Max(c.FinishZ, 200f);
-            // Lateral offsets of the other four runs: they fan out from the top station and come
-            // together again at the village, in the order they have on the piste map.
-            var bandOff = new List<float>(); var bandWidth = new List<float>(); var bandBroken = new List<bool>();
-            for (int j = 0; j < 5; j++)
-            {
-                if (j == me) continue;
-                bandOff.Add((me - j) * 150f);   // runs to the left on the map are on your right, skiing down
-                bandWidth.Add(j == (int)SlopeId.OffPiste ? 6f : j == (int)SlopeId.Blue ? 22f : 15f);
-                bandBroken.Add(j == (int)SlopeId.OffPiste);
-            }
-            float Fan(float z) => Mathf.Pow(Mathf.Clamp01(Mathf.Sin(Mathf.PI * Mathf.Clamp01((z + 30f) / (len + 90f)))), 0.6f);
-
             float EdgeX(float z, int side)
             {
                 float zz = Mathf.Clamp(z, top, bottom);
@@ -175,13 +275,12 @@ namespace Ski.Game
                 Color high = n > 0.62f ? Palette.Mix(snow, rock, M.Smooth((n - 0.62f) * 8f)) : snow;
                 Color col = Palette.Mix(forest, high, alpine);
                 // The other runs: white ribbons through the trees.
-                float fan = Fan(z);
-                for (int b = 0; b < bandOff.Count; b++)
+                for (int j = 0; j < 5; j++)
                 {
-                    float centre = cx + bandOff[b] * fan + 22f * Mathf.Sin(z / 130f + b * 2.1f) * fan;
-                    float d = Mathf.Abs(x - centre) - bandWidth[b] * (1f + 0.5f * fan);
+                    if (j == me) continue;
+                    float d = Mathf.Abs(x - OtherRunX(c, j, z)) - OtherRunHalfWidth(c, j, z);
                     if (d > 5f) continue;
-                    if (bandBroken[b] && Mathf.PerlinNoise(z / 35f + b, 0.5f) < 0.5f) continue;   // off-piste: glades, not a road
+                    if (j == (int)SlopeId.OffPiste && Mathf.PerlinNoise(z / 35f + j, 0.5f) < 0.5f) continue;   // off-piste: glades, not a road
                     col = Palette.Mix(Palette.Snow, col, M.Smooth(d / 5f));
                 }
                 // Village lights and roofs do not belong up here; keep the valley floor white.
@@ -255,7 +354,9 @@ namespace Ski.Game
                         float cx = c.CenterX(Mathf.Clamp(zz, top, bottom));
                         float x = EdgeX(zz, side) + side * beyond;
                         bool skirt = beyond < 2f;   // on the run's own snow, behind its near trees
-                        if (skirt && (zz < top + 4f || zz > c.FinishZ - 6f || Mathf.Abs(x - LiftX(c, zz)) < 6f)) continue;
+                        if (skirt && (zz < top + 4f || zz > c.FinishZ + 28f || Mathf.Abs(x - LiftX(c, zz)) < 6f)) continue;
+                        if (zz > c.FinishZ - 6f && Mathf.Abs(x - c.VillageX) < Course.PlazaHalfWidth + 8f) continue;   // the plaza is open
+                        if (InOtherRun(c, x, zz, 2f)) continue;
                         Color32 here = Paint(x, zz, Mathf.Max(beyond, 0f), cx);
                         if (here.g < here.r + 12 || here.r > 120) continue;   // only where the ground is forest
                         int key = Mathf.FloorToInt(zz / 220f) * 2 + (side > 0 ? 1 : 0);

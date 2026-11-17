@@ -8,19 +8,27 @@ using UnityEngine;
 namespace Ski.Game
 {
     /// <summary>
-    /// The other people playing right now. Everyone on the same slope (or in the tavern) shares a
-    /// room; each sends where they are every couple of seconds and sees the others played back a
-    /// few seconds late, which is smooth and costs very little traffic. Nobody is in charge and
-    /// nothing in a run depends on it: when the service is away the game simply plays alone.
+    /// The other people playing right now, all in one shared world: the five slopes, the village
+    /// they all end in, the tavern and the lift. Everyone is in one room and says where they are;
+    /// each sends where they are every couple of seconds and sees the others played back a few
+    /// seconds late, which is smooth and costs very little traffic. Nobody is in charge and nothing
+    /// in a run depends on it: when the service is away the game simply plays alone.
     ///
-    /// Rooms use Unity's Multiplayer sessions with no game networking, only player data. Nothing
-    /// is sent from the Editor (tests, screenshots, the bot) unless <see cref="SendFromEditor"/> is
-    /// switched on by hand, so real players never meet a developer's test run.
+    /// The world holds <see cref="WorldSize"/> players (what a browser can draw and a slope can
+    /// hold without becoming a crowd). When it is full, newcomers wait in line in a second room
+    /// and are let in, first come first served, as places free up; they play alone meanwhile.
+    ///
+    /// Rooms use Unity's Multiplayer sessions (free tier) with no game networking, only player data.
+    /// Nothing is sent from the Editor (tests, screenshots, the bot) unless <see cref="SendFromEditor"/>
+    /// is switched on by hand, so real players never meet a developer's test run.
     /// </summary>
     public static class LiveRooms
     {
-        public const int RoomSize = 16;
-        const int RoomsPerPlace = 4;
+        public const int WorldSize = 24;
+        /// <summary>The world real players share. The Editor never takes a place in it: it has its own
+        /// rooms (and the private "test" one the live test tools use).</summary>
+        static string WorldId => !Application.isEditor ? "lastrun-world-1" : Place == "test" ? "lastrun-test-1" : "lastrun-editor-1";
+        static string QueueId => !Application.isEditor ? "lastrun-queue-1" : "lastrun-editor-queue-1";
         const float MinGap = 1.1f;      // the room service allows one player update a second
 
         public sealed class Remote
@@ -38,19 +46,23 @@ namespace Ski.Game
         public static event Action<Remote, string, float, double> Punched;
 
         public static bool SendFromEditor;
+        /// <summary>Where this player is ("green" .. "offpiste", "tavern", "lift"); the room is the same everywhere.</summary>
         public static string Place { get; private set; }
         public static string RoomId => _session?.Id;
         public static string MyId => _session?.CurrentPlayer?.Id;
         public static bool Connected => _session != null && _session.State == SessionState.Connected;
+        /// <summary>Waiting in line for a place in the world (it is full).</summary>
+        public static bool Queued => _queue != null && _session == null;
+        /// <summary>1 = next in. 0 when not waiting.</summary>
+        public static int QueuePosition { get; private set; }
         public static readonly Dictionary<string, Remote> Others = new Dictionary<string, Remote>();
         /// <summary>The local clock used for everything here.</summary>
         public static double Now => Time.realtimeSinceStartupAsDouble;
 
         static bool CanSend => !Application.isEditor || SendFromEditor;
 
-        static ISession _session;
-        static string _wanted;
-        static bool _moving, _saving;
+        static ISession _session, _queue;
+        static bool _wanted, _moving, _saving;
         static string _pendingState, _pendingPunch;
         static int _punchCount;
         static double _lastSave = double.NegativeInfinity;
@@ -58,17 +70,18 @@ namespace Ski.Game
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics()
         {
-            SendFromEditor = false; Place = null; _session = null; _wanted = null; _moving = _saving = false;
+            SendFromEditor = false; Place = null; _session = _queue = null; _wanted = _moving = _saving = false;
             _pendingState = _pendingPunch = null; _punchCount = 0; _lastSave = double.NegativeInfinity;
+            QueuePosition = 0;
             Others.Clear(); Punched = null;
         }
 
-        /// <summary>Joins the room for a place ("green", "tavern"...), or leaves with null. Returns at once.</summary>
+        /// <summary>Says where this player is; joins the world (or the line for it) the first time. Null leaves.</summary>
         public static void Enter(string place)
         {
             if (!SaveData.Live) place = null;
-            _wanted = place;
-            if (place == Place && (_session != null || _moving)) return;
+            Place = place;
+            _wanted = place != null;
             if (!_moving) Move();
         }
 
@@ -77,72 +90,130 @@ namespace Ski.Game
             _moving = true;
             try
             {
-                while (_wanted != Place || (_wanted != null && _session == null))
+                while (true)
                 {
-                    string target = _wanted;
-                    if (_session != null)
+                    if (!_wanted)
                     {
-                        var old = _session;
-                        Detach(old);
-                        _session = null;
-                        try { await old.LeaveAsync(); } catch (Exception e) { Debug.Log("[Live] leave: " + e.Message); }
+                        await Leave();
+                        break;
                     }
-                    Others.Clear();
-                    _pendingState = _pendingPunch = null;
-                    Place = target;
-                    if (target == null) break;
+                    if (_session != null) break;
                     await OnlineBoards.Connect();
                     if (OnlineBoards.Status != OnlineBoards.State.Online) { Debug.Log("[Live] offline: playing alone"); break; }
-                    if (_wanted != target) continue;
-                    _session = await Join(target);
-                    if (_session == null) break;
-                    if (_wanted != target) continue;
+                    if (!_wanted) continue;
+                    bool full;
+                    (_session, full) = await JoinWorld();
+                    if (_session != null)
+                    {
+                        if (_queue != null) { var q = _queue; _queue = null; QueuePosition = 0; try { await q.LeaveAsync(); } catch (Exception) { } }
+                        break;
+                    }
+                    if (!full) { await Task.Delay(8000); continue; }          // a hiccup (rate limit, network): again shortly
+                    // The world is full: wait in line, and try again when there is room for us.
+                    if (_queue == null) _queue = await JoinRoom(QueueId, 100, false);
+                    if (_queue == null) { await Task.Delay(6000); continue; }
+                    await WaitForRoom();
                 }
             }
             finally { _moving = false; }
         }
 
-        static async Task<ISession> Join(string place)
+        static async Task Leave()
         {
-            for (int n = 1; n <= RoomsPerPlace; n++)
+            foreach (var s in new[] { _session, _queue })
             {
-                string id = "lastrun-" + place + "-" + n;
-                var options = new SessionOptions
+                if (s == null) continue;
+                Detach(s);
+                try { await s.LeaveAsync(); } catch (Exception e) { Debug.Log("[Live] leave: " + e.Message); }
+            }
+            _session = _queue = null;
+            QueuePosition = 0;
+            Others.Clear();
+            _pendingState = _pendingPunch = null;
+        }
+
+        /// <summary>In line: our place in it, and every few seconds whether the world has room for us yet.</summary>
+        static async Task WaitForRoom()
+        {
+            while (_wanted && _queue != null && _session == null)
+            {
+                string me = _queue.CurrentPlayer?.Id;
+                int pos = 1;
+                foreach (var p in _queue.Players) { if (p.Id == me) break; pos++; }   // the list is in order of joining
+                QueuePosition = pos;
+                int free = await FreeInWorld();
+                if (free >= pos) return;
+                await Task.Delay(6000);
+            }
+        }
+
+        static async Task<int> FreeInWorld()
+        {
+            try
+            {
+                var q = new QuerySessionsOptions { Count = 5 };
+                q.FilterOptions.Add(new FilterOption(FilterField.Name, WorldId, FilterOperation.Equal));
+                var r = await MultiplayerService.Instance.QuerySessionsAsync(q);
+                foreach (var s in r.Sessions) if (s.Name == WorldId) return s.AvailableSlots;
+                return WorldSize;                                                      // nobody there: it is all ours
+            }
+            catch (Exception e) { Debug.Log("[Live] query: " + e.Message); return 0; }
+        }
+
+        static async Task<(ISession, bool)> JoinWorld()
+        {
+            try
+            {
+                var s = await JoinRoom(WorldId, WorldSize, true);
+                return (s, false);
+            }
+            catch (SessionException e) when (IsFull(e))
+            {
+                Debug.Log("[Live] the world is full: waiting in line");
+                return (null, true);
+            }
+        }
+
+        static bool IsFull(SessionException e) =>
+            (e.Message != null && e.Message.IndexOf("full", StringComparison.OrdinalIgnoreCase) >= 0) || e.Error.ToString().Contains("Full");
+
+        /// <summary>Creates or joins a room by its name. Full rooms throw (for the world); other failures give null.</summary>
+        static async Task<ISession> JoinRoom(string id, int size, bool world)
+        {
+            var options = new SessionOptions
+            {
+                Name = id,
+                MaxPlayers = size,
+                PlayerProperties = new Dictionary<string, PlayerProperty>
                 {
-                    MaxPlayers = RoomSize,
-                    PlayerProperties = new Dictionary<string, PlayerProperty>
-                    {
-                        { "n", new PlayerProperty(SafeName(SaveData.PlayerName), VisibilityPropertyOptions.Member) },
-                        { "o", new PlayerProperty(SaveData.Outfit(SaveData.LastCharacter).Code, VisibilityPropertyOptions.Member) },
-                    },
-                };
+                    { "n", new PlayerProperty(SafeName(SaveData.PlayerName), VisibilityPropertyOptions.Member) },
+                    { "o", new PlayerProperty(SaveData.Outfit(SaveData.LastCharacter).Code, VisibilityPropertyOptions.Member) },
+                },
+            };
+            try
+            {
+                var s = await MultiplayerService.Instance.CreateOrJoinSessionAsync(id, options);
+                if (world) Attach(s);
+                Debug.Log("[Live] in " + id + " with " + (s.PlayerCount - 1) + " other(s)");
+                if (world) Scan(s);
+                return s;
+            }
+            catch (SessionException e) when (e.Message != null && e.Message.Contains("already a member"))
+            {
+                // Still listed from before (a reload, a dropped tab): take the old place back.
                 try
                 {
-                    var s = await MultiplayerService.Instance.CreateOrJoinSessionAsync(id, options);
-                    Attach(s);
-                    Debug.Log("[Live] in room " + id + " with " + (s.PlayerCount - 1) + " other(s)");
-                    Scan(s);
+                    var s = await MultiplayerService.Instance.ReconnectToSessionAsync(id);
+                    if (world) Attach(s);
+                    s.CurrentPlayer.SetProperty("n", new PlayerProperty(SafeName(SaveData.PlayerName), VisibilityPropertyOptions.Member));
+                    Debug.Log("[Live] back in " + id + " with " + (s.PlayerCount - 1) + " other(s)");
+                    if (world) Scan(s);
                     return s;
                 }
-                catch (SessionException e) when (e.Message != null && e.Message.Contains("already a member"))
-                {
-                    // Still listed from before (a reload, a dropped tab): take the old place back.
-                    try
-                    {
-                        var s = await MultiplayerService.Instance.ReconnectToSessionAsync(id);
-                        Attach(s);
-                        s.CurrentPlayer.SetProperty("n", new PlayerProperty(SafeName(SaveData.PlayerName), VisibilityPropertyOptions.Member));
-                        Debug.Log("[Live] back in room " + id + " with " + (s.PlayerCount - 1) + " other(s)");
-                        Scan(s);
-                        return s;
-                    }
-                    catch (Exception re) { Debug.Log("[Live] room " + id + ": could not rejoin: " + re.Message); }
-                }
-                catch (SessionException e) { Debug.Log("[Live] room " + id + ": " + e.Error + " " + e.Message); }
-                catch (Exception e) { Debug.Log("[Live] room " + id + ": " + e.Message); return null; }
-                await Task.Delay(1100);   // one join a second
+                catch (Exception re) { Debug.Log("[Live] " + id + ": could not rejoin: " + re.Message); return null; }
             }
-            return null;
+            catch (SessionException e) when (world && IsFull(e)) { throw; }
+            catch (Exception e) { Debug.Log("[Live] " + id + ": " + e.Message); return null; }
         }
 
         static string SafeName(string name)
@@ -180,8 +251,7 @@ namespace Ski.Game
             if (_session != null) Detach(_session);
             _session = null;
             Others.Clear();
-            Place = null;
-            if (_wanted != null && !_moving) Move();   // try again
+            if (_wanted && !_moving) Move();   // try again (or wait in line)
         }
 
         /// <summary>Reads everybody's latest data.</summary>

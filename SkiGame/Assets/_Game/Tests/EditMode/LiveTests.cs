@@ -69,6 +69,29 @@ namespace Ski.Tests
         }
 
         [Test]
+        public void APacketSaysWhichPartOfTheWorldItsSenderIsIn()
+        {
+            var p = new LivePacket { Mode = LiveMode.Finished, Character = 2, Place = LivePlace.Of(SlopeId.Black), Seq = 5, Start = 10.0 };
+            p.Samples.Add(new LiveSample { Pos = new Vector3(3f, 0f, 1200f), Yaw = 10f });
+            var q = LivePacket.Decode(p.Encode());
+            Assert.AreEqual(LivePlace.Of(SlopeId.Black), q.Place);
+            Assert.IsTrue(LivePlace.IsSlope(q.Place));
+            Assert.AreEqual(SlopeId.Black, LivePlace.Slope(q.Place));
+            var t = new LiveTimeline();
+            t.Add(q, 11.0);
+            Assert.AreEqual(LivePlace.Of(SlopeId.Black), t.Place);
+            Assert.IsFalse(LivePlace.IsSlope(LivePlace.Tavern));
+        }
+
+        [Test]
+        public void TheFinishTableMatchesTheRuns()
+        {
+            // Live players on other runs and in the shared village are placed with these.
+            for (int i = 0; i < 5; i++)
+                Assert.AreEqual(Courses.Create((SlopeId)i).FinishZ, Courses.FinishZ[i], 0.01f, ((SlopeId)i).ToString());
+        }
+
+        [Test]
         public void TimelineIgnoresRepeatsAndOldPackets()
         {
             var line = new LiveTimeline();

@@ -191,10 +191,28 @@ namespace Ski.Game
 
         // ---- frame -----------------------------------------------------------------------
 
+        UnityEngine.UIElements.Label _queue;
+
+        /// <summary>While the world is full: our place in line (the game plays on alone meanwhile).</summary>
+        void ShowQueue()
+        {
+            if (Ui.Instance == null) return;
+            bool show = LiveRooms.Queued && LiveRooms.QueuePosition > 0;
+            if (_queue == null)
+            {
+                if (!show) return;
+                _queue = Ui.Text(Ui.Instance.TopLayer, "", "queue-badge");
+                _queue.pickingMode = UnityEngine.UIElements.PickingMode.Ignore;
+            }
+            _queue.style.display = show ? UnityEngine.UIElements.DisplayStyle.Flex : UnityEngine.UIElements.DisplayStyle.None;
+            if (show) _queue.text = "WORLD FULL  ·  QUEUE #" + LiveRooms.QueuePosition;
+        }
+
         void Update()
         {
             var kb = Keyboard.current; var mouse = Mouse.current;
             LiveRooms.Tick();
+            ShowQueue();
             // The walkman: M for the next song, N on and off (not while typing in a dialog).
             if (kb != null && SaveData.HasWalkman && !Dialogs.Open && Screen != GameScreen.Tavern)
             {

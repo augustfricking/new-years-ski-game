@@ -66,7 +66,7 @@ namespace Ski.Game
             Rig.Sync(Session.Sim, 0.016f);
             _snow = SnowFx.Create(transform);
             _live = new LiveCrowd(Session, transform);
-            LiveRooms.Enter(slope.ToString().ToLowerInvariant());
+            LiveRooms.Enter(slope.ToString().ToLowerInvariant());   // one shared world: this only says where we are
             _rec.Character = (int)who;
             _village = VillageLife.Create(course, transform);
             if (WorldLook.Instance != null) WorldLook.Instance.Follow = Rig.Cam.transform;
@@ -253,7 +253,8 @@ namespace Ski.Game
         {
             if (Autopilot != null || _botDrove || Session.Phase == RunPhase.Ready || Watching) return;
             var sim = Session.Sim;
-            _rec.Mode = Result.HasValue ? LiveMode.Finished : LiveMode.Skiing;
+            _rec.Mode = Result.HasValue || VillageOnly ? LiveMode.Finished : LiveMode.Skiing;
+            _rec.Place = LivePlace.Of(Session.Slope);
             var flags = LiveFlags.None;
             if (sim.Tuck > 0.5f) flags |= LiveFlags.Tuck;
             if (sim.Plough > 0.4f) flags |= LiveFlags.Plough;
@@ -355,6 +356,7 @@ namespace Ski.Game
             _live.Sync(Rig.Cam, dt);
             SendLive();
             VoiceChat.MyPos = Session.Sim.Pos; VoiceChat.Place = "slope"; VoiceChat.MyTable = -1;
+            VoiceChat.MySlope = (int)Session.Slope; VoiceChat.MyFinishZ = Session.Course.FinishZ;
             _village.Tick(Session.Sim.Pos.z, dt);
             // People in the village are solid too.
             if (!Paused && !Session.Sim.Crashed && Session.Sim.Shield <= 0f && Session.Sim.Contact && Session.Sim.Speed > 1.2f && _village.Hit(Session.Sim.Pos, Session.Sim.Vel, Session.Sim.P.BodyRadius))
