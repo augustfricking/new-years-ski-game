@@ -277,7 +277,9 @@ namespace Ski.Game
 
             // A song has finished: the walkman moves on by itself, the DJ picks the next one.
             // (By the clock as well: a browser can report a song as stopped while it is still being decoded.)
-            if (_songPlaying && _musicA.clip != null && !_musicA.isPlaying && Time.unscaledTime - _songStart > _musicA.clip.length - 1f)
+            // A clip still loading can report no length at all: then it has not ended, whatever it says.
+            float songLen = _musicA.clip != null ? _musicA.clip.length : 0f;
+            if (_songPlaying && songLen > 5f && !_musicA.isPlaying && Time.unscaledTime - _songStart > Mathf.Max(songLen - 1f, 10f))
             {
                 _songPlaying = false;
                 string ended = CurrentSong;

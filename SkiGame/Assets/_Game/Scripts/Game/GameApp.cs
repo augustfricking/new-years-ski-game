@@ -81,6 +81,8 @@ namespace Ski.Game
 
         // ---- screens ---------------------------------------------------------------------
 
+        static bool _welcomed;
+
         public void ShowMenu()
         {
             CloseAll();
@@ -99,7 +101,9 @@ namespace Ski.Game
                 Lift.PlayCutscene(who, () => { ShowMap(); Ui.Instance.Fade(0f, 0.8f); });
             };
             Ui.Instance.Fade(0f, 0.6f);
-            if (!SaveData.NameAsked) Dialogs.AskName();
+            // First thing after loading: an account or a guest name (in the Editor only until answered once).
+            if (!_welcomed && (!Application.isEditor || !SaveData.NameAsked)) Dialogs.Welcome();
+            _welcomed = true;
         }
 
         public void ShowMap()

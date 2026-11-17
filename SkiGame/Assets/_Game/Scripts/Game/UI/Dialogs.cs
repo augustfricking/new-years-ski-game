@@ -226,6 +226,89 @@ namespace Ski.Game
         }
 
         /// <summary>First launch: what should we call you? The name goes on the boards and above your ghost.</summary>
+        /// <summary>
+        /// The first thing after the game loads: sign in to an account (or make one), or play as a
+        /// guest under a name of your choosing. Someone already signed in to an account on this
+        /// browser goes straight through.
+        /// </summary>
+        public static void Welcome(Action onDone = null)
+        {
+            var card = Begin("WELCOME");
+            card.AddToClassList("welcome");
+            var cols = Ui.Div(card, "row welcome-cols");
+
+            // An account: the same progress on any device.
+            var acc = Ui.Div(cols, "welcome-col");
+            Ui.Text(acc, "ACCOUNT", "keys-heading");
+            var user = new TextField { maxLength = 20 };
+            user.AddToClassList("name-field");
+            var pass = new TextField { maxLength = 30, isPasswordField = true };
+            pass.AddToClassList("name-field");
+            var r1 = Ui.Div(acc, "dialog-row"); Ui.Text(r1, "Username", "dialog-label"); r1.Add(user);
+            var r2 = Ui.Div(acc, "dialog-row"); Ui.Text(r2, "Password", "dialog-label"); r2.Add(pass);
+            var r3 = Ui.Div(acc, "row");
+            var accMsg = Ui.Text(acc, "", "small");
+
+            // Or a guest, with a name.
+            var guest = Ui.Div(cols, "welcome-col welcome-guest");
+            Ui.Text(guest, "GUEST", "keys-heading");
+            var name = new TextField { value = SaveData.PlayerName, maxLength = 16 };
+            name.AddToClassList("name-field");
+            var r4 = Ui.Div(guest, "dialog-row"); Ui.Text(r4, "Your name", "dialog-label"); r4.Add(name);
+            var r5 = Ui.Div(guest, "row");
+            var guestMsg = Ui.Text(guest, "", "small");
+
+            bool done = false;
+            void Finish()
+            {
+                if (done) return;
+                done = true;
+                SaveData.NameAsked = true;
+                Close();                       // saves
+                if (SaveData.PlayerName.Length > 0) { OnlineBoards.NameChanged(); LiveRooms.NameChanged(); }
+                onDone?.Invoke();
+            }
+            async void Account(bool create)
+            {
+                string u = user.value.Trim();
+                if (u.Length < 3) { accMsg.text = "Name too short"; return; }
+                if (pass.value.Length < 8) { accMsg.text = "Password too short"; return; }
+                accMsg.text = "...";
+                string err = await CloudSync.Account(u, pass.value, create);
+                if (err != null) { accMsg.text = err; return; }
+                if (SaveData.PlayerName.Length == 0) SaveData.PlayerName = u;
+                Finish();
+            }
+            void Guest()
+            {
+                string n = name.value.Trim();
+                if (n.Length < 2) { guestMsg.text = "Pick a name"; name.Focus(); return; }
+                SaveData.PlayerName = n;
+                Finish();
+            }
+            Ui.Btn(r3, "SIGN IN", () => Account(false));
+            Ui.Btn(r3, "CREATE", () => Account(true), "btn-plain");
+            Ui.Btn(r5, "PLAY AS GUEST", Guest);
+            name.RegisterCallback<KeyDownEvent>(e => { if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter) Guest(); }, TrickleDown.TrickleDown);
+            pass.RegisterCallback<KeyDownEvent>(e => { if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter) Account(false); }, TrickleDown.TrickleDown);
+
+            // Already signed in to an account here (the browser remembers it): straight in.
+            var ui = Ui.Instance;
+            Action<float> tick = null;
+            tick = ui.AddTicker(dt =>
+            {
+                if (done || !Open) { ui.RemoveTicker(tick); return; }
+                if (CloudSync.Username != null)
+                {
+                    ui.RemoveTicker(tick);
+                    if (SaveData.PlayerName.Length == 0) SaveData.PlayerName = CloudSync.Username;
+                    Finish();
+                    Ui.Instance.Notice("WELCOME BACK", CloudSync.Username, 2.5f);
+                }
+            });
+            name.schedule.Execute(() => name.Focus()).StartingIn(100);
+        }
+
         public static void AskName(Action onDone = null)
         {
             var card = Begin("YOUR NAME?");

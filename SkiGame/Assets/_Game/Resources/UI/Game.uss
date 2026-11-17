@@ -1026,3 +1026,30 @@
     -unity-font-definition: resource("Fonts/Bangers-Regular");
     letter-spacing: 1px;
 }
+
+/* ---- the welcome: an account or a guest ------------------------------------------------------- */
+
+.welcome-cols {
+    align-items: flex-start;
+    margin-top: 6px;
+}
+
+.welcome-col {
+    width: 460px;
+    padding-right: 24px;
+}
+
+.welcome-guest {
+    border-left-width: 3px;
+    border-color: rgb(27, 20, 48);
+    padding-left: 28px;
+    padding-right: 0;
+}
+
+.welcome .dialog-label {
+    min-width: 120px;
+}
+
+.welcome .name-field {
+    width: 260px;
+}

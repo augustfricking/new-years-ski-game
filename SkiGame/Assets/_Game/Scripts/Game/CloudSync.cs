@@ -64,6 +64,7 @@ namespace Ski.Game
             _busy = true; Status = State.Syncing;
             try
             {
+                try { await AuthenticationService.Instance.GetPlayerInfoAsync(); } catch (Exception) { }
                 Username = AuthenticationService.Instance.PlayerInfo?.Username;
                 if (string.IsNullOrEmpty(Username)) Username = null;
                 var got = await CloudSaveService.Instance.Data.Player.LoadAsync(new HashSet<string> { Key }, new Unity.Services.CloudSave.Models.Data.Player.LoadOptions());
@@ -160,9 +161,9 @@ namespace Ski.Game
                 _pulled = false;                                                    // fetch (or send) the save for this account
                 return null;
             }
-            catch (AuthenticationException e) { Debug.Log("[Cloud] account: " + e.ErrorCode + " " + e.Message); return Short(e.Message); }
-            catch (RequestFailedException e) { Debug.Log("[Cloud] account: " + e.ErrorCode + " " + e.Message); return Short(e.Message); }
-            catch (Exception e) { Debug.Log("[Cloud] account: " + e.Message); return Short(e.Message); }
+            catch (AuthenticationException e) { Debug.Log("[Cloud] account: " + e.ErrorCode + " " + e.Message); return Short(e.Message, create); }
+            catch (RequestFailedException e) { Debug.Log("[Cloud] account: " + e.ErrorCode + " " + e.Message); return Short(e.Message, create); }
+            catch (Exception e) { Debug.Log("[Cloud] account: " + e.Message); return Short(e.Message, create); }
         }
 
         /// <summary>Leaves the account: this browser goes back to being a device of its own.</summary>
@@ -181,15 +182,15 @@ namespace Ski.Game
             _pulled = false;
         }
 
-        static string Short(string message)
+        static string Short(string message, bool create)
         {
             string m = (message ?? "").ToLowerInvariant();
-            if (m.Contains("permission_denied") || m.Contains("provider is not available")) return "Accounts are not switched on yet";
-            if (m.Contains("password") && (m.Contains("invalid") || m.Contains("requirement") || m.Contains("must"))) return "Password too weak";
+            if (m.Contains("permission_denied") || m.Contains("provider is not available")) return "Accounts are off";
+            if (!create) return m.Contains("network") || m.Contains("timeout") ? "Offline" : "Wrong name or password";
+            if (m.Contains("password") && (m.Contains("invalid") || m.Contains("requirement") || m.Contains("must"))) return "Weak password";
             if (m.Contains("already") || m.Contains("exists") || m.Contains("conflict")) return "Name taken";
-            if (m.Contains("not found") || m.Contains("invalid username") || m.Contains("wrong") || m.Contains("unauthorized")) return "Wrong name or password";
             if (m.Contains("username")) return "Name not allowed";
-            return "Could not sign in";
+            return "Try again";
         }
     }
 }
