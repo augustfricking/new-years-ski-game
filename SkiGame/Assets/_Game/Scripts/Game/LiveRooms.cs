@@ -55,6 +55,8 @@ namespace Ski.Game
         public static bool Queued => _queue != null && _session == null;
         /// <summary>1 = next in. 0 when not waiting.</summary>
         public static int QueuePosition { get; private set; }
+        /// <summary>How many are waiting in line, us included.</summary>
+        public static int QueueLength => _queue != null ? _queue.PlayerCount : 0;
         public static readonly Dictionary<string, Remote> Others = new Dictionary<string, Remote>();
         /// <summary>The local clock used for everything here.</summary>
         public static double Now => Time.realtimeSinceStartupAsDouble;
@@ -143,7 +145,13 @@ namespace Ski.Game
                 QueuePosition = pos;
                 int free = await FreeInWorld();
                 if (free >= pos) return;
-                await Task.Delay(6000);
+                for (int i = 0; i < 3 && _wanted && _queue != null; i++)
+                {
+                    await Task.Delay(2000);
+                    pos = 1;
+                    foreach (var p in _queue.Players) { if (p.Id == me) break; pos++; }
+                    QueuePosition = pos;
+                }
             }
         }
 

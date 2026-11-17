@@ -1021,8 +1021,8 @@
     border-width: 3px;
     border-color: rgb(27, 20, 48);
     border-radius: 6px;
-    padding: 4px 14px;
-    font-size: 18px;
+    padding: 6px 18px;
+    font-size: 24px;
     -unity-font-definition: resource("Fonts/Bangers-Regular");
     letter-spacing: 1px;
 }

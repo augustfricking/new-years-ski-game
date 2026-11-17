@@ -1365,6 +1365,62 @@ namespace Ski.Game
             }
         }
 
+        // ---- reaching ----------------------------------------------------------------------------
+
+        /// <summary>Where a hand would be (in the world) with these arm angles, the body standing as it does now.</summary>
+        public Vector3 HandFor(int side, float fwd, float outward, float twist, float elbow)
+        {
+            var sh = side < 0 ? _shL : _shR;
+            Quaternion q = side < 0
+                ? Quaternion.AngleAxis(-outward, Vector3.forward) * Quaternion.AngleAxis(-fwd, Vector3.right) * Quaternion.AngleAxis(twist, Vector3.up)
+                : Quaternion.AngleAxis(outward, Vector3.forward) * Quaternion.AngleAxis(-fwd, Vector3.right) * Quaternion.AngleAxis(-twist, Vector3.up);
+            Vector3 local = sh.localPosition + q * (Vector3.down * _upperArm + Quaternion.Euler(-elbow, 0f, 0f) * (Vector3.down * _forearm));
+            return _torso.TransformPoint(local);
+        }
+
+        public Vector3 HandFor(int side, in Pose p) => side < 0
+            ? HandFor(-1, p.ArmFwdL, p.ArmOutL, p.ArmTwistL, p.ElbowL)
+            : HandFor(1, p.ArmFwdR, p.ArmOutR, p.ArmTwistR, p.ElbowR);
+
+        /// <summary>
+        /// Changes one arm of a pose so its hand comes to a point (as near as the arm allows),
+        /// staying as close to the pose's own angles as it can: a little search over the shoulder
+        /// and elbow angles, cheap enough to run every frame.
+        /// </summary>
+        public void Reach(ref Pose p, int side, Vector3 target)
+        {
+            if (_shL == null || _torso == null) return;
+            float[] x = side < 0 ? new[] { p.ArmFwdL, p.ArmOutL, p.ArmTwistL, p.ElbowL } : new[] { p.ArmFwdR, p.ArmOutR, p.ArmTwistR, p.ElbowR };
+            float[] x0 = (float[])x.Clone();
+            float[] lo = { -70f, -25f, -70f, 2f }, hi = { 175f, 130f, 100f, 150f };
+            float Cost(float[] v)
+            {
+                float c = (HandFor(side, v[0], v[1], v[2], v[3]) - target).sqrMagnitude;
+                for (int i = 0; i < 4; i++) c += 1.5e-7f * (v[i] - x0[i]) * (v[i] - x0[i]);
+                return c;
+            }
+            float best = Cost(x), step = 12f;
+            for (int it = 0; it < 80 && step > 0.25f; it++)
+            {
+                bool better = false;
+                for (int i = 0; i < 4 && !better; i++)
+                    for (int dir = -1; dir <= 1; dir += 2)
+                    {
+                        float keep = x[i];
+                        x[i] = Mathf.Clamp(keep + dir * step, lo[i], hi[i]);
+                        float c = Cost(x);
+                        if (c < best) { best = c; better = true; break; }
+                        x[i] = keep;
+                    }
+                if (!better) step *= 0.5f;
+            }
+            if (side < 0) { p.ArmFwdL = x[0]; p.ArmOutL = x[1]; p.ArmTwistL = x[2]; p.ElbowL = x[3]; }
+            else { p.ArmFwdR = x[0]; p.ArmOutR = x[1]; p.ArmTwistR = x[2]; p.ElbowR = x[3]; }
+        }
+
+        /// <summary>The size of a gloved fist (its radius), for keeping hands off things and apart.</summary>
+        public float FistRadius => 0.045f * _s;
+
         // ---- animation -------------------------------------------------------------------------
 
         Renderer _probe;

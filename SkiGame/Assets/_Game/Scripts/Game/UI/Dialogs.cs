@@ -174,6 +174,46 @@ namespace Ski.Game
             gs.AddToClassList("slider");
             gs.RegisterValueChangedCallback(e => { SaveData.MaxGhosts = e.newValue; Show(); });
             grow.Add(gs);
+            // The account: the same progress on any device.
+            Ui.Text(card, "SAVE ONLINE", "keys-heading");
+            AccountRows(card);
+        }
+
+        static string CloudStatus() => CloudSync.Status == CloudSync.State.Saved ? "Saved online"
+            : CloudSync.Status == CloudSync.State.Syncing ? "Saving..." : CloudSync.Status == CloudSync.State.Failed ? "Saved here only" : "Saved here";
+
+        static void AccountRows(VisualElement card)
+        {
+            var box = Ui.Div(card, "account");
+            void Build()
+            {
+                box.Clear();
+                if (CloudSync.Username != null)
+                {
+                    var r = Ui.Div(box, "dialog-row");
+                    Ui.Text(r, "Signed in: " + CloudSync.Username, "dialog-label");
+                    Ui.Btn(r, "SIGN OUT", async () => { await CloudSync.SignOut(); Build(); }, "btn-plain btn-small");
+                    Ui.Text(box, CloudStatus(), "small");
+                    return;
+                }
+                var user = new TextField { maxLength = 20 };
+                user.AddToClassList("name-field");
+                var pass = new TextField { maxLength = 30, isPasswordField = true };
+                pass.AddToClassList("name-field");
+                var r1 = Ui.Div(box, "dialog-row"); Ui.Text(r1, "Username", "dialog-label"); r1.Add(user);
+                var r2 = Ui.Div(box, "dialog-row"); Ui.Text(r2, "Password", "dialog-label"); r2.Add(pass);
+                var r3 = Ui.Div(box, "row");
+                var msg = Ui.Text(box, CloudStatus() + ". Same progress anywhere: make an account.", "small");
+                async void Go(bool create)
+                {
+                    msg.text = "...";
+                    string err = await CloudSync.Account(user.value.Trim(), pass.value, create);
+                    if (err == null) Build(); else msg.text = err;
+                }
+                Ui.Btn(r3, "CREATE", () => Go(true), "btn-plain btn-small");
+                Ui.Btn(r3, "SIGN IN", () => Go(false), "btn-plain btn-small");
+            }
+            Build();
         }
 
         public static void Settings(Action onClose = null)

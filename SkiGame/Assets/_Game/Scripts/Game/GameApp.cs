@@ -205,13 +205,18 @@ namespace Ski.Game
                 _queue.pickingMode = UnityEngine.UIElements.PickingMode.Ignore;
             }
             _queue.style.display = show ? UnityEngine.UIElements.DisplayStyle.Flex : UnityEngine.UIElements.DisplayStyle.None;
-            if (show) _queue.text = "WORLD FULL  ·  QUEUE #" + LiveRooms.QueuePosition;
+            if (show)
+            {
+                int n = LiveRooms.QueuePosition, of = Mathf.Max(n, LiveRooms.QueueLength);
+                _queue.text = "WORLD FULL  ·  YOU ARE #" + n + " IN LINE" + (of > 1 ? "  (OF " + of + ")" : "") + "  ·  PLAYING ALONE MEANWHILE";
+            }
         }
 
         void Update()
         {
             var kb = Keyboard.current; var mouse = Mouse.current;
             LiveRooms.Tick();
+            CloudSync.Tick();
             ShowQueue();
             // The walkman: M for the next song, N on and off (not while typing in a dialog).
             if (kb != null && SaveData.HasWalkman && !Dialogs.Open && Screen != GameScreen.Tavern)

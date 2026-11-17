@@ -341,8 +341,11 @@ namespace Ski.Game
             float zf = c.FinishZ;
             float wf = Mathf.Min(c.HalfWidth(zf) * 2f - 2f, 40f);
             b.Push(new Vector3(c.CenterX(zf), c.Height(c.CenterX(zf), zf), zf));
-            Props.Arch(b, wf, Palette.SignalRed, 5f);
+            Props.Arch(b, wf, slope, 5f);
             b.Pop();
+            // Each run's finish carries its name (the others' arches stand at their own bottoms, see MountainBuilder).
+            VillageBuilder.Sign(parent, Courses.Names[(int)c.Id].ToUpperInvariant() + "  ·  FINISH", new Vector3(c.CenterX(zf), c.Height(c.CenterX(zf), zf) + 4.55f, zf - 0.09f),
+                Quaternion.identity, 0.5f, c.Id == SlopeId.Black || c.Id == SlopeId.Blue ? Palette.White : Palette.Ink);
 
             // Piste markers down both edges (off-piste has none: you are on your own).
             if (!(c is OffPisteCourse))

@@ -228,6 +228,18 @@ namespace Ski.Game
                             Props.PisteMarker(b, s < 0 ? colour : Palette.SafetyOrange);
                             b.Pop();
                         }
+                // Its own finish line, where it comes out of the forest above the plaza.
+                {
+                    float zf = c.FinishZ - 34f;
+                    float xf = OtherRunX(c, j, zf), wf = Mathf.Min(OtherRunHalfWidth(c, j, zf) * 2f + 2f, 30f);
+                    float yaw = Mathf.Atan2(OtherRunX(c, j, zf + 3f) - OtherRunX(c, j, zf - 3f), 6f) * Mathf.Rad2Deg;
+                    Vector3 at0 = new Vector3(xf, GroundAt(c, xf, zf), zf);
+                    b.Push(at0, Quaternion.Euler(0f, yaw, 0f));
+                    Props.Arch(b, wf, colour, 4.6f);
+                    b.Pop();
+                    VillageBuilder.Sign(parent, Courses.Names[j].ToUpperInvariant(), at0 + Quaternion.Euler(0f, yaw, 0f) * new Vector3(0f, 4.15f, 0.09f),
+                        Quaternion.Euler(0f, yaw + 180f, 0f), 0.42f, j == (int)SlopeId.Black || j == (int)SlopeId.Blue ? Palette.White : Palette.Ink);
+                }
                 // Where it comes into the plaza: a post with its name, facing the village.
                 float zs = c.FinishZ + 6f, xs = OtherRunX(c, j, zs) + ((int)c.Id - j > 0 ? 1f : -1f) * (OtherRunHalfWidth(c, j, zs) + 1.5f);
                 Vector3 at = new Vector3(xs, c.SnowHeight(xs, Mathf.Min(zs, c.MaxZ)), zs);

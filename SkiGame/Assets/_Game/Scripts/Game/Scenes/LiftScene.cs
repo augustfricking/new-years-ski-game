@@ -83,33 +83,61 @@ namespace Ski.Game
             new Vector3(0f, -2.55f, 0.42f), new Vector3(0f, -3.65f, 0.62f),
         };
 
+        /// <summary>What each friend's hands are doing: 0 as their pose has them (kept off the bar and
+        /// apart), 1 holding the bar, 2 cupped at the mouth against the cold.</summary>
+        readonly int[] _hands = new int[4];
+
         /// <summary>
-        /// Arms never pass through the bar: an arm whose sleeve would cut through it is raised a
-        /// little each frame until it clears it, and lowered back once it is clear. Hands may hold it.
+        /// Hands never go through the bar or through each other. A hand meant to hold the bar is put
+        /// on top of it; one that would cut through it comes to rest on it instead; two hands that
+        /// meet stay a fist apart. Done by bending the arm to the spot (Person.Reach), every frame,
+        /// so it works whatever the body's size.
         /// </summary>
-        void KeepArmsOffTheBar(float dt)
+        void PlaceHands()
         {
-            if (Friends == null) return;
+            if (Friends == null || _chair == null) return;
             for (int i = 0; i < Friends.Length; i++)
             {
                 var f = Friends[i];
                 if (f == null || f.ShoulderL == null) continue;
-                for (int side = 0; side < 2; side++)
+                f.ArmLiftL = f.ArmLiftR = 0f;
+                var p = f.Target;
+                float fist = f.FistRadius;
+                for (int side = -1; side <= 1; side += 2)
                 {
-                    Transform sh = side == 0 ? f.ShoulderL : f.ShoulderR, el = side == 0 ? f.ElbowL : f.ElbowR, hand = side == 0 ? f.HandL : f.HandR;
-                    Vector3 s0 = _chair.InverseTransformPoint(sh.position), e0 = _chair.InverseTransformPoint(el.position), h0 = _chair.InverseTransformPoint(hand.position);
-                    Vector3 wrist = Vector3.Lerp(e0, h0, 0.72f);   // the hand itself may rest on the bar
-                    float d = float.MaxValue;
-                    for (int k = 0; k < BarParts.Length; k += 2)
+                    Vector3 hand = f.HandFor(side, p);
+                    Transform sh = side < 0 ? f.ShoulderL : f.ShoulderR, el = side < 0 ? f.ElbowL : f.ElbowR;
+                    int mode = _hands[i];
+                    if (mode == 0)
                     {
-                        d = Mathf.Min(d, SegmentDistance(s0, e0, BarParts[k], BarParts[k + 1]));
-                        d = Mathf.Min(d, SegmentDistance(e0, wrist, BarParts[k], BarParts[k + 1]));
+                        // Would the hand or forearm go through the bar? Then it rests on it.
+                        Vector3 h = _chair.InverseTransformPoint(hand), e = _chair.InverseTransformPoint(el.position);
+                        float d = float.MaxValue;
+                        for (int k = 0; k < BarParts.Length; k += 2) d = Mathf.Min(d, SegmentDistance(e, h, BarParts[k], BarParts[k + 1]));
+                        if (d < fist + 0.035f) mode = 1;
                     }
-                    float lift = side == 0 ? f.ArmLiftL : f.ArmLiftR;
-                    lift = d < 0.085f ? Mathf.Min(lift + 160f * dt, 75f) : Mathf.Max(lift - (d > 0.14f ? 45f : 0f) * dt, 0f);
-                    if (side == 0) f.ArmLiftL = lift; else f.ArmLiftR = lift;
+                    if (mode == 1) f.Reach(ref p, side, BarGrip(sh, fist));
+                    else if (mode == 2) f.Reach(ref p, side, f.Head.position + f.transform.forward * (0.15f * f.Scale) + Vector3.down * (0.03f * f.Scale) + f.transform.right * side * fist * 1.05f);
                 }
+                // Two hands never in the same place.
+                Vector3 hl = f.HandFor(-1, p), hr = f.HandFor(1, p);
+                if ((hl - hr).magnitude < fist * 2f)
+                {
+                    Vector3 mid = (hl + hr) * 0.5f, across = f.transform.right;
+                    f.Reach(ref p, -1, mid - across * fist * 1.05f);
+                    f.Reach(ref p, 1, mid + across * fist * 1.05f);
+                }
+                f.Target = p;
             }
+        }
+
+        /// <summary>A hand's place on top of the safety bar, in front of its shoulder.</summary>
+        Vector3 BarGrip(Transform shoulder, float fist)
+        {
+            Vector3 s = _chair.InverseTransformPoint(shoulder.position);
+            Vector3 a = BarParts[0], b = BarParts[1];
+            float x = Mathf.Clamp(s.x, Mathf.Min(a.x, b.x) + 0.08f, Mathf.Max(a.x, b.x) - 0.08f);
+            return _chair.TransformPoint(new Vector3(x, a.y + fist * 0.8f, a.z - 0.01f));
         }
 
         /// <summary>Shortest distance between two line segments.</summary>
@@ -493,7 +521,8 @@ namespace Ski.Game
                 // Everyone else looks at whoever is talking.
                 f.LookOffset = i == who ? Vector2.zero : new Vector2(Mathf.Clamp((SeatX(who) - SeatX(i)) * 40f, -36f, 36f), 0f);   // glance at the speaker, face still to the camera
                 Pose p = b.Panic ? (i % 2 == 0 ? Pose.SitPanic : Pose.SitCold) : _basePose[i];
-                if (i == who && b.Gesture.HasValue) p = b.Gesture.Value;
+                _hands[i] = b.Panic ? (i % 2 == 0 ? 1 : 2) : 0;
+                if (i == who && b.Gesture.HasValue) { p = b.Gesture.Value; _hands[i] = 0; }
                 f.Target = p;
                 _gestureTimer[i] = 3f + i;
                 _gesture[i] = 0;
@@ -557,7 +586,7 @@ namespace Ski.Game
             var look = WorldLook.Instance;
             float storm = look != null ? look.Storm : 0f;
 
-            KeepArmsOffTheBar(dt);
+            PlaceHands();
             // The mountain goes by.
             _travel += LiftSpeed * dt;
             float off = _travel % Period;

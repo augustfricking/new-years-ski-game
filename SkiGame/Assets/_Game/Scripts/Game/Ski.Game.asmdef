@@ -1,6 +1,6 @@
 {
     "name": "Ski.Game",
     "rootNamespace": "Ski.Game",
-    "references": ["Ski.Core", "Unity.InputSystem", "Unity.RenderPipelines.Universal.Runtime", "Unity.RenderPipelines.Core.Runtime", "Unity.Services.Core", "Unity.Services.Authentication", "Unity.Services.Leaderboards", "Unity.Services.Multiplayer"],
+    "references": ["Ski.Core", "Unity.InputSystem", "Unity.RenderPipelines.Universal.Runtime", "Unity.RenderPipelines.Core.Runtime", "Unity.Services.Core", "Unity.Services.Authentication", "Unity.Services.Leaderboards", "Unity.Services.Multiplayer", "Unity.Services.CloudSave"],
     "autoReferenced": true
 }

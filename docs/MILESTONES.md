@@ -229,6 +229,18 @@ Ghosts and boards
 - [x] When the world is full: a line, first come first served (WORLD FULL · QUEUE #n), playing
       alone meanwhile; tested with a stand-in filling a one-place test world
 
+## M14 Cloud saves (round 6)
+- [x] The save (progress, unlocks, outfits, best runs, local boards, settings) is kept in Unity
+      Cloud Save too (free tier), newest wins, uploads at most every 30 s
+- [x] Accounts (username and password, free) in Settings > Online so progress follows you to any
+      device. Needs "Username & Password" switched on in the Unity Dashboard (Authentication >
+      Identity providers); until then the game says so and keeps saving to the device's profile
+- [x] Queue: "YOU ARE #n IN LINE (OF m)", updated every two seconds
+- [x] Every run has its own finish arch at the bottom in its colour with its name, the others'
+      arches stand where they come into the village
+- [x] Cutscene hands: a hand that would go through the bar holds it, hands never meet inside each
+      other, the cold beat cups hands at the mouth (arms bent to the spot by `Person.Reach`)
+
 ## Known gaps and ideas
 - Voice chat needs a free public signalling server (PeerJS) and peer-to-peer connections,
   which some strict networks block. It was not tested with two real microphones.

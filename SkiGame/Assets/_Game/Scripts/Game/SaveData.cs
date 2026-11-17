@@ -7,7 +7,7 @@ namespace Ski.Game
     public sealed class PrefsStore : IKeyValueStore
     {
         public string Get(string key) => PlayerPrefs.HasKey(key) ? PlayerPrefs.GetString(key) : null;
-        public void Set(string key, string value) { PlayerPrefs.SetString(key, value); PlayerPrefs.Save(); }
+        public void Set(string key, string value) { PlayerPrefs.SetString(key, value); CloudSync.MarkDirty(); PlayerPrefs.Save(); }
     }
 
     /// <summary>Player settings and progress that survive between sessions.</summary>
@@ -40,7 +40,7 @@ namespace Ski.Game
 
         /// <summary>The recording of this device's best run on a slope, or null.</summary>
         public static string Ghost(SlopeId slope) => PlayerPrefs.GetString("ghost_" + (int)slope, null);
-        public static void SetGhost(SlopeId slope, string encoded) { PlayerPrefs.SetString("ghost_" + (int)slope, encoded); PlayerPrefs.Save(); }
+        public static void SetGhost(SlopeId slope, string encoded) { PlayerPrefs.SetString("ghost_" + (int)slope, encoded); CloudSync.MarkDirty(); PlayerPrefs.Save(); }
 
         /// <summary>How a board row of this device is labelled.</summary>
         public static string BoardName(BoardEntry e) => !e.IsPlayer ? e.Name : PlayerName.Length > 0 ? PlayerName + " (" + e.Name + ")" : e.Name + " (you)";
@@ -72,6 +72,7 @@ namespace Ski.Game
             var before = JsonUtility.FromJson<Progress>(JsonUtility.ToJson(p));
             change(p);
             PlayerPrefs.SetString("progress_" + (int)who, JsonUtility.ToJson(p));
+            CloudSync.MarkDirty();
             PlayerPrefs.Save();
             foreach (var u in Unlocks.NewlyEarned(who, before, p)) Unlocked?.Invoke(u);
         }
@@ -92,6 +93,7 @@ namespace Ski.Game
         {
             _outfits[(int)who] = o.Copy();
             PlayerPrefs.SetString("outfit_" + (int)who, JsonUtility.ToJson(o));
+            CloudSync.MarkDirty();
             PlayerPrefs.Save();
         }
 
@@ -147,8 +149,18 @@ namespace Ski.Game
             PlayerPrefs.SetInt("walkman_repeat", WalkmanRepeat ? 1 : 0);
             PlayerPrefs.SetString("walkman_song", WalkmanSong ?? "");
             PlayerPrefs.SetInt("who", (int)LastCharacter);
+            CloudSync.MarkDirty();
             PlayerPrefs.Save();
             Apply();
+        }
+
+        /// <summary>Everything read again from storage (after a save came down from the cloud).</summary>
+        public static void Reload()
+        {
+            _boards = null; _chug = null;
+            System.Array.Clear(_progress, 0, 4); System.Array.Clear(_outfits, 0, 4);
+            Load();
+            GraphicsQuality.Apply();
         }
 
         public static void Apply()

@@ -121,6 +121,15 @@ namespace Ski.Game
             catch (Exception e) { Debug.Log("[Online] name not updated: " + e.Message); }
         }
 
+        /// <summary>Signed in as someone else (an account, or back to this device): new id, fresh boards.</summary>
+        public static async void SignedInAgain()
+        {
+            PlayerId = AuthenticationService.Instance.PlayerId;
+            Cache.Clear(); Missing.Clear();
+            Debug.Log("[Online] now signed in as " + PlayerId);
+            await PushName();
+        }
+
         /// <summary>Call after the player changes their name.</summary>
         public static async void NameChanged()
         {
