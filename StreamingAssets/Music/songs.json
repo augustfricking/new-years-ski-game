@@ -2,12 +2,12 @@
  "songs": [
   {
    "id": "techno",
-   "title": "Gondola Pulse",
+   "title": "Pass Denied",
    "style": "Techno"
   },
   {
    "id": "edm",
-   "title": "Midnight on the Mountain",
+   "title": "Countdown in My Ski Boots",
    "style": "EDM"
   },
   {
@@ -17,7 +17,7 @@
   },
   {
    "id": "country",
-   "title": "Boots by the Fire",
+   "title": "My Truck's Stuck at the Ski Lodge",
    "style": "Country"
   },
   {
@@ -27,13 +27,18 @@
   },
   {
    "id": "classical",
-   "title": "Waltz of the Falling Snow",
+   "title": "Inverno Furioso",
    "style": "Classical"
   },
   {
    "id": "rock",
    "title": "Black Run",
    "style": "Rock"
+  },
+  {
+   "id": "afterski",
+   "title": "Boots on the Table",
+   "style": "Afterski"
   }
  ]
 }
