@@ -51,6 +51,15 @@ namespace Ski.Game
             Pattern = o.pattern; Headgear = o.headgear; Suit = o.suit;
             if (Suit == 1) { Jacket = GoldA; Trim = GoldB; Pants = GoldA; Gloves = GoldB; Boots = GoldA; if (o.helmet < 0) Helmet = GoldA; }
             if (Suit == 2) { Jacket = BananaA; Trim = BananaB; Pants = BananaA; Gloves = BananaB; if (o.helmet < 0) Helmet = BananaA; }
+            Color H(string hex) => Palette.Hex(hex);
+            switch (Suit)
+            {
+                case 3: Jacket = H("#A9632F"); Pants = H("#A9632F"); Trim = H("#F7F4EE"); Gloves = H("#F7F4EE"); if (Pattern == 0) Pattern = 3; break;          // gingerbread, icing buttons
+                case 4: Jacket = Pants = H("#F7F4EE"); Trim = H("#6C58C9"); if (Pattern == 0) Pattern = Unlocks.PatternRainbow; break;                          // rainbow
+                case 5: Jacket = H("#D9342B"); Pants = H("#D9342B"); Trim = H("#F7F4EE"); Gloves = H("#22202E"); if (Pattern == 0) Pattern = 9; if (o.helmet < 0) Helmet = H("#F7F4EE"); break; // race suit
+                case 6: Jacket = H("#1A1726"); Pants = H("#1A1726"); Trim = H("#E8B93A"); Gloves = H("#E8B93A"); Boots = H("#1A1726"); if (o.helmet < 0) Helmet = H("#1A1726"); break; // midnight
+                case 7: Jacket = Pants = H("#EEF0F5"); Trim = H("#B9C2D6"); Gloves = H("#B9C2D6"); if (Pattern == 0) Pattern = Unlocks.PatternFur; if (o.helmet < 0) Helmet = H("#EEF0F5"); break; // yeti
+            }
             switch (Headgear)
             {
                 case 1: HasHelmet = false; Beanie = true; break;                                   // beanie
@@ -59,6 +68,9 @@ namespace Ski.Game
                 case 4: if (o.helmet < 0) Helmet = Palette.Hex("#D9342B"); break;                 // boxer
                 case 5: HasHelmet = false; Beanie = false; break;                                  // crown on the hair
                 case 6: if (o.helmet < 0) Helmet = Palette.Hex("#F7F4EE"); break;                 // unicorn
+                case 7: HasHelmet = false; Beanie = true; break;                                   // bunny ears on a beanie
+                case 8: HasHelmet = false; Beanie = false; HasGoggles = false; break;              // snapback on the hair
+                case 9: HasGoggles = false; break;                                                 // aero helmet with its own visor
             }
             if (Suit == 2 && Headgear == 0) { HasHelmet = false; Beanie = true; }                  // the banana keeps its hat
         }
@@ -1024,6 +1036,71 @@ namespace Ski.Game
                     }
                     break;
                 }
+            }
+            switch (look.Headgear)
+            {
+                case 7: // bunny ears, standing up from the beanie, pink inside
+                    for (int side = -1; side <= 1; side += 2)
+                    {
+                        var rot = Quaternion.Euler(0f, 0f, side * -12f);
+                        Vector3 root = V(side * 0.35f, 2.0f, -0.1f);
+                        b.Col = look.Helmet;
+                        b.Push(root, rot);
+                        b.Sphere(new Vector3(0f, 0.55f, 0f) * hr, new Vector3(0.2f, 0.62f, 0.09f) * hr, 10, 6);
+                        b.Col = Palette.Hex("#F7A8C8");
+                        b.Sphere(new Vector3(0f, 0.55f, 0.06f) * hr, new Vector3(0.12f, 0.48f, 0.05f) * hr, 8, 5);
+                        b.Pop();
+                    }
+                    break;
+                case 8: // snapback cap: a flat, stiff brim sticking out over the face
+                    b.Col = look.Helmet;
+                    b.Sphere(V(0f, 1.5f, -0.06f), V(0.88f, 0.52f, 0.97f), 14, 6);
+                    b.Col = Color.Lerp(look.Helmet, Palette.Ink, 0.35f);
+                    b.Push(V(0f, 1.36f, 1.12f), Quaternion.Euler(-6f, 0f, 0f));
+                    b.Box(Vector3.zero, V(1.15f, 0.07f, 0.75f));                                         // the brim
+                    b.Pop();
+                    b.Col = Palette.White;
+                    b.Box(V(0f, 1.68f, 0.86f), V(0.46f, 0.22f, 0.05f));                                  // a patch on the front
+                    b.Col = Palette.Ink;
+                    b.Sphere(V(0f, 2.01f, -0.06f), 0.07f * hr, 6, 4);                                    // the button on top
+                    break;
+                case 9: // aero racing helmet: a long tail and a tinted visor over the eyes
+                    b.Col = look.Helmet;
+                    b.Tube(V(0f, 1.45f, -0.7f), V(0f, 1.2f, -1.6f), 0.5f * hr, 0.08f * hr, 10, true);
+                    b.Col = Color.Lerp(look.Goggles, Palette.Ink, 0.3f);
+                    for (int i = 0; i < 10; i++)
+                    {
+                        float a0 = Mathf.Lerp(-70f, 70f, i / 10f) * Mathf.Deg2Rad, a1 = Mathf.Lerp(-70f, 70f, (i + 1) / 10f) * Mathf.Deg2Rad;
+                        Vector3 p0 = V(Mathf.Sin(a0) * 1.08f, 0f, Mathf.Cos(a0) * 1.12f), p1 = V(Mathf.Sin(a1) * 1.08f, 0f, Mathf.Cos(a1) * 1.12f);
+                        Vector3 lo = V(0f, 0.62f, 0f), hi = V(0f, 1.32f, 0f);
+                        b.DoubleQuad(p0 + lo, p0 + hi, p1 + hi, p1 + lo);
+                    }
+                    break;
+                case 10: // devil horns, small, red, curling forward
+                    b.Col = Palette.Hex("#C8242E");
+                    for (int side = -1; side <= 1; side += 2)
+                    {
+                        Vector3 prev = V(side * 0.45f, 1.9f, 0.35f);
+                        for (int i = 1; i <= 5; i++)
+                        {
+                            float t = i / 5f;
+                            Vector3 p = V(side * (0.45f + 0.18f * t), 1.9f + 0.45f * t, 0.35f + 0.2f * t * t);
+                            b.Tube(prev, p, Mathf.Lerp(0.16f, 0.02f, (i - 1) / 5f) * hr, Mathf.Lerp(0.16f, 0.02f, t) * hr, 8, i == 5);
+                            prev = p;
+                        }
+                    }
+                    break;
+                case 11: // antlers: branching, wide
+                    b.Col = Palette.Hex("#8A5A34");
+                    for (int side = -1; side <= 1; side += 2)
+                    {
+                        Vector3 a = V(side * 0.6f, 1.8f, -0.1f), bb = V(side * 1.4f, 2.5f, -0.2f), c = V(side * 2.0f, 3.1f, -0.1f);
+                        b.Tube(a, bb, 0.09f * hr, 0.07f * hr, 6); b.Tube(bb, c, 0.07f * hr, 0.03f * hr, 6, true);
+                        b.Tube(bb, bb + V(side * 0.05f, 0.7f, 0.15f), 0.05f * hr, 0.02f * hr, 6, true);
+                        b.Tube(Vector3.Lerp(a, bb, 0.5f), Vector3.Lerp(a, bb, 0.5f) + V(side * -0.1f, 0.6f, 0.2f), 0.05f * hr, 0.02f * hr, 6, true);
+                        b.Tube(c, c + V(side * 0.35f, 0.4f, 0f), 0.03f * hr, 0.015f * hr, 6, true);
+                    }
+                    break;
             }
             if (look.Suit == 2 && look.Headgear == 0)
             {

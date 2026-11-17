@@ -40,6 +40,40 @@ namespace Ski.Tests
         }
 
         [Test]
+        public void EachSlopeHasThreeItemsThatGetHarder()
+        {
+            for (int slope = 0; slope < 5; slope++)
+            {
+                int n = 0;
+                foreach (var u in Unlocks.All) if (u.Slope == slope) n++;
+                Assert.AreEqual(3, n, "three items on slope " + slope);
+                var g = Unlocks.SlopeGoals[slope];
+                if ((SlopeId)slope == SlopeId.Blue) Assert.IsTrue(g[0] < g[1] && g[1] < g[2], "park: more and more points");
+                else Assert.IsTrue(g[0] > g[1] && g[1] > g[2], "times: faster and faster");
+            }
+        }
+
+        [Test]
+        public void SlopeItemsFollowTheBestRun()
+        {
+            var p = new Progress();
+            Assert.IsFalse(Unlocks.Available(p, ItemKind.Pattern, 7), "nothing yet");
+            p.Offer(SlopeId.Green, 50f, false);
+            Assert.IsTrue(Unlocks.Available(p, ItemKind.Pattern, 7), "a solid run: candy");
+            Assert.IsFalse(Unlocks.Available(p, ItemKind.Headgear, 7));
+            p.Offer(SlopeId.Green, 60f, false);
+            Assert.AreEqual(50f, p.Best(SlopeId.Green), "a slower run keeps the best");
+            p.Offer(SlopeId.Green, 34f, false);
+            Assert.IsTrue(Unlocks.Available(p, ItemKind.Suit, 3), "near perfect: gingerbread");
+            p.Offer(SlopeId.Blue, 3600f, true);
+            Assert.IsTrue(Unlocks.Available(p, ItemKind.Headgear, 8), "3500 in the park: snapback");
+            Assert.IsFalse(Unlocks.Available(p, ItemKind.Suit, 4));
+            // The unicorn is about the other challenges, not the slope times.
+            var q = new Progress { kidsHitOneRun = 12, slopesFinished = 31, bestChug = 7f, bestPark = 3500f, bestBlack = 65f, bestTrick = 1200, knockouts = 30, songsRequested = 5 };
+            Assert.IsTrue(Unlocks.Available(q, ItemKind.Headgear, 6));
+        }
+
+        [Test]
         public void OutfitsTravelAsShortCodesAndLockedItemsFallBack()
         {
             var o = new Outfit { jacket = 4, trim = 0, pants = -1, helmet = 11, pattern = 5, headgear = 3, suit = 1 };

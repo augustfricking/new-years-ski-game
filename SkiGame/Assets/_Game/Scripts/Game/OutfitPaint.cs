@@ -29,7 +29,8 @@ namespace Ski.Game
         {
             if (pattern <= 0) return false;
             if (slot == SkinModel.SlotJacket) return true;
-            return slot == SkinModel.SlotPants && (pattern == 4 || pattern == 5 || pattern == 6);
+            return slot == SkinModel.SlotPants && (pattern == 4 || pattern == 5 || pattern == 6 || pattern == 8 || pattern == 9 || pattern == 10
+                                                    || pattern == Unlocks.PatternFur || pattern == Unlocks.PatternRainbow);
         }
 
         /// <summary>Where a vertex reads the print (the texture repeats across, and up for all but flames).</summary>
@@ -41,7 +42,9 @@ namespace Ski.Game
                 float baseY = slot == SkinModel.SlotJacket ? hipY - 0.1f : 0.04f;
                 return new Vector2(across / 0.32f, Mathf.Clamp01((p.y - baseY) / 0.5f));
             }
-            float period = pattern == 4 || pattern == 5 ? 0.42f : pattern == 1 ? 0.2f : 0.15f;
+            if (pattern == 9) return new Vector2(p.x / 0.5f + 0.5f, p.y / 0.5f);                  // one pair of stripes down the middle
+            if (pattern == Unlocks.PatternRainbow) return new Vector2(across / 0.5f, p.y / 1.1f); // the bands go once from ankle to shoulder
+            float period = pattern == 4 || pattern == 5 || pattern == 8 ? 0.42f : pattern == 1 ? 0.2f : pattern == 11 ? 0.24f : 0.15f;
             return new Vector2(across / period, p.y / period);
         }
 
@@ -64,6 +67,7 @@ namespace Ski.Game
             var t = new Texture2D(N, N, TextureFormat.RGBA32, true) { name = "Print" + pattern, filterMode = FilterMode.Bilinear, anisoLevel = 2 };
             t.wrapModeU = TextureWrapMode.Repeat;
             t.wrapModeV = pattern == 6 ? TextureWrapMode.Clamp : TextureWrapMode.Repeat;
+            if (pattern == 9) t.wrapModeU = TextureWrapMode.Clamp;
             var px = new Color32[N * N];
             for (int y = 0; y < N; y++)
                 for (int x = 0; x < N; x++)
@@ -100,6 +104,48 @@ namespace Ski.Game
                     float w = Mathf.Sin(Tau * (3f * v + 0.25f * Mathf.Sin(Tau * 2f * u) + 0.08f * Mathf.Sin(Tau * 5f * u)));
                     float taper = 0.55f + 0.35f * Mathf.Sin(Tau * u);
                     return w > taper ? Color.Lerp(Palette.Ink, col, 0.12f) : col;
+                }
+                case 7:                                                                                   // candy: diagonal pink and white
+                    return Mathf.Repeat(u + v, 0.5f) < 0.22f ? Palette.Hex("#F27BA8") : Mathf.Repeat(u + v, 0.5f) < 0.27f ? Palette.White : col;
+                case 8:                                                                                   // graffiti: splashes and drips
+                {
+                    Color[] spray = { Palette.Hex("#FF4FA3"), Palette.Hex("#4FD8FF"), Palette.Hex("#FFC64A"), Palette.Hex("#8FD14F") };
+                    float[,] blobs = { { 0.2f, 0.3f, 0.13f }, { 0.65f, 0.7f, 0.16f }, { 0.75f, 0.2f, 0.1f }, { 0.35f, 0.82f, 0.09f } };
+                    for (int i = 0; i < 4; i++)
+                    {
+                        float dx = Mathf.Abs(u - blobs[i, 0]); dx = Mathf.Min(dx, 1f - dx);
+                        float dy = Mathf.Abs(v - blobs[i, 1]); dy = Mathf.Min(dy, 1f - dy);
+                        float r = blobs[i, 2] * (0.85f + 0.15f * Mathf.Sin(Mathf.Atan2(dy, dx) * 7f + i));
+                        if (dx * dx + dy * dy < r * r) return spray[i];
+                        if (dx < 0.015f && v < blobs[i, 1] && blobs[i, 1] - v < r + 0.12f) return spray[i];   // a drip running down
+                    }
+                    return col;
+                }
+                case 9:                                                                                   // race stripes, down the front and back
+                    return Mathf.Abs(u - 0.43f) < 0.035f || Mathf.Abs(u - 0.57f) < 0.035f ? second : col;
+                case 10:                                                                                  // skulls
+                {
+                    float x = Mathf.Repeat(u, 1f) - 0.5f, y = Mathf.Repeat(v, 1f) - 0.55f;
+                    bool head = x * x + y * y < 0.05f, jaw = Mathf.Abs(x) < 0.11f && y < -0.12f && y > -0.26f;
+                    bool eye = (x + 0.09f) * (x + 0.09f) + (y + 0.02f) * (y + 0.02f) < 0.0035f || (x - 0.09f) * (x - 0.09f) + (y + 0.02f) * (y + 0.02f) < 0.0035f;
+                    return eye ? Color.Lerp(Palette.Ink, col, 0.2f) : head || jaw ? Palette.Hex("#EEE8DA") : col;
+                }
+                case 11:                                                                                  // pines, with snow on the tips
+                {
+                    float x = Mathf.Abs(Mathf.Repeat(u + (Mathf.Floor(v) % 2f) * 0.5f, 1f) - 0.5f), y = Mathf.Repeat(v, 1f);
+                    if (y > 0.12f && y < 0.85f && x < (0.85f - y) * 0.5f) return y > 0.72f ? Palette.White : Palette.Hex("#2F6E4E");
+                    if (y <= 0.12f && x < 0.05f) return Palette.Hex("#6B4A2E");
+                    return col;
+                }
+                case Unlocks.PatternFur:                                                                  // shaggy fur: short strokes, light and dark
+                {
+                    float n = Mathf.Sin(Tau * (u * 7f + Mathf.Sin(Tau * v * 3f) * 0.3f)) * Mathf.Sin(Tau * (v * 11f + u * 2f));
+                    return n > 0.55f ? Color.Lerp(col, Palette.Ink, 0.18f) : n < -0.6f ? Color.Lerp(col, Color.white, 0.5f) : col;
+                }
+                case Unlocks.PatternRainbow:                                                              // rainbow bands, ankle to shoulder
+                {
+                    Color[] bands = { Palette.Hex("#6C58C9"), Palette.Hex("#3A78E0"), Palette.Hex("#2F9E6E"), Palette.Hex("#FFC64A"), Palette.Hex("#F2803A"), Palette.Hex("#E8455A") };
+                    return bands[Mathf.Clamp((int)(Mathf.Repeat(v, 1f) * bands.Length), 0, bands.Length - 1)];
                 }
                 case 6:                                                                                   // flames from the bottom
                 {

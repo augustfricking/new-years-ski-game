@@ -26,6 +26,11 @@ namespace Ski.Game
         public bool Done => _clock > _track.Duration + TailOut;
         /// <summary>Where the replayed skier is now.</summary>
         public Vector3 Position { get; private set; }
+        float _crash;
+
+        /// <summary>The replayed skier ran into someone: down they go, tumbling, for a moment.</summary>
+        public void Crash() { _crash = 1.4f; }
+        public bool Crashed => _crash > 0f;
 
         public RunReplay(Transform parent, Course course, SlopeId slope, GhostTrack track, string name, CharacterId who)
         {
@@ -50,7 +55,8 @@ namespace Ski.Game
             if (_clock < 0f) speed = 0f;
             Vector3 p = new Vector3(flat.x, _c.Height(flat.x, flat.z) + air, flat.z);
             Position = p;
-            _view.Show(p, heading, speed, air, speed > 22f ? 1f : 0f, 0f, cam, dt);
+            _crash = Mathf.Max(0f, _crash - dt);
+            _view.Show(p, heading, speed, air, speed > 22f ? 1f : 0f, 0f, cam, dt, _crash > 0f);
             if (_clockLabel != null) _clockLabel.text = Hud.FormatTime(Mathf.Min(t, _track.Duration));
 
             // Behind and above, following the line rather than every wiggle.

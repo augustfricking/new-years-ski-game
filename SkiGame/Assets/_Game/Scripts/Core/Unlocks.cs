@@ -41,6 +41,17 @@ namespace Ski.Core
         public int bestTrick;        // points for one trick
         public int knockouts;        // people knocked down in the tavern, all visits
         public int songsRequested;   // songs asked of the DJ
+        public float[] best;         // per SlopeId: best time (s), or best score on the park; 0 = none
+
+        public float Best(SlopeId s) => best != null && best.Length > (int)s ? best[(int)s] : 0f;
+
+        /// <summary>Keeps a run's result if it beats the best on that slope (lower time, higher score).</summary>
+        public void Offer(SlopeId s, float value, bool higherIsBetter)
+        {
+            if (best == null || best.Length < 5) { var b = new float[5]; if (best != null) System.Array.Copy(best, b, best.Length); best = b; }
+            float have = best[(int)s];
+            if (have <= 0f || (higherIsBetter ? value > have : value < have)) best[(int)s] = value;
+        }
 
         public bool Finished(SlopeId s) => (slopesFinished & (1 << (int)s)) != 0;
         public int FinishedCount { get { int n = 0; for (int i = 0; i < 5; i++) if ((slopesFinished & (1 << i)) != 0) n++; return n; } }
@@ -53,6 +64,8 @@ namespace Ski.Core
         public ItemKind Kind;
         public int Value;
         public Func<Progress, bool> Earned;
+        /// <summary>For a slope's items: which slope (-1 for the others) and how hard (0..2).</summary>
+        public int Slope = -1, Tier = -1;
     }
 
     /// <summary>
@@ -61,9 +74,40 @@ namespace Ski.Core
     /// </summary>
     public static class Unlocks
     {
-        public static readonly string[] Patterns = { "Plain", "Stripes", "Checks", "Dots", "Camo", "Tiger", "Flames" };
-        public static readonly string[] Headgear = { "Helmet", "Beanie", "Viking", "Goalie mask", "Boxer", "Crown", "Unicorn" };
-        public static readonly string[] Suits = { "Own", "Gold", "Banana" };
+        public static readonly string[] Patterns = { "Plain", "Stripes", "Checks", "Dots", "Camo", "Tiger", "Flames", "Candy", "Graffiti", "Race stripes", "Skulls", "Pines" };
+        public static readonly string[] Headgear = { "Helmet", "Beanie", "Viking", "Goalie mask", "Boxer", "Crown", "Unicorn", "Bunny ears", "Snapback", "Aero helmet", "Devil horns", "Antlers" };
+        public static readonly string[] Suits = { "Own", "Gold", "Banana", "Gingerbread", "Rainbow", "Race suit", "Midnight", "Yeti" };
+        /// <summary>Prints that only come with a suit (the yeti's fur, the rainbow), after the ones in the list.</summary>
+        public const int PatternFur = 12, PatternRainbow = 13;
+
+        /// <summary>
+        /// The three results that earn a slope's items: a solid run, a good one, and one close to
+        /// perfect. Set from what people actually ski (the best humans run about 0.62 x the bot's
+        /// time), so the last one takes many runs. Times in seconds; the park in points.
+        /// </summary>
+        public static readonly float[][] SlopeGoals =
+        {
+            new[] { 53f, 41f, 34.6f },        // Barnbacken
+            new[] { 2000f, 3500f, 5000f },    // Parken (score)
+            new[] { 93f, 73f, 61f },          // Slalombacken
+            new[] { 64f, 50f, 42f },          // Svarta Väggen
+            new[] { 109f, 85f, 71.4f },       // Ravinen (off-piste)
+        };
+
+        static bool Reached(Progress p, SlopeId s, int tier)
+        {
+            float b = p.Best(s), goal = SlopeGoals[(int)s][tier];
+            return s == SlopeId.Blue ? b >= goal : b > 0f && b <= goal;
+        }
+
+        static string GoalText(SlopeId s, int tier)
+        {
+            float goal = SlopeGoals[(int)s][tier];
+            return s == SlopeId.Blue ? Courses.Names[(int)s] + " " + goal.ToString("0") + " p" : Courses.Names[(int)s] + " under " + goal.ToString("0.#") + " s";
+        }
+
+        static Unlock Slope(string id, string name, ItemKind kind, int value, SlopeId s, int tier) =>
+            new Unlock { Id = id, Name = name, Kind = kind, Value = value, Goal = GoalText(s, tier), Earned = p => Reached(p, s, tier), Slope = (int)s, Tier = tier };
 
         public static readonly Unlock[] All =
         {
@@ -75,12 +119,29 @@ namespace Ski.Core
             new Unlock { Id = "gold", Name = "Gold suit", Kind = ItemKind.Suit, Value = 1, Goal = "Finish all five runs", Earned = p => p.FinishedCount >= 5 },
             new Unlock { Id = "crown", Name = "Crown", Kind = ItemKind.Headgear, Value = 5, Goal = "A 1000-point trick", Earned = p => p.bestTrick >= 1000 },
             new Unlock { Id = "banana", Name = "Banana suit", Kind = ItemKind.Suit, Value = 2, Goal = "5 songs from the DJ", Earned = p => p.songsRequested >= 5 },
-            new Unlock { Id = "unicorn", Name = "Unicorn", Kind = ItemKind.Headgear, Value = 6, Goal = "Everything else", Earned = p => EverythingElse(p) },
+            new Unlock { Id = "unicorn", Name = "Unicorn", Kind = ItemKind.Headgear, Value = 6, Goal = "Every challenge above", Earned = p => EverythingElse(p) },
+            // Each slope: a print for a solid run, headgear for a good one, a whole suit for a near-perfect one.
+            Slope("candy", "Candy", ItemKind.Pattern, 7, SlopeId.Green, 0),
+            Slope("bunny", "Bunny ears", ItemKind.Headgear, 7, SlopeId.Green, 1),
+            Slope("ginger", "Gingerbread", ItemKind.Suit, 3, SlopeId.Green, 2),
+            Slope("graffiti", "Graffiti", ItemKind.Pattern, 8, SlopeId.Blue, 0),
+            Slope("snapback", "Snapback", ItemKind.Headgear, 8, SlopeId.Blue, 1),
+            Slope("rainbow", "Rainbow suit", ItemKind.Suit, 4, SlopeId.Blue, 2),
+            Slope("race", "Race stripes", ItemKind.Pattern, 9, SlopeId.Red, 0),
+            Slope("aero", "Aero helmet", ItemKind.Headgear, 9, SlopeId.Red, 1),
+            Slope("racesuit", "Race suit", ItemKind.Suit, 5, SlopeId.Red, 2),
+            Slope("skulls", "Skulls", ItemKind.Pattern, 10, SlopeId.Black, 0),
+            Slope("devil", "Devil horns", ItemKind.Headgear, 10, SlopeId.Black, 1),
+            Slope("midnight", "Midnight suit", ItemKind.Suit, 6, SlopeId.Black, 2),
+            Slope("pines", "Pines", ItemKind.Pattern, 11, SlopeId.OffPiste, 0),
+            Slope("antlers", "Antlers", ItemKind.Headgear, 11, SlopeId.OffPiste, 1),
+            Slope("yeti", "Yeti suit", ItemKind.Suit, 7, SlopeId.OffPiste, 2),
         };
 
+        /// <summary>The unicorn: every challenge that is not about a slope's time or score.</summary>
         static bool EverythingElse(Progress p)
         {
-            foreach (var u in All) if (u.Id != "unicorn" && !u.Earned(p)) return false;
+            foreach (var u in All) if (u.Id != "unicorn" && u.Slope < 0 && !u.Earned(p)) return false;
             return true;
         }
 

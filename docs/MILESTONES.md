@@ -170,6 +170,14 @@ Ghosts and boards
 - [x] Cutscene: arms rise over the lift's safety bar instead of through it; gentler arm twists
 - [x] Village people waiting about fidget: stamping, waving, stretching, laughing
 
+## M11 Slope items
+- [x] Three shop items per slope, earned by your best result there: a print for a solid run,
+      headgear for a good one, a whole suit for a near-perfect one (candy / bunny ears /
+      gingerbread; graffiti / snapback / rainbow; race stripes / aero helmet / race suit;
+      skulls / devil horns / midnight; pines / antlers / yeti). Targets come from the best
+      human runs on the world boards, not from the bot (`Unlocks.SlopeGoals`).
+- [x] A replayed skier who runs into a kid goes down too, as in a real run
+
 ## Known gaps and ideas
 - Voice chat needs a free public signalling server (PeerJS) and peer-to-peer connections,
   which some strict networks block. It was not tested with two real microphones.

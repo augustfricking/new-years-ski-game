@@ -101,6 +101,7 @@ namespace Ski.Game
                     if (s.Slope == SlopeId.Blue) p.bestPark = Mathf.Max(p.bestPark, s.ResultValue);
                     if (s.Slope == SlopeId.Black && (p.bestBlack <= 0f || s.ResultValue < p.bestBlack)) p.bestBlack = s.ResultValue;
                     p.bestTrick = Mathf.Max(p.bestTrick, s.BestTrickPoints);
+                    if (Courses.Plausible(s.Slope, s.ResultValue)) p.Offer(s.Slope, s.ResultValue, s.ScoreBased);
                 });
             }
             if (!real) { OnlineBoards.Fetch(OnlineBoards.BoardId(Session.Slope), list => { if (Session != null && panel != null) panel.ShowWorld(list); }); return; }
@@ -258,8 +259,14 @@ namespace Ski.Game
                 if (Session.Crowd != null)
                 {
                     Session.Crowd.Step(rdt, rp.z, rp.x);
-                    var kid = Session.Crowd.Hit(rp.x, rp.z, Session.Sim.P.BodyRadius);
-                    if (kid != null && !kid.Fallen) { Session.Crowd.Knock(kid); AudioDirector.Sfx("crash", 0.6f, 1.2f); }
+                    var kid = _replay.Crashed ? null : Session.Crowd.Hit(rp.x, rp.z, Session.Sim.P.BodyRadius);
+                    if (kid != null && !kid.Fallen)
+                    {
+                        // Both go down, as they would in a run.
+                        Session.Crowd.Knock(kid);
+                        _replay.Crash();
+                        AudioDirector.Sfx("crash", 0.8f);
+                    }
                 }
                 _village.Tick(rp.z, rdt);
                 if (Kids != null) { Kids.ViewerZ = rp.z; Kids.Sync(rdt); }

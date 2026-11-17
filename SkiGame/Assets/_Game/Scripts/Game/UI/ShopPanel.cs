@@ -41,7 +41,9 @@ namespace Ski.Game
             scroll.AddToClassList("shop-scroll");
             card.Add(scroll);
             _list = scroll.contentContainer;
+            head.style.flexShrink = 0; _tabs.style.flexShrink = 0;
             var foot = Ui.Div(card, "row");
+            foot.style.flexShrink = 0;
             foot.style.justifyContent = Justify.FlexEnd;
             Ui.Btn(foot, "DONE", Close);
 
