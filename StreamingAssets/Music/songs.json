@@ -1,0 +1,39 @@
+{
+ "songs": [
+  {
+   "id": "techno",
+   "title": "Gondola Pulse",
+   "style": "Techno"
+  },
+  {
+   "id": "edm",
+   "title": "Midnight on the Mountain",
+   "style": "EDM"
+  },
+  {
+   "id": "pop",
+   "title": "Snow Globe Heart",
+   "style": "Pop"
+  },
+  {
+   "id": "country",
+   "title": "Boots by the Fire",
+   "style": "Country"
+  },
+  {
+   "id": "hiphop",
+   "title": "Fresh Powder",
+   "style": "Hip hop"
+  },
+  {
+   "id": "classical",
+   "title": "Waltz of the Falling Snow",
+   "style": "Classical"
+  },
+  {
+   "id": "rock",
+   "title": "Black Run",
+   "style": "Rock"
+  }
+ ]
+}
