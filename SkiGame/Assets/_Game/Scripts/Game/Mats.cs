@@ -252,5 +252,21 @@ namespace Ski.Game
                 return _white;
             }
         }
+
+        static readonly System.Collections.Generic.Dictionary<(Material, Texture2D), Material> _painted = new System.Collections.Generic.Dictionary<(Material, Texture2D), Material>();
+
+        /// <summary>A character material wearing a texture painted from concept art (0.5 grey = the slot colour, so it is doubled).</summary>
+        /// <summary>A painted character texture holds the art over the slot colour divided by this.</summary>
+        public const float PaintedRatio = 4f;
+
+        public static Material Painted(Material baseMat, Texture2D tex)
+        {
+            if (_painted.TryGetValue((baseMat, tex), out var m) && m != null) return m;
+            m = new Material(baseMat) { name = baseMat.name + "_painted" };
+            m.SetTexture("_BaseMap", tex);
+            m.SetColor("_BaseColor", new Color(PaintedRatio, PaintedRatio, PaintedRatio, 1f));   // tools/blender/paint_from_art.py RATIO
+            _painted[(baseMat, tex)] = m;
+            return m;
+        }
     }
 }

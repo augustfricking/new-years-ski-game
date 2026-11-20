@@ -21,8 +21,12 @@ def background(a):
 
 def figure_mask(a):
     bg = background(a)
-    diff = np.abs(a - bg).sum(axis=2)
-    dark = a.mean(axis=2) < 0.45
+    # The background may be any flat colour with a soft gradient: measure against a heavily blurred
+    # copy of the picture where the picture is close to the border colour.
+    near = np.abs(a - bg).sum(axis=2) < 0.25
+    local = np.stack([ndimage.gaussian_filter(np.where(near, a[..., c], bg[c]), 40) for c in range(3)], axis=2)
+    diff = np.abs(a - local).sum(axis=2)
+    dark = (a.mean(axis=2) < 0.45) & (np.abs(a.mean(axis=2) - bg.mean()) > 0.12)
     m = (diff > 0.16) | dark
     m = ndimage.binary_closing(m, iterations=2)
     # Fill only small holes (specks inside the drawing): a big one is real background, such as the

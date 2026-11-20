@@ -837,6 +837,7 @@ namespace Ski.Game
                 r.rootBone = _hips;
                 r.localBounds = new Bounds(new Vector3(0f, 0.1f * s, 0f), new Vector3(2.4f, 2.6f, 2.4f) * s);
                 r.sharedMaterial = look.Hero ? (skin ? Mats.CharacterSkin : Mats.CharacterCloth) : (skin ? Mats.CrowdSkin : Mats.CrowdCloth);
+                if (m.Texture != null && part.Uv != null && !prints) r.sharedMaterial = Mats.Painted(r.sharedMaterial, m.Texture);
                 if (prints)
                 {
                     bool legs = part.Name == "pants";

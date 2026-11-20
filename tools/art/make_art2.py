@@ -71,6 +71,20 @@ KINDS = {
                         "no hat, no helmet, no goggles, no text, no labels"),
 }
 
+# Texture source for the 3D head: straight-on and in profile, evenly lit, so the drawn features can be painted onto the model.
+TEXFACE = (1344, 768, "head model sheet for 3D texturing, two views of the same head side by side, on the left a straight-on front view "
+                      "looking directly at the viewer, perfectly symmetrical, on the right an exact side profile facing right, head and "
+                      "neck only, the whole head with all the hair and both ears, relaxed neutral expression, youthful smooth skin with no "
+                      "wrinkles, no forehead lines, no stubble, even soft frontal lighting with no cast shadows on the face, clean bold "
+                      "black ink outlines around the brows, eyes, nose, lips and jaw, flat colours, no hat, no goggles, " + BG)
+TEXSTYLE = ("graphic novel ink art, bold clean black ink outlines, flat even colours, crisp line work, realistic young adult face, "
+            "not cute, not chibi, not anime, not a child")
+
+# Objects (skis, boards, helmets, prints): the same ink, but nobody in the picture.
+OBJ = ("product design sheet drawn in a gritty noir graphic novel style, bold thick black ink outlines, flat colours with hard "
+       "black shadow shapes, coarse brush hatching, no people, no person, no face, no character, only the object")
+OBJ_SHORT = "product design sheet, noir graphic novel ink style, thick black outlines, flat colours, no people, only the object"
+
 # What each one can unlock (from Scripts/Core/Unlocks.cs), and how it looks.
 ITEMS = {
     "erik": [("race_stripes", "pattern", "bold racing stripes"), ("aero", "headgear", "a sleek aerodynamic time-trial ski racing helmet with a long tail"),
@@ -128,13 +142,25 @@ def jobs_for(people, only, seeds):
             short = "%s, %s" % (SHORT, p["who"].split(",")[0])
             jobs.append(("%s_%s" % (who, kind), w, h, short, full, seeds))
         if not only or only == "gear":
-            full = "%s. design sheet of %s, seen from above and from the side, full length, %s. %s" % (NOIR, p["gear"], BG, NOIR)
-            jobs.append(("%s_gear" % who, 1344, 768, SHORT + ", design sheet, " + p["gear"][:60], full, max(2, seeds - 1)))
-        if not only or only == "items":
+            gear = p["gear"].split(", short ski poles")[0].split(", no poles")[0]
+            full = ("%s. %s lying flat side by side, seen from above, full length from tip to tail, and below them the same seen "
+                    "from the side showing the curve of the tips, %s. %s" % (OBJ, gear, BG, OBJ))
+            jobs.append(("%s_gear" % who, 1344, 768, OBJ_SHORT + ", " + gear[:60], full, max(2, seeds - 1)))
+        if only in ("texface", "objects"):
+            w, h, frame = TEXFACE
+            full = "%s. %s. The person: %s. %s" % (TEXSTYLE, frame, p["who"], TEXSTYLE)
+            jobs.append(("%s_texface" % who, w, h, TEXSTYLE[:80] + ", " + p["who"].split(",")[0], full, 3))
+        if not only or only in ("items", "objects"):
             for iid, kind, desc in ITEMS[who] + FREE:
-                full = "%s. %s %s" % (NOIR, item_prompt(who, kind, desc), NOIR)
-                w, h = (1344, 768)
-                jobs.append(("%s_item_%s" % (who, iid), w, h, SHORT + ", " + desc[:60], full, 1))
+                if only == "objects" and kind == "suit":
+                    continue
+                if kind == "suit":
+                    full = "%s. %s %s" % (NOIR, item_prompt(who, kind, desc), NOIR)
+                    short = SHORT + ", " + desc[:60]
+                else:
+                    full = "%s. %s %s" % (OBJ, item_prompt(who, kind, desc), OBJ)
+                    short = OBJ_SHORT + ", " + desc[:60]
+                jobs.append(("%s_item_%s" % (who, iid), 1344, 768, short, full, 1))
     return jobs
 
 

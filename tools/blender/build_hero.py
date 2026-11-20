@@ -17,6 +17,7 @@ Profiles: erik, jonte, maja, linn (close-up models) and male, female (lighter mo
 Output: <export dir>/<profile>.bytes, read by Assets/_Game/Scripts/Game/SkinModel.cs.
 """
 import math
+import os
 import struct
 import numpy
 import sys
@@ -915,7 +916,8 @@ def game(v):
 def export(parts, keys, path):
     """One file: every part as a skinned sub-mesh, the skeleton and the face landmarks. See SkinModel.cs."""
     out = bytearray()
-    out += b"SKM3"
+    painted = all(ob.data.uv_layers.active is not None for ob in parts) and bool(os.environ.get("ART_DIR"))
+    out += b"SKM4" if painted else b"SKM3"
     out += struct.pack("<f", HEIGHT)
     out += struct.pack("<i", len(BONES))
     for b in BONES:
@@ -945,6 +947,13 @@ def export(parts, keys, path):
         out += struct.pack("<i", n) + struct.pack("<3f", *lo) + struct.pack("<3f", *size)
         for p in pts:
             out += struct.pack("<3H", *(int(round((p[i] - lo[i]) / size[i] * 65535)) for i in range(3)))
+        if painted:
+            uvv = [(0.0, 0.0)] * n
+            uvl = me.uv_layers.active.data
+            for loop in me.loops:
+                uvv[loop.vertex_index] = tuple(uvl[loop.index].uv)
+            for u, v in uvv:
+                out += struct.pack("<2H", int(round(min(max(u, 0), 1) * 65535)), int(round(min(max(v, 0), 1) * 65535)))
         for v in me.vertices:
             out += struct.pack("<2B", int(round(slot.data[v.index].value)), int(min(1.0, crease[v.index] * 4.0) * 255))
         for v in me.vertices:
@@ -980,7 +989,41 @@ parts = build(P["detail"])
 skin = parts[0]
 paint_face(skin)
 keys = face_keys(skin)
-add_strokes(skin, keys)
+ART_DIR = os.environ.get("ART_DIR")
+if not ART_DIR:
+    add_strokes(skin, keys)          # painted from art: the art's own lines take their place
+if ART_DIR:
+    # Painted from concept art (tools/blender/paint_from_art.py): the expressions ride through the
+    # seam split as attributes, the joints follow the fit.
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import paint_from_art
+    # The game's jacket colour for each (Scripts/Game/CharacterStyle.cs): which of the art's two panel colours is the jacket.
+    JACKET_HINT = {"erik": (0.95, 0.5, 0.23), "jonte": (0.09, 0.65, 0.65), "maja": (0.85, 0.26, 0.5), "linn": (0.42, 0.35, 0.79)}
+    for kn, deltas in keys.items():
+        a = skin.data.attributes.new("key_" + kn, 'FLOAT_VECTOR', 'POINT')
+        for i, d in enumerate(deltas):
+            a.data[i].vector = d
+    marks = dict(eyeL=EYE[0], eyeR=EYE[1], nose=NOSE, mouth=Vector((0, MOUTH_Y, MOUTH_Z)), chin=Vector((0, CHIN_Y, CHIN_Z)))
+    tex, _, FIT = paint_from_art.run(parts, J, ART_DIR, HEIGHT, marks, pairs=[(JACKET, TRIM)],
+                                        pair_hint=JACKET_HINT.get(NAME))
+    mp = FIT["map"]
+    EYE = [mp(e) for e in EYE]
+    NOSE = mp(NOSE); EAR = mp(EAR); GRIP = mp(GRIP, "HandL")
+    m_ = mp(Vector((0, MOUTH_Y, MOUTH_Z)))
+    MOUTH_Y, MOUTH_Z = m_.y, m_.z
+    MOUTH_HALF *= FIT["kx"]
+    EYE_R *= (FIT["kx"] + FIT["kz"]) * 0.5
+    HR *= FIT["kz"]
+    RINGS = [(r[0] * FIT["kz"], r[1] * FIT["kx"], r[2] * FIT["ky"], r[3] * FIT["ky"]) for r in RINGS]
+    keys = {}
+    for kn in ("Blink", "MouthOpen", "Smile", "BrowUp", "BrowDown"):
+        a = skin.data.attributes["key_" + kn]
+        keys[kn] = [Vector(a.data[i].vector) for i in range(len(skin.data.vertices))]
+    paint_from_art.save_png(tex, "%s/%s_tex.png" % (OUT, NAME))
+    names = {SKIN: "Skin", LIP: "Lip", BROW: "Brow", JACKET: "Jacket", TRIM: "Trim", PANTS: "Pants", GLOVE: "Gloves"}
+    for k, c in sorted(paint_from_art.REFS.items()):
+        if k in names:
+            print("ARTCOLOUR %s #%02X%02X%02X" % ((names[k],) + tuple(int(round(min(max(float(x), 0), 1) * 255)) for x in c)))
 export(parts, keys, "%s/%s.bytes" % (OUT, NAME))
 
 # ---- previews of the close-up model -----------------------------------------------------------------

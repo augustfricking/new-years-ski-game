@@ -26,6 +26,8 @@ namespace Ski.Game
             public BoneWeight[] Weights;
             public int[] Triangles;
             public Key[] Keys;
+            /// <summary>Texture coordinates (SKM4 only), else null.</summary>
+            public Vector2[] Uv;
         }
 
         public float Height, HeadRadius, EyeRadius, MouthHalf;
@@ -34,6 +36,8 @@ namespace Ski.Game
         /// <summary>The skull at a row of heights: x = height above the head joint, y = half width, z = front, w = back (all relative to the head joint).</summary>
         public Vector4[] Rings;
         public Part[] Parts;
+        /// <summary>The painted texture (light, shade and ink relative to each colour slot; 0.5 is the slot's own colour), or null.</summary>
+        public Texture2D Texture;
 
         static readonly Dictionary<string, SkinModel> Cache = new Dictionary<string, SkinModel>();
 
@@ -51,6 +55,8 @@ namespace Ski.Game
                 try { m = Parse(asset.bytes); }
                 catch (System.Exception e) { Debug.LogWarning("Model " + name + " could not be read: " + e.Message); m = null; }
             }
+            // A model painted from its concept art has its texture beside it.
+            if (m != null) m.Texture = Resources.Load<Texture2D>("Models/" + name + "_tex");
             Cache[name] = m;
             return m;
         }
@@ -61,7 +67,9 @@ namespace Ski.Game
         static SkinModel Parse(byte[] bytes)
         {
             using var r = new BinaryReader(new MemoryStream(bytes));
-            if (System.Text.Encoding.ASCII.GetString(r.ReadBytes(4)) != "SKM3") throw new InvalidDataException("not SKM3");
+            string magic = System.Text.Encoding.ASCII.GetString(r.ReadBytes(4));
+            if (magic != "SKM3" && magic != "SKM4") throw new InvalidDataException("not SKM3/4");
+            bool uvs = magic == "SKM4";             // SKM4: painted from concept art, one UV per vertex and a texture
             var m = new SkinModel { Height = r.ReadSingle() };
             int bones = r.ReadInt32();
             m.Joints = new Vector3[bones];
@@ -81,6 +89,11 @@ namespace Ski.Game
                 part.Vertices = new Vector3[n];
                 for (int i = 0; i < n; i++)
                     part.Vertices[i] = new Vector3(lo.x + r.ReadUInt16() / 65535f * size.x, lo.y + r.ReadUInt16() / 65535f * size.y, lo.z + r.ReadUInt16() / 65535f * size.z);
+                if (uvs)
+                {
+                    part.Uv = new Vector2[n];
+                    for (int i = 0; i < n; i++) part.Uv[i] = new Vector2(r.ReadUInt16() / 65535f, r.ReadUInt16() / 65535f);
+                }
                 part.Slot = new byte[n]; part.Crease = new byte[n];
                 for (int i = 0; i < n; i++) { part.Slot[i] = r.ReadByte(); part.Crease[i] = r.ReadByte(); }
                 part.Weights = new BoneWeight[n];
@@ -148,6 +161,7 @@ namespace Ski.Game
             mesh.SetVertices(v);
             mesh.SetNormals(part.Normals);
             mesh.SetColors(c);
+            if (part.Uv != null && printed == null) mesh.SetUVs(0, part.Uv);
             if (printed == null) mesh.SetTriangles(part.Triangles, 0);
             else
             {
