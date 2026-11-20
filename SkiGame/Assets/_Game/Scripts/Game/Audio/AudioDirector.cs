@@ -86,8 +86,41 @@ namespace Ski.Game
 
         // ---- one-shots ---------------------------------------------------------------------
 
-        public static void Click() { if (I != null) I.Play("click", 0.35f); }
-        public static void Hover() { if (I != null) I.Play("hover", 0.12f); }
+        // The interface's ticks only ever answer the player: a click needs a button or key pressed (or
+        // let go) a moment ago, a hover needs the pointer to have moved since the last one. Without
+        // this, anything that re-sends a hover or click by itself (a panel laid out again under a still
+        // pointer, the browser's pointer lock coming and going, a map run flickering under the cursor)
+        // ticks on and on like a stuck button, until a real click changes what is under the pointer.
+        float _lastInput = -10f;
+        Vector2 _lastHoverAt = new Vector2(-9999f, -9999f);
+
+        public static void Click()
+        {
+            if (I == null) return;
+            I.NoteInput();                                               // this very frame's press counts too
+            if (Time.unscaledTime - I._lastInput > 0.6f) return;
+            I.Play("click", 0.35f);
+        }
+
+        public static void Hover()
+        {
+            if (I == null) return;
+            var mouse = UnityEngine.InputSystem.Mouse.current;
+            if (mouse == null) return;
+            Vector2 at = mouse.position.ReadValue();
+            if ((at - I._lastHoverAt).sqrMagnitude < 9f) return;         // the pointer has not moved: not a real hover
+            I._lastHoverAt = at;
+            I.Play("hover", 0.12f);
+        }
+
+        void NoteInput()
+        {
+            var m = UnityEngine.InputSystem.Mouse.current;
+            var k = UnityEngine.InputSystem.Keyboard.current;
+            bool any = (m != null && (m.leftButton.isPressed || m.leftButton.wasReleasedThisFrame || m.rightButton.wasPressedThisFrame))
+                    || (k != null && k.anyKey.wasPressedThisFrame);
+            if (any) _lastInput = Time.unscaledTime;
+        }
 
         // A sound asked for over and over (a UI event firing every frame) must never turn into a buzz:
         // each sound has a short gap it cannot be repeated within, and a burst is cut off.
@@ -257,6 +290,7 @@ namespace Ski.Game
 
         void Update()
         {
+            NoteInput();
             AudioListener.volume = Master;
             float dt = Time.unscaledDeltaTime;
             _time += dt;

@@ -74,3 +74,5 @@ tools/diag/.test_account
 tools/art/_venv/
 tools/art/_models/
 tools/art/_out/
+tools/art/_out2/
+tools/model/_tmp/
