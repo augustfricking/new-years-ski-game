@@ -25,6 +25,14 @@ STYLE = ("mature noir graphic novel illustration, realistic adult anatomy and pr
          "black brush lines, large spotted black shadow shapes on one side of the face and body, fine cross-hatching in the "
          "half-tones, two-tone cel shading with hard shadow edges, painterly flat colour fills, muted desaturated wintry palette "
          "with a few saturated accents, dramatic side lighting, gritty and grounded, not cute, not anime, not a cartoon")
+# A darker take: closer to a noir crime comic, half the face in solid black shadow.
+NOIR = ("gritty 1980s noir crime graphic novel panel, heavy chiaroscuro, half of the face in solid flat black shadow with a hard "
+        "edge, bold thick black ink outlines, coarse brush hatching, painterly textured colour with visible brush strokes, "
+        "dramatic coloured rim light, muted dusky palette of purples and teals with warm skin, realistic adult anatomy, "
+        "stern grounded expression, not cute, not anime, not a cartoon, not a pin-up")
+NOIR_SHORT = ("gritty noir crime graphic novel, heavy chiaroscuro, solid black shadows, thick ink outlines, painterly colour, "
+              "realistic adult")
+
 # The CLIP encoder reads only 77 tokens: it gets the style and the gist, the T5 encoder gets everything.
 SHORT = ("mature noir graphic novel illustration, hand-inked thick black brush lines, spotted black shadows, cross-hatching, "
          "two-tone cel shading, muted palette, realistic adult proportions")
@@ -37,14 +45,14 @@ PEOPLE = {
              "black gloves, orange ski boots, ski goggles pushed up on his forehead"),
     "jonte": dict(
         who="a big broad-shouldered Scandinavian snowboarder around 28, round fleshy face with full cheeks and a soft double chin, "
-            "small friendly dark eyes under a heavy brow, wide flat upturned nose, big ears, short messy dark-brown hair, stubble, "
+            "small friendly dark eyes under a heavy brow, wide flat upturned nose, big ears, short messy dark-brown hair, light stubble, no beard, "
             "a belly, thick neck, easy-going grin",
         wear="a baggy oversized teal snowboard jacket, very baggy mustard-yellow snowboard pants bunched over the boots, "
              "dark grey gloves, black snowboard boots, a black beanie pushed back"),
     "maja": dict(
-        who="a small petite Scandinavian woman around 26, heart-shaped face, big wide-set bright green eyes, a little upturned button nose, "
+        who="a small sporty Scandinavian woman around 26, short and compact, heart-shaped face, big wide-set bright green eyes, a little upturned button nose, "
             "full round cheeks, full lips, freckles, light brown hair in two thick braids, cheeky smile",
-        wear="a fitted pink one-piece ski suit with a white collar and a dark belt at the waist, white gloves, white ski boots, "
+        wear="a roomy padded pink one-piece ski suit (not tight) with a white collar and a dark belt at the waist, white gloves, white ski boots, "
              "lavender goggles on her forehead"),
     "linn": dict(
         who="a tall slim Scandinavian woman around 29, long oval face, high sharp cheekbones over hollow cheeks, a pointed chin, "
@@ -72,10 +80,24 @@ def load_pipe():
 
 
 def encode(pipe, short, full):
-    """The text encoders run on the CPU (the big one would not fit beside the image model)."""
-    pipe.text_encoder.to("cpu"); pipe.text_encoder_2.to("cpu")
+    """The text encoders run on the GPU a layer at a time (the big one would not fit whole beside the
+    image model; on this CPU bf16 is very slow). Results are kept on disk: each prompt is encoded once."""
+    import hashlib
+    key = hashlib.sha1((short + "|" + full).encode("utf-8")).hexdigest()[:16]
+    path = os.path.join(OUT, "_emb", key + ".pt")
+    if os.path.exists(path):
+        d = torch.load(path, weights_only=True)
+        return d["pe"], d["pooled"]
+    from accelerate import cpu_offload
+    if not getattr(pipe, "_offloaded", False):
+        cpu_offload(pipe.text_encoder_2, execution_device=torch.device("cuda"))
+        pipe.text_encoder.to("cuda")
+        pipe._offloaded = True
     with torch.no_grad():
-        pe, pooled, _ = pipe.encode_prompt(prompt=short, prompt_2=full, device="cpu", max_sequence_length=512)
+        pe, pooled, _ = pipe.encode_prompt(prompt=short, prompt_2=full, device="cuda", max_sequence_length=512)
+    pe, pooled = pe.cpu(), pooled.cpu()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    torch.save({"pe": pe, "pooled": pooled}, path)
     return pe, pooled
 
 
@@ -84,6 +106,8 @@ def main():
     seeds = int(args[args.index("--seeds") + 1]) if "--seeds" in args else 4
     kinds = [args[args.index("--kind") + 1]] if "--kind" in args else list(KINDS)
     people = [a for a in args if a in PEOPLE] or list(PEOPLE)
+    noir = "--noir" in args
+    style, short_style, tag = (NOIR, NOIR_SHORT, "noir") if noir else (STYLE, SHORT, "")
     os.makedirs(OUT, exist_ok=True)
     pipe = load_pipe()
     # Prompts first, on the CPU; then the encoders go and the image model takes the GPU.
@@ -92,19 +116,25 @@ def main():
         for kind in kinds:
             w, h, frame = KINDS[kind]
             p = PEOPLE[who]
-            full = "%s. %s. The person: %s, wearing %s. %s" % (STYLE, frame, p["who"], p["wear"], STYLE)
-            short = "%s, %s" % (SHORT, p["who"].split(",")[0])
+            wear = p["wear"]
+            if kind == "face":                                       # portraits: no goggles or hats in the way
+                wear = ", ".join(x for x in wear.split(", ") if "goggles" not in x and "beanie" not in x)
+            full = "%s. %s. The person: %s, wearing %s. %s" % (style, frame, p["who"], wear, style)
+            short = "%s, %s" % (short_style, p["who"].split(",")[0])
             pe, pooled = encode(pipe, short, full)
-            jobs.append((who, kind, w, h, pe, pooled))
+            jobs.append((who, kind + tag, w, h, pe, pooled))
             print("ENCODED", who, kind, flush=True)
     pipe.text_encoder = None; pipe.text_encoder_2 = None
-    gc.collect()
+    gc.collect(); torch.cuda.empty_cache()
     pipe.vae.to("cuda")
-    pipe.transformer.to("cuda")
+    # The 4-bit image model is 6.8 GB: next to the desktop it does not quite fit, and spilling into
+    # shared memory is very slow. So its blocks are streamed to the GPU a few at a time.
+    pipe.transformer.enable_group_offload(onload_device=torch.device("cuda"), offload_device=torch.device("cpu"),
+                                          offload_type="block_level", num_blocks_per_group=6, use_stream=True)
     for who, kind, w, h, pe, pooled in jobs:
         shots = []
         for k in range(seeds):
-            seed = 1000 + k * 77 + len(who) * 13 + (0 if kind == "sheet" else 5)
+            seed = 1000 + k * 77 + len(who) * 13 + (0 if kind.startswith("sheet") else 5)
             g = torch.Generator("cpu").manual_seed(seed)
             img = pipe(prompt_embeds=pe.to("cuda", torch.bfloat16), pooled_prompt_embeds=pooled.to("cuda", torch.bfloat16),
                        width=w, height=h, num_inference_steps=4, guidance_scale=0.0, generator=g).images[0]
