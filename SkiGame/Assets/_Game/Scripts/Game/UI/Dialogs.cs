@@ -175,8 +175,33 @@ namespace Ski.Game
             gs.RegisterValueChangedCallback(e => { SaveData.MaxGhosts = e.newValue; Show(); });
             grow.Add(gs);
             // The account: the same progress on any device.
-            Ui.Text(card, "SAVE ONLINE", "keys-heading");
+            var head = Ui.Div(card, "row");
+            Ui.Text(head, "SAVE ONLINE", "keys-heading");
+            InfoButton(head, CloudSync.Why);
             AccountRows(card);
+        }
+
+        /// <summary>A small round "i": hover it and a note opens beside it.</summary>
+        static void InfoButton(VisualElement parent, string text)
+        {
+            var b = Ui.Div(parent, "info-button");
+            b.pickingMode = PickingMode.Position;
+            Ui.Text(b, "i", "info-button-i").pickingMode = PickingMode.Ignore;
+            // The note lives on the top layer, so nothing in the dialog covers it.
+            var top = Ui.Instance.TopLayer;
+            var tip = Ui.Text(top, text, "info-tip");
+            tip.pickingMode = PickingMode.Ignore;
+            tip.style.display = DisplayStyle.None;
+            b.RegisterCallback<PointerEnterEvent>(_ =>
+            {
+                var r = b.worldBound;
+                var at = top.WorldToLocal(new Vector2(r.xMax + 8f, r.yMin - 4f));
+                tip.style.left = at.x; tip.style.top = at.y;
+                tip.style.display = DisplayStyle.Flex;
+                tip.BringToFront();
+            });
+            b.RegisterCallback<PointerLeaveEvent>(_ => tip.style.display = DisplayStyle.None);
+            b.RegisterCallback<DetachFromPanelEvent>(_ => tip.RemoveFromHierarchy());
         }
 
         static string CloudStatus() => CloudSync.Status == CloudSync.State.Saved ? "Saved online"
@@ -202,6 +227,7 @@ namespace Ski.Game
                 pass.AddToClassList("name-field");
                 var r1 = Ui.Div(box, "dialog-row"); Ui.Text(r1, "Username", "dialog-label"); r1.Add(user);
                 var r2 = Ui.Div(box, "dialog-row"); Ui.Text(r2, "Password", "dialog-label"); r2.Add(pass);
+                ToggleRow(box, "Remember me", CloudSync.Remember, v => CloudSync.Remember = v);
                 var r3 = Ui.Div(box, "row");
                 var msg = Ui.Text(box, CloudStatus(), "small");
                 async void Go(bool create)
@@ -239,13 +265,16 @@ namespace Ski.Game
 
             // An account: the same progress on any device.
             var acc = Ui.Div(cols, "welcome-col");
-            Ui.Text(acc, "ACCOUNT", "keys-heading");
+            var accHead = Ui.Div(acc, "row");
+            Ui.Text(accHead, "ACCOUNT", "keys-heading");
+            InfoButton(accHead, CloudSync.Why);
             var user = new TextField { maxLength = 20 };
             user.AddToClassList("name-field");
             var pass = new TextField { maxLength = 30, isPasswordField = true };
             pass.AddToClassList("name-field");
             var r1 = Ui.Div(acc, "dialog-row"); Ui.Text(r1, "Username", "dialog-label"); r1.Add(user);
             var r2 = Ui.Div(acc, "dialog-row"); Ui.Text(r2, "Password", "dialog-label"); r2.Add(pass);
+            ToggleRow(acc, "Remember me", CloudSync.Remember, v => CloudSync.Remember = v);
             var r3 = Ui.Div(acc, "row");
             var accMsg = Ui.Text(acc, "", "small");
 

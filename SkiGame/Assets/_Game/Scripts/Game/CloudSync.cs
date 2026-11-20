@@ -35,6 +35,16 @@ namespace Ski.Game
         public static string Username { get; private set; }
         public static string LastError { get; private set; }
 
+        /// <summary>Stay signed in to the account on this browser (otherwise it is forgotten when the game is next opened).</summary>
+        public static bool Remember
+        {
+            get => PlayerPrefs.GetInt("remember", 1) == 1;
+            set { PlayerPrefs.SetInt("remember", value ? 1 : 0); PlayerPrefs.Save(); }
+        }
+
+        /// <summary>What an account is for, in a sentence (the welcome screen's info button).</summary>
+        public const string Why = "Your progress, unlocks and outfits are saved online and follow you to any device.";
+
         static bool _dirty, _pulled, _busy;
         static float _lastPush = -999f;
 
@@ -156,6 +166,7 @@ namespace Ski.Game
                     PlayerPrefs.SetString("save_time", "0");                       // the account's save wins
                     OnlineBoards.SignedInAgain();
                 }
+                PlayerPrefs.SetInt("forget_account", Remember ? 0 : 1);           // not remembered: forgotten at the next start
                 PlayerPrefs.Save();
                 Username = username;
                 _pulled = false;                                                    // fetch (or send) the save for this account
@@ -173,6 +184,7 @@ namespace Ski.Game
             {
                 var auth = AuthenticationService.Instance;
                 auth.SignOut(true);
+                PlayerPrefs.SetInt("forget_account", 0);
                 await auth.SignInAnonymouslyAsync();
                 PlayerPrefs.Save();
                 OnlineBoards.SignedInAgain();

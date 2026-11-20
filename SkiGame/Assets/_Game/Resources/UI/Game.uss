@@ -1053,3 +1053,39 @@
 .welcome .name-field {
     width: 260px;
 }
+
+/* ---- the little info button: hover for a note ---------------------------------------------------- */
+
+.info-button {
+    width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    border-width: 2px;
+    border-color: rgb(27, 20, 48);
+    background-color: rgb(255, 205, 64);
+    margin-left: 8px;
+    margin-top: 6px;
+    align-items: center;
+    justify-content: center;
+}
+
+.info-button-i {
+    font-size: 15px;
+    color: rgb(27, 20, 48);
+    -unity-font-style: bold;
+    margin: 0;
+    padding: 0;
+}
+
+.info-tip {
+    position: absolute;
+    width: 300px;
+    white-space: normal;
+    font-size: 17px;
+    color: rgb(27, 20, 48);
+    background-color: rgb(255, 250, 238);
+    border-width: 2px;
+    border-color: rgb(27, 20, 48);
+    border-radius: 4px;
+    padding: 6px 10px;
+}

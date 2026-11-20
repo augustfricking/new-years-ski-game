@@ -66,6 +66,12 @@ namespace Ski.Game
                 string profile = ProfileFromUrl();
                 if (profile != null) options.SetProfile(profile);
                 await UnityServices.InitializeAsync(options);
+                // An account signed in without "remember me" is forgotten now: this browser starts as a guest again.
+                if (PlayerPrefs.GetInt("forget_account", 0) == 1 && !AuthenticationService.Instance.IsSignedIn)
+                {
+                    if (AuthenticationService.Instance.SessionTokenExists) AuthenticationService.Instance.ClearSessionToken();
+                    PlayerPrefs.SetInt("forget_account", 0);
+                }
                 if (!AuthenticationService.Instance.IsSignedIn) await AuthenticationService.Instance.SignInAnonymouslyAsync();
                 PlayerId = AuthenticationService.Instance.PlayerId;
                 // In the browser the sign-in is only kept if it is written out now: without this a
