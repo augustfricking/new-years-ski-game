@@ -17,6 +17,8 @@ namespace Ski.Game
         readonly Action _onClose;
         readonly CharacterId _who;
         Outfit _outfit;
+        /// <summary>What was new when the shop opened: it keeps its NEW tag until the shop closes.</summary>
+        readonly System.Collections.Generic.HashSet<Unlock> _fresh = new System.Collections.Generic.HashSet<Unlock>();
         readonly ScrollView _scroll;
 
         public static ShopPanel Open(Transform world, CharacterId who, Action onClose) => new ShopPanel(world, who, onClose);
@@ -101,6 +103,7 @@ namespace Ski.Game
                 sw.AddToClassList("shop-swatch");
                 if (index == current) sw.AddToClassList("shop-swatch-on");
                 if (!open) { sw.AddToClassList("shop-swatch-locked"); sw.text = "\U0001F512"; }
+                else if (SaveData.IsNew(unlock) || _fresh.Contains(unlock)) { _fresh.Add(unlock); sw.AddToClassList("shop-swatch-new"); sw.text = "NEW"; }
                 sw.style.backgroundColor = c;
                 if (index < 0) sw.text = "*";
                 wrap.Add(sw);
@@ -126,6 +129,14 @@ namespace Ski.Game
                 item.AddToClassList("shop-item");
                 if (v == current) item.AddToClassList("shop-item-on");
                 if (!open) item.AddToClassList("shop-item-locked");
+                if (open && unlock != null && (SaveData.IsNew(unlock) || _fresh.Contains(unlock)))
+                {
+                    _fresh.Add(unlock);
+                    var tag = new Label("NEW");
+                    tag.AddToClassList("shop-item-new");
+                    tag.pickingMode = PickingMode.Ignore;
+                    item.Add(tag);
+                }
                 var name = new Label(open || unlock == null ? names[i] : "\U0001F512 " + names[i]);
                 name.AddToClassList("shop-item-name");
                 name.pickingMode = PickingMode.Ignore;
@@ -145,6 +156,7 @@ namespace Ski.Game
         {
             if (_root.parent == null) return;
             _root.RemoveFromHierarchy();
+            SaveData.MarkSeen(_who);
             if (_stage != null) UnityEngine.Object.Destroy(_stage.gameObject);
             AudioDirector.Click();
             _onClose?.Invoke();

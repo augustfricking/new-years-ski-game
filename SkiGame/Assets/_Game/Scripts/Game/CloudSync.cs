@@ -26,7 +26,7 @@ namespace Ski.Game
         static readonly string[] Strings =
         {
             "name", "walkman_song", "progress_0", "progress_1", "progress_2", "progress_3", "outfit_0", "outfit_1", "outfit_2", "outfit_3",
-            "ghost_0", "ghost_1", "ghost_2", "ghost_3", "ghost_4", "board_0", "board_1", "board_2", "board_3", "board_4", "board_chug",
+            "ghost_0", "ghost_1", "ghost_2", "ghost_3", "ghost_4", "board_0", "board_1", "board_2", "board_3", "board_4", "board_chug", "seen_unlocks",
         };
 
         public enum State { Local, Syncing, Saved, Failed }

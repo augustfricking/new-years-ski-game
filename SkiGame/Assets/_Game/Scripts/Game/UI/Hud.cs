@@ -14,7 +14,7 @@ namespace Ski.Game
     {
         readonly RunController _run;
         readonly VisualElement _root;
-        readonly Label _timer, _penalty, _speed, _extra, _toast, _toastSub, _score, _air;
+        readonly Label _timer, _penalty, _speed, _extra, _toast, _toastSub, _score, _air, _news;
         readonly PoleRing _ring;
         readonly CarveMeter _carve;
         readonly VisualElement _hints, _tricks, _ringBox, _carveBox;
@@ -40,6 +40,8 @@ namespace Ski.Game
             }
             else _timer = Ui.Text(tl, "0.00", "hud-timer");
             _penalty = Ui.Text(tl, "", "hud-penalty");
+            _news = Ui.Text(tl, "", "hud-news");
+            _news.style.display = DisplayStyle.None;
 
             var tr = Ui.Div(_root, "hud-corner hud-tr");
             var speedRow = Ui.Div(tr, "row");
@@ -95,6 +97,13 @@ namespace Ski.Game
         {
             _visible = on;
             _root.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        /// <summary>The village reminder that the shop has something new for this friend (0 hides it).</summary>
+        public void ShopNews(int count)
+        {
+            _news.style.display = count > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            if (count > 0) _news.text = count == 1 ? "NEW IN SHOP" : count + " NEW IN SHOP";
         }
 
         /// <summary>Shows a pop-up in the middle of the screen.</summary>

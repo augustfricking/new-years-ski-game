@@ -16,6 +16,7 @@ namespace Ski.Game
         public PlayerRig Rig { get; private set; }
         public KidView Kids { get; private set; }
         public Hud Hud { get; private set; }
+        float _newsTimer;
         /// <summary>When set, the bot plays instead of the keyboard (used for tests and attract mode).</summary>
         public Bot Autopilot;
         public bool Paused;
@@ -376,6 +377,8 @@ namespace Ski.Game
                 var c = Session.Course; var p = Session.Sim.Pos;
                 // The shop opens on its pad, and again only after you have skied off it.
                 bool shop = c.ShopZone.Contains(p.x, p.z);
+                _newsTimer -= dt;
+                if (_newsTimer <= 0f) { _newsTimer = 0.5f; Hud?.ShopNews(SaveData.NewCount(Session.Character)); }
                 if (shop && !_inShop) OnShopReached?.Invoke();
                 _inShop = shop;
                 if (c.LiftZone.Contains(p.x, p.z)) { _left = true; OnLiftReached?.Invoke(); }

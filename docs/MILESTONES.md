@@ -247,6 +247,9 @@ Ghosts and boards
       (a 2000-point trick), Erik's lightning (110 km/h) and electric blue (stein in 6 s), Linn's
       leopard (100 runs) and ultraviolet (25 clean runs: no crash, no missed gate). Locked swatches
       show a lock and say what earns them
+- [x] UNLOCKED card: slides in at the bottom right when something is earned (what, how, whose, "new
+      in shop", a picture of the colour or print), several queue up, each leaves after 5 s; the shop
+      tags earned things NEW until it is closed; "NEW IN SHOP" sits under the time in the village
 - [x] Stuck interface sound: clicks and hovers only answer a real press or a moving pointer
 - [x] Songs: every caption starts with its lead singer (male or female, voice described), and a
       guest of the other voice sings a passage (ACE-Step repaint)

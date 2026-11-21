@@ -24,7 +24,7 @@ namespace Ski.Game
         static readonly Dictionary<string, Material> Cache = new Dictionary<string, Material>();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void Reset() => Cache.Clear();
+        static void Reset() { Cache.Clear(); Previews.Clear(); }
 
         /// <summary>Whether a pattern prints on this colour slot.</summary>
         public static bool Prints(int pattern, int slot)
@@ -63,6 +63,18 @@ namespace Ski.Game
             m.SetTexture("_BaseMap", Texture(pattern, col, second));
             Cache[key] = m;
             return m;
+        }
+
+        static readonly Dictionary<string, Texture2D> Previews = new Dictionary<string, Texture2D>();
+
+        /// <summary>A patch of a print on these colours, for pictures in the interface.</summary>
+        public static Texture2D Preview(int pattern, Color col, Color second)
+        {
+            if (ColourDistance(second, col) < 0.25f)
+                second = col.grayscale > 0.5f ? Color.Lerp(col, Palette.Ink, 0.5f) : Color.Lerp(col, Color.white, 0.55f);
+            string key = pattern + ColorUtility.ToHtmlStringRGB(col) + ColorUtility.ToHtmlStringRGB(second);
+            if (Previews.TryGetValue(key, out var t) && t != null) return t;
+            return Previews[key] = Texture(pattern, col, second);
         }
 
         static Texture2D Texture(int pattern, Color col, Color second)

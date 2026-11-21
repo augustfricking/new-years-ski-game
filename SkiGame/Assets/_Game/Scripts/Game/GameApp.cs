@@ -54,7 +54,7 @@ namespace Ski.Game
             Ui.Create(transform);
             SaveData.Load();
             GraphicsQuality.Apply();
-            SaveData.Unlocked += u => { Ui.Instance?.Notice("UNLOCKED!", u.Name + " for " + SkierInfo.Get(u.Who).Name + "  -  at the ski shop"); AudioDirector.Sfx("cheer", 0.7f, 1.2f); };
+            SaveData.Unlocked += UnlockPopup.Show;
             OnlineBoards.Connect();
             Songs.LoadList(this, () => AudioDirector.I?.RefreshMusic());
             VoiceChat.Create(transform);   // anonymous device profile for the world boards; local play does not wait for it

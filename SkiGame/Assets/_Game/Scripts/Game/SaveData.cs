@@ -68,6 +68,7 @@ namespace Ski.Game
         /// <summary>Changes one character's progress, saves it and announces anything newly earned.</summary>
         public static void Record(CharacterId who, System.Action<Progress> change)
         {
+            SeenSet();          // read before the change, so the first time marks only older things seen
             var p = ProgressOf(who);
             var before = JsonUtility.FromJson<Progress>(JsonUtility.ToJson(p));
             change(p);
@@ -75,6 +76,45 @@ namespace Ski.Game
             CloudSync.MarkDirty();
             PlayerPrefs.Save();
             foreach (var u in Unlocks.NewlyEarned(who, before, p)) Unlocked?.Invoke(u);
+        }
+
+        // ---- what the shop has shown ----------------------------------------------------------------
+        static System.Collections.Generic.HashSet<string> _seen;
+
+        static System.Collections.Generic.HashSet<string> SeenSet()
+        {
+            if (_seen != null) return _seen;
+            _seen = new System.Collections.Generic.HashSet<string>();
+            if (!PlayerPrefs.HasKey("seen_unlocks"))
+            {
+                // The first time: what was earned before the NEW tags existed counts as seen.
+                foreach (var u in Unlocks.All) if (u.Earned(ProgressOf(u.Who))) _seen.Add(u.Id);
+                PlayerPrefs.SetString("seen_unlocks", string.Join(",", _seen));
+            }
+            else foreach (var id in PlayerPrefs.GetString("seen_unlocks", "").Split(',')) if (id.Length > 0) _seen.Add(id);
+            return _seen;
+        }
+
+        /// <summary>Earned by its friend and not yet seen in the shop.</summary>
+        public static bool IsNew(Unlock u) => u != null && u.Earned(ProgressOf(u.Who)) && !SeenSet().Contains(u.Id);
+
+        /// <summary>How many of this friend's things wait in the shop, unseen.</summary>
+        public static int NewCount(CharacterId who)
+        {
+            int n = 0;
+            foreach (var u in Unlocks.All) if (u.Who == who && IsNew(u)) n++;
+            return n;
+        }
+
+        /// <summary>The shop has shown this friend everything they have earned.</summary>
+        public static void MarkSeen(CharacterId who)
+        {
+            bool changed = false;
+            foreach (var u in Unlocks.All) if (u.Who == who && u.Earned(ProgressOf(who)) && SeenSet().Add(u.Id)) changed = true;
+            if (!changed) return;
+            PlayerPrefs.SetString("seen_unlocks", string.Join(",", _seen));
+            CloudSync.MarkDirty();
+            PlayerPrefs.Save();
         }
 
         /// <summary>How a character is dressed on this device (a copy: change it with <see cref="SetOutfit"/>).</summary>
@@ -159,6 +199,7 @@ namespace Ski.Game
         {
             _boards = null; _chug = null;
             System.Array.Clear(_progress, 0, 4); System.Array.Clear(_outfits, 0, 4);
+            _seen = null;
             Load();
             GraphicsQuality.Apply();
         }
