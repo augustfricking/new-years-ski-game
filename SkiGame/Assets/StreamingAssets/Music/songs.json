@@ -36,6 +36,16 @@
    "style": "Rock"
   },
   {
+   "id": "classicrock",
+   "title": "Chairlift Highway",
+   "style": "Classic rock"
+  },
+  {
+   "id": "oldschool",
+   "title": "Boombox on the Ski Lift",
+   "style": "Old school hip hop"
+  },
+  {
    "id": "afterski",
    "title": "Boots on the Table",
    "style": "Afterski"

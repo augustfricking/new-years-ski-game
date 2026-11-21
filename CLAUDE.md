@@ -29,9 +29,10 @@ The game design lives in `docs/GAME_SPEC.md` (source of truth). The plan and mil
   live and hold real players' results: nothing is sent from the Editor (`SendFromEditor` stays
   false), from the bot, or with an implausible value (`Courses.Plausible`). Never teleport a
   player past the finish with submissions enabled. No seeded rivals, no bot ghosts.
-- **Music and voice.** The DJ's songs are made locally by `tools/music/make_songs.py` (ACE-Step
-  1.5, MIT; setup in `tools/music/README.md`) into `Assets/StreamingAssets/Music` and streamed by
-  `Songs`; `AudioDirector.Music("song:<id>")` plays one. Voice chat is `VoiceChat` +
+- **Music and voice.** The DJ's songs are made locally with YuE2 by `tools/music/make_songs_yue2.py`
+  (titles and lyrics in `make_songs.py`; weights CC BY-NC 4.0 with a creator grant, credited in
+  Settings > Audio; setup in its header) into `Assets/StreamingAssets/Music` and streamed by
+  `Songs`; `tools/music/make_loops_yue2.py` makes seamless instrumental loops; `AudioDirector.Music("song:<id>")` plays one. Voice chat is `VoiceChat` +
   `Plugins/WebGL/LastRunVoice.jslib` (WebRTC via PeerJS 1.5.4 from unpkg); it does nothing in
   the Editor, so test it in a WebGL build.
 - **Shop.** A house in every village (`ShopStage`, `ShopPanel`). `Unlocks` (Core) holds the items

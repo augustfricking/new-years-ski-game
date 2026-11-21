@@ -99,6 +99,8 @@ namespace Ski.Game
                 songBtn = Ui.Btn(wrow, Songs.Get(Walkman.Current)?.title ?? "-", () => { Walkman.Next(); songBtn.text = Songs.Get(Walkman.Current)?.title ?? "-"; }, "btn-plain btn-small");
                 ToggleRow(card, "Repeat song", SaveData.WalkmanRepeat, v => SaveData.WalkmanRepeat = v);
             }
+            // The songs' model asks to be named (CC BY-NC 4.0 with its grant to individual creators).
+            Ui.Text(card, "Songs made with YuE2 (m-a-p/YuE2-3B)", "small");
         }
 
         static void GraphicsSection(VisualElement card)

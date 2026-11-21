@@ -1,4 +1,5 @@
 """Generates the DJ's songs with ACE-Step 1.5 (MIT, runs locally; the songs are ours to use).
+The game now plays the YuE2 versions (make_songs_yue2.py reads its titles and lyrics from here).
 
 Lyrics and style descriptions are written here; ACE-Step makes the music and the singing. Every
 song is original: no artist, title or melody is imitated.
@@ -77,6 +78,32 @@ SONGS = [
                 "[Chorus - gang vocals]\nBlack run! Black run!\nNo turning back till the night is done\nBlack run! Black run!\nI fell on my face and I'm having fun\n\n[Guitar Solo]\n\n"
                 "[Bridge - female]\nI'll see you at the bottom or I'll see you in the snow\nIf you can't stop, then don't you dare go slow\n\n"
                 "[Chorus - gang vocals]\nBlack run! Black run!\nNo turning back till the night is done\n\n[Outro - male scream]\nHappy new year!"),
+    dict(id="classicrock", title="Chairlift Highway", style="Classic rock", bpm=120, duration=160, key="A major",
+         caption="male vocal, warm raspy classic rock tenor, 1970s classic rock, crunchy overdriven guitar riffs, Hammond organ, "
+                 "bluesy guitar solo, bass guitar, steady rock drums, arena rock anthem",
+         lyrics="[Verse]\nLift ticket flapping on my old blue coat\nThermos in my pocket and a hole in my glove\n"
+                "Sun goes down behind the northern ridge\nLast chair swinging up above the bridge\n\n"
+                "[Chorus]\nRide the chairlift highway\nUp into the burning sky\nOne more run before midnight\nThen we're gonna say goodbye\n\n"
+                "[Verse]\nOld man Sven on the snowcat road\nPlays his radio loud while the cold winds blow\n"
+                "The valley lights are coming on below\nTwelve more minutes and a mile of snow\n\n"
+                "[Chorus]\nRide the chairlift highway\nUp into the burning sky\nOne more run before midnight\nThen we're gonna say goodbye\n\n"
+                "[Bridge]\nHold on tight\nHere comes the night\nThe whole mountain's shining white\n\n"
+                "[Chorus]\nRide the chairlift highway\nUp into the burning sky\nOne more run before midnight\nThen we're gonna say goodbye\n\n"
+                "[Outro]\nChairlift highway\nTake me home"),
+    dict(id="oldschool", title="Boombox on the Ski Lift", style="Old school hip hop", bpm=92, duration=160, key="D minor",
+         caption="male vocal, laid-back confident old school rapper, 1990s boom bap hip hop, dusty vinyl drum break, jazzy sampled piano, "
+                 "upright bass, turntable scratches, head-nodding groove",
+         lyrics="[Verse]\nYo, it's ninety-two on the T-bar line\nBoombox on my shoulder and the bass sounds fine\n"
+                "Neon onesie, got the headband tight\nWe ride the mountain like it's Friday night\n"
+                "Fresh tracks, fresh kicks, fresh powder too\nSki patrol nodding like they know the crew\n\n"
+                "[Chorus]\nBoombox on the ski lift, turn it up loud\nBounce with the snowflakes, rock the whole crowd\n"
+                "Boombox on the ski lift, don't stop the beat\nOld school flow with the snow on our feet\n\n"
+                "[Verse]\nMittens on the decks, let the record spin\nHot chocolate steaming when the cold creeps in\n"
+                "Pizza on the bunny hill, French fries on the steep\nGrandma on a snowboard and she don't miss a beat\n"
+                "From the top of the peak to the lodge down low\nWe bring the rhythm everywhere we go\n\n"
+                "[Chorus]\nBoombox on the ski lift, turn it up loud\nBounce with the snowflakes, rock the whole crowd\n"
+                "Boombox on the ski lift, don't stop the beat\nOld school flow with the snow on our feet\n\n"
+                "[Outro]\nNinety-two, still true\nOn the mountain, peace"),
     dict(id="afterski", title="Boots on the Table", style="Afterski", bpm=138, duration=170, key="C major",
          caption="male vocal, drunk cheerful schlager baritone, crowd singalong, Alpine apres-ski schlager party anthem, oom-pah dance beat, accordion, brass section, tuba, cowbells, "
                  "cheesy cheerful MALE party singer with a hoarse voice, a big DRUNK CROWD SINGALONG choir shouting the chorus in the background, "

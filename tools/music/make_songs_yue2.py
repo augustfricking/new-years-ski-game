@@ -1,4 +1,5 @@
-"""The DJ's songs made with YuE2 instead of ACE-Step, for comparing (same titles and lyrics).
+"""The DJ's songs made with YuE2 (the ones the game plays; the owner picked them over ACE-Step).
+Titles, lyrics and order come from make_songs.py.
 
 YuE2 (m-a-p/YuE2-3B): code Apache 2.0; weights CC BY-NC 4.0 with a grant to individual creators to
 use them and publish what they make (see tools/music/_yue2/MODEL_LICENSE). Credit: "Music made with
@@ -48,6 +49,10 @@ STYLE = {
                  "string orchestra, solo violin, harpsichord continuo, 96 BPM",
     "rock": "English, loud punk rock, raspy screaming male lead vocal, gang vocals, distorted guitars, "
             "fast driving drums, 150 BPM",
+    "classicrock": "English, 1970s classic rock, warm raspy male tenor lead vocal, crunchy overdriven guitar riffs, "
+                   "Hammond organ, bluesy guitar solo, bass guitar, steady rock drums, 120 BPM",
+    "oldschool": "English, 1990s old school boom bap hip hop, laid-back confident male rapper, dusty vinyl drum break, "
+                 "jazzy sampled piano, upright bass, turntable scratches, 92 BPM",
     "afterski": "English, Alpine apres-ski schlager party anthem, hoarse cheerful male party singer, crowd "
                 "singalong, oom-pah beat, accordion, brass section, tuba, cowbells, 138 BPM",
 }
@@ -99,13 +104,22 @@ def main():
                 shutil.rmtree(d)
             result.save_artifacts(d)
             mp3 = os.path.join(COMPARE, sid + "_yue2.mp3")
-            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", os.path.join(d, "audio.flac"), "-b:a", "128k", mp3], check=True)
+            length = len(result.audio) / 48000
+            # A song cut off at the token limit ends mid-phrase: fade its last seconds out.
+            fade = ["-af", "afade=t=out:st=%.2f:d=6" % max(length - 6, 0)] if any(result.truncated.values()) else []
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", os.path.join(d, "audio.flac")] + fade + ["-b:a", "128k", mp3], check=True)
             if install:
                 shutil.copyfile(mp3, os.path.join(OUT, sid + ".mp3"))
             print("DONE", sid, "%.0f s audio in %.0f s" % (len(result.audio) / 48000, time.time() - t0),
                   "truncated" if any(result.truncated.values()) else "", flush=True)
     finally:
         pipe.close()
+    if install:
+        # The game's list: every song that has a file, in this order.
+        meta = [dict(id=s["id"], title=s["title"], style=s["style"]) for s in ms.SONGS if os.path.exists(os.path.join(OUT, s["id"] + ".mp3"))]
+        with open(os.path.join(OUT, "songs.json"), "w", encoding="utf-8") as f:
+            json.dump({"songs": meta}, f, indent=1)
+        print("SONGS", len(meta), flush=True)
 
 
 if __name__ == "__main__":

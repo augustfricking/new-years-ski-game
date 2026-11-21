@@ -7,7 +7,7 @@ using UnityEngine.Networking;
 namespace Ski.Game
 {
     /// <summary>
-    /// The DJ's songs (made with ACE-Step, see tools/music). They live in StreamingAssets/Music
+    /// The DJ's songs (made with YuE2, see tools/music/make_songs_yue2.py). They live in StreamingAssets/Music
     /// and are fetched only when played, so they cost nothing at start-up. A browser decodes a
     /// whole song into memory, so only the two most recent are kept.
     /// </summary>

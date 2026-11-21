@@ -253,6 +253,10 @@ Ghosts and boards
 - [x] Stuck interface sound: clicks and hovers only answer a real press or a moving pointer
 - [x] Songs: every caption starts with its lead singer (male or female, voice described), and a
       guest of the other voice sings a passage (ACE-Step repaint)
+- [x] Songs made with YuE2 instead (the owner compared both and chose YuE2 for all eight), plus two
+      new ones: "Chairlift Highway" (1970s classic rock) and "Boombox on the Ski Lift" (1990s old
+      school hip hop). YuE2 credited in Settings > Audio and the README
+- [ ] Looping game music from YuE2 (candidates in tools/music/_work/loops; the owner decides)
 - [ ] Characters remade to match the round-3 concept art (separate session; owner approves first)
 
 ## Known gaps and ideas
