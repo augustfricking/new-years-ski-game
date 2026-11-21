@@ -43,12 +43,17 @@ namespace Ski.Game
             row.Add(s);
         }
 
+        /// <summary>An on/off setting: both choices side by side, the one in use lit.</summary>
         static void ToggleRow(VisualElement parent, string label, bool value, Action<bool> set)
         {
             var row = Ui.Div(parent, "dialog-row");
             Ui.Text(row, label, "dialog-label");
-            Button b = null;
-            b = Ui.Btn(row, value ? "ON" : "OFF", () => { value = !value; set(value); b.text = value ? "ON" : "OFF"; }, "btn-plain btn-small");
+            var pair = Ui.Div(row, "row toggle-pair");
+            Button on = null, off = null;
+            void Show() { on.EnableInClassList("btn-selected", value); off.EnableInClassList("btn-selected", !value); }
+            on = Ui.Btn(pair, "ON", () => { if (value) return; value = true; set(true); Show(); }, "btn-plain btn-small toggle-option");
+            off = Ui.Btn(pair, "OFF", () => { if (!value) return; value = false; set(false); Show(); }, "btn-plain btn-small toggle-option");
+            Show();
         }
 
         static int _section;
@@ -103,8 +108,31 @@ namespace Ski.Game
                 var wrow = Ui.Div(card, "dialog-row");
                 Ui.Text(wrow, "Song (M)", "dialog-label");
                 Button songBtn = null;
-                songBtn = Ui.Btn(wrow, Songs.Get(Walkman.Current)?.title ?? "-", () => { Walkman.Next(); songBtn.text = Songs.Get(Walkman.Current)?.title ?? "-"; }, "btn-plain btn-small");
+                VisualElement list = null;
+                songBtn = Ui.Btn(wrow, Songs.Get(Walkman.Current)?.title ?? "-", () =>
+                {
+                    // The song button opens the list of every song; picking one plays it.
+                    if (list != null) { list.RemoveFromHierarchy(); list = null; return; }
+                    list = new VisualElement();
+                    list.AddToClassList("walkman-list");
+                    card.Insert(card.IndexOf(wrow) + 1, list);
+                    foreach (var song in Songs.All)
+                    {
+                        var sg = song;
+                        Ui.Btn(list, sg.title + "  -  " + sg.style, () =>
+                        {
+                            Walkman.Select(sg.id);
+                            songBtn.text = sg.title;
+                            list.RemoveFromHierarchy(); list = null;
+                        }, "btn-plain song-row" + (sg.id == Walkman.Current && SaveData.WalkmanOn ? " btn-selected" : ""));
+                    }
+                    // Bring the list into view (the settings scroll).
+                    var scroll = card.GetFirstAncestorOfType<ScrollView>();
+                    var opened = list;
+                    if (scroll != null) scroll.schedule.Execute(() => { if (opened.childCount > 0) scroll.ScrollTo(opened[opened.childCount - 1]); }).ExecuteLater(30);
+                }, "btn-plain btn-small");
                 ToggleRow(card, "Repeat song", SaveData.WalkmanRepeat, v => SaveData.WalkmanRepeat = v);
+                ToggleRow(card, "Shuffle", SaveData.WalkmanShuffle, v => SaveData.WalkmanShuffle = v);
             }
             // The songs' model asks to be named (CC BY-NC 4.0 with its grant to individual creators).
             Ui.Text(card, "Songs made with YuE2 (m-a-p/YuE2-3B)", "small");
@@ -247,6 +275,7 @@ namespace Ski.Game
                 }
                 Ui.Btn(r3, "CREATE", () => Go(true), "btn-plain btn-small");
                 Ui.Btn(r3, "SIGN IN", () => Go(false), "btn-plain btn-small");
+                InfoButton(r3, CloudSync.Rules);
             }
             Build();
         }
@@ -309,8 +338,6 @@ namespace Ski.Game
             async void Account(bool create)
             {
                 string u = user.value.Trim();
-                if (u.Length < 3) { accMsg.text = "Name too short"; return; }
-                if (pass.value.Length < 8) { accMsg.text = "Password too short"; return; }
                 accMsg.text = "...";
                 string err = await CloudSync.Account(u, pass.value, create);
                 if (err != null) { accMsg.text = err; return; }
@@ -326,6 +353,7 @@ namespace Ski.Game
             }
             Ui.Btn(r3, "SIGN IN", () => Account(false));
             Ui.Btn(r3, "CREATE", () => Account(true), "btn-plain");
+            InfoButton(r3, CloudSync.Rules);
             Ui.Btn(r5, "PLAY AS GUEST", Guest);
             name.RegisterCallback<KeyDownEvent>(e => { if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter) Guest(); }, TrickleDown.TrickleDown);
             pass.RegisterCallback<KeyDownEvent>(e => { if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter) Account(false); }, TrickleDown.TrickleDown);

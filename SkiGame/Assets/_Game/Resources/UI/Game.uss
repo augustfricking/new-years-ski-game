@@ -864,6 +864,15 @@
     margin: 4px 0 8px 0;
 }
 
+.toggle-pair {
+    flex-shrink: 0;
+}
+
+.toggle-option {
+    min-width: 58px;
+    margin: 0 0 0 4px;
+}
+
 .btn-selected {
     background-color: rgb(255, 198, 74);
 }
@@ -1081,6 +1090,49 @@
     width: 22px;
     height: 32px;
     margin: 0 8px 0 2px;
+}
+
+.walkman-list {
+    margin: 2px 0 8px 0;
+}
+
+.now-playing {
+    position: absolute;
+    right: 24px;
+    bottom: 5%;
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 14px 6px 10px;
+    background-color: rgb(27, 20, 48);
+    border-width: 3px;
+    border-color: rgb(255, 198, 74);
+    border-radius: 8px;
+    rotate: -1deg;
+    transition-property: opacity, translate;
+    transition-duration: 0.4s;
+}
+
+.now-playing-hidden {
+    opacity: 0;
+    translate: 0 30px;
+}
+
+.now-playing-note {
+    font-size: 30px;
+    margin-right: 10px;
+    color: rgb(255, 198, 74);
+    -unity-font-definition: resource("Fonts/Bangers-Regular");
+}
+
+.now-playing-title {
+    font-size: 22px;
+    color: rgb(245, 235, 216);
+    -unity-font-definition: resource("Fonts/Bangers-Regular");
+}
+
+.now-playing-style {
+    font-size: 15px;
+    color: rgb(190, 180, 210);
 }
 
 .song-row {

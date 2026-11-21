@@ -33,7 +33,7 @@ namespace Ski.Game
         /// <summary>Meet the other people playing right now (on by default).</summary>
         public static bool Live = true;
         /// <summary>The walkman from the tavern: picked up, playing, and which song.</summary>
-        public static bool HasWalkman, WalkmanOn = true, WalkmanRepeat;
+        public static bool HasWalkman, WalkmanOn = true, WalkmanRepeat, WalkmanShuffle;
         /// <summary>Voice chat with the other players (hold V to talk).</summary>
         public static bool Voice = true;
         /// <summary>Graphics: 0 low, 1 medium, 2 high; and the share of the screen resolution the 3D view is drawn at.</summary>
@@ -167,6 +167,7 @@ namespace Ski.Game
             RenderScale = PlayerPrefs.GetFloat("render_scale", 1f);
             WalkmanOn = PlayerPrefs.GetInt("walkman_on", 1) == 1;
             WalkmanRepeat = PlayerPrefs.GetInt("walkman_repeat", 0) == 1;
+            WalkmanShuffle = PlayerPrefs.GetInt("walkman_shuffle", 0) == 1;
             WalkmanSong = PlayerPrefs.GetString("walkman_song", "");
             LastCharacter = (CharacterId)Mathf.Clamp(PlayerPrefs.GetInt("who", 2), 0, 3);
             Apply();
@@ -195,6 +196,7 @@ namespace Ski.Game
             PlayerPrefs.SetFloat("render_scale", RenderScale);
             PlayerPrefs.SetInt("walkman_on", WalkmanOn ? 1 : 0);
             PlayerPrefs.SetInt("walkman_repeat", WalkmanRepeat ? 1 : 0);
+            PlayerPrefs.SetInt("walkman_shuffle", WalkmanShuffle ? 1 : 0);
             PlayerPrefs.SetString("walkman_song", WalkmanSong ?? "");
             PlayerPrefs.SetInt("who", (int)LastCharacter);
             CloudSync.MarkDirty();

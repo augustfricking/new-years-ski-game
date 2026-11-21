@@ -477,6 +477,7 @@ namespace Ski.Game
             _player = player;
             _done = done;
             State = Mode.Cutscene;
+            AudioDirector.I?.Music(null);       // the theme rests during the cutscene (a walkman song plays on)
             _ui?.RemoveFromHierarchy();
             var ui = Ui.Instance;
             if (ui != null)

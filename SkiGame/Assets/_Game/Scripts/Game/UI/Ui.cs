@@ -59,6 +59,17 @@ namespace Ski.Game
             _fade.pickingMode = PickingMode.Ignore;
         }
 
+        /// <summary>Whether the mouse is over something of the interface (a card, a button, the shop): a click
+        /// there is for the interface, not for grabbing the mouse to look around. The layers themselves let clicks through.</summary>
+        public bool PointerOverUi()
+        {
+            var m = UnityEngine.InputSystem.Mouse.current;
+            if (m == null || Root == null || Root.panel == null) return false;
+            Vector2 p = m.position.ReadValue();
+            Vector2 at = RuntimePanelUtils.ScreenToPanel(Root.panel, new Vector2(p.x, UnityEngine.Screen.height - p.y));
+            return Root.panel.Pick(at) != null;
+        }
+
         VisualElement Layer(string name)
         {
             var l = new VisualElement { name = name, pickingMode = PickingMode.Ignore };

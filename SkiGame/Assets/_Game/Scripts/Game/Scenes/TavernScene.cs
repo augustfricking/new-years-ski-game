@@ -77,8 +77,10 @@ namespace Ski.Game
         /// <summary>The frame the beer game was left (so the same Esc does not also open the pause menu).</summary>
         public int GameEndFrame = -1;
 
-        // The DJ on the stage, the songs, and the walkman left on a table.
-        static readonly Vector3 DjDesk = new Vector3(-5.75f, 0.3f, 9.2f), WalkmanSpot = new Vector3(0.05f, 0f, -3.45f);
+        // The DJ on the stage, the songs, and the walkman left on the bar (between the taps and the first stool,
+        // at the front edge, so it is seen and reached from the floor).
+        static readonly Vector3 DjDesk = new Vector3(-5.75f, 0.3f, 9.2f), WalkmanSpot = new Vector3(4.85f, 0f, -1.9f);
+        const float BarTop = 1.17f;
         Person _dj;
         Transform _walkman;
         VisualElement _picker;
@@ -790,12 +792,12 @@ namespace Ski.Game
             _guests.Add(new Guest { P = _dj, Kind = Act.Stand, Table = -1, Base = Pose.Stand, Home = _dj.transform.localPosition, HomeRot = _dj.transform.localRotation });
             _djGuest = _guests[_guests.Count - 1];
 
-            // The walkman, left on the end of a table, its headphones beside it.
+            // The walkman, left on the bar, its headphones beside it; it turns slowly so it catches the eye.
             if (!SaveData.HasWalkman)
             {
                 _walkman = new GameObject("Walkman").transform;
                 _walkman.SetParent(transform, false);
-                _walkman.localPosition = WalkmanSpot + new Vector3(0f, TableTop + 0.005f, 0f);
+                _walkman.localPosition = WalkmanSpot + new Vector3(0f, BarTop + 0.005f, 0f);
                 _walkman.localRotation = Quaternion.Euler(0f, 20f, 0f);
                 var w = new MeshBuilder();
                 w.Col = Palette.Hex("#E8455A");
@@ -864,7 +866,6 @@ namespace Ski.Game
                     ClosePicker();
                     PlayDj(song.id);
                     SaveData.Record(_who, p => p.songsRequested++);
-                    Ui.Instance?.Notice("NOW PLAYING", song.title, 2.4f);
                 }, "btn-plain song-row" + (s.id == now ? " btn-selected" : ""));
             }
             Ui.Keys(card, "ESC", "close");
@@ -1521,6 +1522,7 @@ namespace Ski.Game
             bool atDoor = _pos.x < -6.2f && Mathf.Abs(_pos.z) < 1.4f && _time > 1.5f;
             bool atDj = new Vector2(_pos.x - DjDesk.x, _pos.z - DjDesk.z).magnitude < 2.1f && Songs.All.Count > 0;
             bool atWalkman = _walkman != null && new Vector2(_pos.x - WalkmanSpot.x, _pos.z - WalkmanSpot.z).magnitude < 1.4f;
+            if (_walkman != null) _walkman.localRotation = Quaternion.Euler(0f, Time.time * 35f, 0f);
             bool atToilet = new Vector2(_pos.x - ToiletSpot.x, _pos.z - ToiletSpot.z).magnitude < 1.1f;
             Vector3 seatPos = default; float seatSide = 0f; int seat = -1;
             if (_seatTable < 0 && !atBar && !atDj && !atWalkman && !atDoor && !atToilet && _grounded && _pos.y < 0.05f) seat = FreeSeat(out seatPos, out seatSide);

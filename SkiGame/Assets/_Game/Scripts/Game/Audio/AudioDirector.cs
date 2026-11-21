@@ -132,7 +132,7 @@ namespace Ski.Game
             if (I == null) return;
             I.NoteInput();                                               // this very frame's press counts too
             if (Time.unscaledTime - I._lastInput > 0.6f) return;
-            I.Play("click", 0.35f);
+            I.Play("click", volume: 0.35f);
         }
 
         public static void Hover()
@@ -143,7 +143,7 @@ namespace Ski.Game
             Vector2 at = mouse.position.ReadValue();
             if ((at - I._lastHoverAt).sqrMagnitude < 9f) return;         // the pointer has not moved: not a real hover
             I._lastHoverAt = at;
-            I.Play("hover", 0.12f);
+            I.Play("hover", volume: 0.12f);
         }
 
         void NoteInput()
@@ -235,6 +235,8 @@ namespace Ski.Game
         public bool DjHasFloor;
         /// <summary>Called when a song (not a synthesised loop) has played to its end, with its id.</summary>
         public event System.Action<string> SongEnded;
+        /// <summary>Called when a song starts playing (its clip loaded), with its id: the "now playing" card.</summary>
+        public static event System.Action<string> SongStarted;
         /// <summary>The song playing now (its id), or null.</summary>
         public string CurrentSong => _music.StartsWith("song:") ? _music.Substring(5) : null;
 
@@ -269,13 +271,16 @@ namespace Ski.Game
             string id = walkman ? "song:" + Walkman.Current : _sceneMusic;
             // Menus and runs share one theme, so going from one to the other does not start it again.
             if (!walkman && IsThemeScene(id) && _theme != null) id = Theme;
-            Play(id, walkman ? 0.9f : _sceneLevel);
+            PlayMusic(id, walkman ? 0.9f : _sceneLevel);
         }
 
-        void Play(string id, float level)
+        // Its own name: as a second "Play(string, float)" it was the better match for Play("click", 0.35f), so every
+        // button click and hover replaced the music (or the song) with a looping click.
+        void PlayMusic(string id, float level)
         {
             _musicLevel = level;
             if (id == _music) return;
+            Debug.Log("[Audio] music " + (string.IsNullOrEmpty(_music) ? "-" : _music) + " -> " + (string.IsNullOrEmpty(id) ? "-" : id));
             _music = id ?? "";
             // Swap the roles: the old track fades out on B, the new one fades in on A.
             var t = _musicA; _musicA = _musicB; _musicB = t;
@@ -297,6 +302,7 @@ namespace Ski.Game
                     src.Play();
                     _songPlaying = true;
                     _songStart = Time.unscaledTime;
+                    SongStarted?.Invoke(id.Substring(5));
                 });
                 return;
             }
@@ -359,6 +365,12 @@ namespace Ski.Game
                     if (SaveData.WalkmanRepeat) RestartMusic(); else Walkman.Next();
                 }
                 SongEnded?.Invoke(ended);
+            }
+            // A loop (the theme, a synthesised piece) never stops by itself: if the browser dropped it, start it again.
+            if (!_songA && _musicA.loop && _musicA.clip != null && !_musicA.isPlaying && _musicBlend > 0.5f && _musicA.clip.loadState == AudioDataLoadState.Loaded)
+            {
+                Debug.Log("[Audio] " + _music + " had stopped: playing it again");
+                _musicA.Play();
             }
             _musicBlend = Mathf.MoveTowards(_musicBlend, 1f, dt / 1.2f);
             float duck = _voice.isPlaying ? 0.5f : 1f;

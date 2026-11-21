@@ -101,6 +101,9 @@ namespace Ski.Core
         {
             Id = SlopeId.Black; Name = "Svarta Väggen"; Seed = 53;
             BaseHalfWidth = 15.5f; NoiseAmp = 0.04f; NoiseLen = 21f;
+            // Crossing a pit at racing speed slams you into its far wall at 11-12 m/s whatever the speed: a heavy,
+            // slowing landing here, not a certain crash (dodging them is still faster).
+            ImpactScale = 1.35f;
             AddBend(24f, 520f, 0.2f);
             AddBend(10f, 235f, 1.7f);
             AddBend(4f, 125f, 0.9f);

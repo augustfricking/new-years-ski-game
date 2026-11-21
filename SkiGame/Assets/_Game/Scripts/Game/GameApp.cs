@@ -55,6 +55,7 @@ namespace Ski.Game
             SaveData.Load();
             GraphicsQuality.Apply();
             SaveData.Unlocked += UnlockPopup.Show;
+            AudioDirector.SongStarted += NowPlaying.Show;
             OnlineBoards.Connect();
             Songs.LoadList(this, () => AudioDirector.I?.RefreshMusic());
             VoiceChat.Create(transform);   // anonymous device profile for the world boards; local play does not wait for it
@@ -237,7 +238,9 @@ namespace Ski.Game
             if (Screen == GameScreen.Run && Run != null)
             {
                 // Clicking the game captures the mouse for looking around.
-                if (!Dialogs.Open && mouse != null && mouse.leftButton.wasPressedThisFrame && Cursor.lockState != CursorLockMode.Locked)
+                // (Not a click on the interface: the shop, the results board, a card. That click is for the button under it.)
+                if (!Dialogs.Open && (Shop == null || !Shop.IsOpen) && mouse != null && mouse.leftButton.wasPressedThisFrame
+                    && Cursor.lockState != CursorLockMode.Locked && !Ui.Instance.PointerOverUi())
                     Cursor.lockState = CursorLockMode.Locked;
                 if (kb != null && kb.escapeKey.wasPressedThisFrame && !_busy && Shop != null && Shop.IsOpen) Shop.Close();
                 else if (kb != null && kb.escapeKey.wasPressedThisFrame && !_busy && Run.Watching) Run.StopWatching();
@@ -255,7 +258,7 @@ namespace Ski.Game
             }
             else if (Screen == GameScreen.Tavern && Tavern != null && !Tavern.Busy && Tavern.GameEndFrame < Time.frameCount - 1 && Tavern.BusyEndFrame < Time.frameCount - 1)
             {
-                if (!Dialogs.Open && mouse != null && mouse.leftButton.wasPressedThisFrame) Cursor.lockState = CursorLockMode.Locked;
+                if (!Dialogs.Open && mouse != null && mouse.leftButton.wasPressedThisFrame && !Ui.Instance.PointerOverUi()) Cursor.lockState = CursorLockMode.Locked;
                 if (kb != null && kb.escapeKey.wasPressedThisFrame && !_busy)
                 {
                     if (Dialogs.Open) { Dialogs.Close(); Cursor.lockState = CursorLockMode.Locked; }

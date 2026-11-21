@@ -224,28 +224,34 @@ namespace Ski.Tests
         }
 
         [Test]
-        public void BlackSlopePitsCrashAtFullSpeedButNotSlowly()
+        public void BlackSlopePitsSlowYouDownButCanBeCrossed()
         {
             var c = new BlackCourse();
             Pit pit = null;
             foreach (var f in c.Features) if (f is Pit p && p.Zc > 300f) { pit = p; break; }
             Assert.IsNotNull(pit);
 
-            bool CrashesAt(float speed)
+            bool CrashesAt(float speed, out bool slowed)
             {
                 var s = new SkiSim(c, SkiParams.For(CharacterId.Erik));
                 s.Teleport(pit.X, pit.Zc - 30f, 0f);
                 s.Vel = new Vector3(0f, -speed * 0.45f, speed * 0.89f);
+                slowed = false;
                 for (int i = 0; i < 400; i++)
                 {
-                    s.Step(new SkiInput { Brake = speed < 15f }, SkiSim.FixedDt);
+                    s.Step(new SkiInput { Brake = speed < 15f, Tuck = speed >= 15f }, SkiSim.FixedDt);
+                    foreach (var e in s.Events) if (e.Type == SkiEventType.HeavyLanding) slowed = true;
                     if (s.Crashed) return true;
                     if (s.Pos.z > pit.Zc + pit.Radius + 10f) break;
                 }
                 return false;
             }
-            Assert.IsTrue(CrashesAt(33f), "a pit at 120 km/h should crash you");
-            Assert.IsFalse(CrashesAt(9f), "a pit at walking pace should be harmless");
+            foreach (float kmh in new[] { 80f, 100f, 120f, 135f })
+            {
+                Assert.IsFalse(CrashesAt(kmh / 3.6f, out bool slowed), "a pit at " + kmh + " km/h can be crossed");
+                Assert.IsTrue(slowed, "but it is a heavy landing that costs speed at " + kmh + " km/h");
+            }
+            Assert.IsFalse(CrashesAt(9f, out _), "a pit at walking pace should be harmless");
         }
 
         [Test]

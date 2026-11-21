@@ -22,7 +22,7 @@ namespace Ski.Game
         const float MinGap = 30f;
         /// <summary>What travels: everything except what belongs to this device (graphics, sign-in).</summary>
         static readonly string[] Floats = { "vol_master", "vol_music2", "vol_ambience", "vol_effects", "vol_voice", "mouse", "chug", "vol_theme", "vol_chat" };
-        static readonly string[] Ints = { "subs", "invert", "name_asked", "others", "live", "walkman", "voice", "walkman_on", "walkman_repeat", "who" };
+        static readonly string[] Ints = { "subs", "invert", "name_asked", "others", "live", "walkman", "voice", "walkman_on", "walkman_repeat", "who", "walkman_shuffle" };
         static readonly string[] Strings =
         {
             "name", "walkman_song", "progress_0", "progress_1", "progress_2", "progress_3", "outfit_0", "outfit_1", "outfit_2", "outfit_3",
@@ -151,14 +151,41 @@ namespace Ski.Game
         /// signs in to an existing one (its save then replaces this browser's). Returns null when it
         /// worked, else what went wrong, in a few words.
         /// </summary>
+        public static string Rules => Ski.Core.AccountRules.Rules;
+        static string CheckName(string u) => Ski.Core.AccountRules.CheckName(u);
+        static string CheckPassword(string p) => Ski.Core.AccountRules.CheckPassword(p);
+
         public static async Task<string> Account(string username, string password, bool create)
         {
+            if (create)
+            {
+                string bad = CheckName(username) ?? CheckPassword(password);
+                if (bad != null) return bad;
+            }
+            else if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password)) return "Name and password";
             await OnlineBoards.Connect();
             if (OnlineBoards.Status != OnlineBoards.State.Online) return "Offline";
             try
             {
                 var auth = AuthenticationService.Instance;
-                if (create) await auth.AddUsernamePasswordAsync(username, password);
+                if (create)
+                {
+                    // This browser's own player becomes the account (its progress comes along). If that player already
+                    // has an account, the new one is a new player of its own.
+                    if (auth.IsSignedIn) { try { await auth.GetPlayerInfoAsync(); } catch (Exception) { } }
+                    bool linked = auth.IsSignedIn && !string.IsNullOrEmpty(auth.PlayerInfo?.Username);
+                    if (!linked)
+                    {
+                        try { await auth.AddUsernamePasswordAsync(username, password); }
+                        catch (AuthenticationException e) when (e.ErrorCode == AuthenticationErrorCodes.AccountLinkLimitExceeded) { linked = true; }
+                    }
+                    if (linked)
+                    {
+                        if (auth.IsSignedIn) auth.SignOut(true);
+                        await auth.SignUpWithUsernamePasswordAsync(username, password);
+                        OnlineBoards.SignedInAgain();
+                    }
+                }
                 else
                 {
                     if (auth.IsSignedIn) auth.SignOut(true);
@@ -198,10 +225,12 @@ namespace Ski.Game
         {
             string m = (message ?? "").ToLowerInvariant();
             if (m.Contains("permission_denied") || m.Contains("provider is not available")) return "Accounts are off";
-            if (!create) return m.Contains("network") || m.Contains("timeout") ? "Offline" : "Wrong name or password";
-            if (m.Contains("password") && (m.Contains("invalid") || m.Contains("requirement") || m.Contains("must"))) return "Weak password";
-            if (m.Contains("already") || m.Contains("exists") || m.Contains("conflict")) return "Name taken";
-            if (m.Contains("username")) return "Name not allowed";
+            if (m.Contains("network") || m.Contains("timeout") || m.Contains("cannot connect") || m.Contains("could not resolve")) return "Offline";
+            if (!create) return "Wrong name or password";
+            // The service words its refusals like "Password does not match requirements ..." and "Username does not ...".
+            if (m.Contains("password") && m.Contains("requirement")) return "Password too weak";
+            if (m.Contains("username") && m.Contains("requirement")) return "Name: letters, digits";
+            if (m.Contains("already") || m.Contains("exist") || m.Contains("conflict") || m.Contains("taken")) return "Name taken";
             return "Try again";
         }
     }

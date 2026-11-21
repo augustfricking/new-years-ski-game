@@ -98,25 +98,40 @@ namespace Ski.Game
     }
 
     /// <summary>
-    /// The walkman from the tavern table: once picked up, your own choice of the DJ's songs plays
-    /// wherever you are (the DJ still has the floor in the tavern). M skips to the next song,
-    /// N switches it on and off; both are in the settings too.
+    /// The walkman from the tavern bar: once picked up, your own choice of the DJ's songs plays
+    /// wherever you are, one after another without starting over between runs (the DJ still has the
+    /// floor in the tavern). M skips to the next song, N switches it on and off; the settings also
+    /// pick the exact song, repeat one, or shuffle.
     /// </summary>
     public static class Walkman
     {
         public static bool Active => SaveData.HasWalkman && SaveData.WalkmanOn && Songs.All.Count > 0;
         public static string Current => Songs.All.Count == 0 ? null : Songs.All[Mathf.Clamp(Songs.IndexOf(SaveData.WalkmanSong), 0, Songs.All.Count - 1)].id;
 
+        /// <summary>The next song (M, or when one ends): in order, or any other at random with shuffle on.</summary>
         public static void Next(int step = 1)
         {
-            if (Songs.All.Count == 0) return;
+            int n = Songs.All.Count;
+            if (n == 0) return;
             int i = Songs.IndexOf(SaveData.WalkmanSong);
-            i = ((i < 0 ? 0 : i + step) % Songs.All.Count + Songs.All.Count) % Songs.All.Count;
-            SaveData.WalkmanSong = Songs.All[i].id;
+            if (SaveData.WalkmanShuffle && n > 1)
+            {
+                int j;
+                do j = UnityEngine.Random.Range(0, n); while (j == i);
+                i = j;
+            }
+            else i = ((i < 0 ? 0 : i + step) % n + n) % n;
+            Select(Songs.All[i].id);
+        }
+
+        /// <summary>Plays this song on the walkman (from the list in the settings).</summary>
+        public static void Select(string id)
+        {
+            if (Songs.Get(id) == null) return;
+            SaveData.WalkmanSong = id;
             SaveData.WalkmanOn = true;
             SaveData.Save();
             AudioDirector.I?.RefreshMusic(true);
-            Announce();
         }
 
         public static void Toggle()
@@ -124,13 +139,7 @@ namespace Ski.Game
             SaveData.WalkmanOn = !SaveData.WalkmanOn;
             SaveData.Save();
             AudioDirector.I?.RefreshMusic(true);
-            if (SaveData.WalkmanOn) Announce(); else Ui.Instance?.Notice("WALKMAN OFF", null, 1.6f);
-        }
-
-        public static void Announce()
-        {
-            var s = Songs.Get(Current);
-            if (s != null) Ui.Instance?.Notice("NOW PLAYING", s.title + "  -  " + s.style, 2.6f);
+            if (!SaveData.WalkmanOn) Ui.Instance?.Notice("WALKMAN OFF", null, 1.6f);
         }
     }
 }
