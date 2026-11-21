@@ -859,14 +859,14 @@
 
 .unlock-card {
     position: absolute;
-    right: 24px;
+    left: 24px;
     bottom: 14%;
     width: 380px;
     background-color: rgb(245, 235, 216);
     border-width: 4px;
     border-color: rgb(27, 20, 48);
     border-radius: 8px;
-    rotate: -1.5deg;
+    rotate: 1.5deg;
     transition-property: opacity, translate;
     transition-duration: 0.45s;
     transition-timing-function: ease-out-back;
@@ -874,7 +874,7 @@
 
 .unlock-hidden {
     opacity: 0;
-    translate: 440px 0;
+    translate: -440px 0;
 }
 
 .unlock-head {

@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 namespace Ski.Game
 {
     /// <summary>
-    /// The card that slides in when something is earned: what was done, what it unlocked (with a
+    /// The card that slides in at the bottom left (empty after a run) when something is earned: what was done, what it unlocked (with a
     /// small picture of it) and that it waits in the shop. One at a time; several queue up; each
     /// stays a few seconds and slides away.
     /// </summary>
