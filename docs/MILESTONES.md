@@ -256,7 +256,11 @@ Ghosts and boards
 - [x] Songs made with YuE2 instead (the owner compared both and chose YuE2 for all eight), plus two
       new ones: "Chairlift Highway" (1970s classic rock) and "Boombox on the Ski Lift" (1990s old
       school hip hop). YuE2 credited in Settings > Audio and the README
-- [ ] Looping game music from YuE2 (candidates in tools/music/_work/loops; the owner decides)
+- [x] Background theme: a noir-funk instrumental from YuE2's instrumental workflow (no vocal line in the
+      score, no lyrics), cut into a seamless 2:13 loop (StreamingAssets/Music/theme.mp3) for the menus and the
+      runs. Songs only play from the walkman or the DJ. Volumes: music low (15%), songs, voice chat and
+      effects on their own sliders
+- [x] Sliders and scroll bars in the game's look
 - [ ] Characters remade to match the round-3 concept art (separate session; owner approves first)
 
 ## Known gaps and ideas
