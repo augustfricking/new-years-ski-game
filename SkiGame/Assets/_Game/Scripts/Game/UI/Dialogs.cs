@@ -43,6 +43,22 @@ namespace Ski.Game
             row.Add(s);
         }
 
+        /// <summary>The note that an account was made (and is signed in already) or signed in to.</summary>
+        static void Signed(bool created)
+        {
+            Ui.Instance?.Notice(created ? "ACCOUNT MADE" : "SIGNED IN", (created ? "Signed in as " : "Welcome back, ") + CloudSync.Username, 3.5f);
+            AudioDirector.Sfx("cheer", 0.5f, 1.2f);
+        }
+
+        /// <summary>A tick box (for a choice made once, like "Remember me").</summary>
+        static void CheckRow(VisualElement parent, string label, bool value, Action<bool> set)
+        {
+            var box = new Toggle(label) { value = value };
+            box.AddToClassList("check");
+            box.RegisterValueChangedCallback(e => { AudioDirector.Click(); set(e.newValue); });
+            parent.Add(box);
+        }
+
         /// <summary>An on/off setting: both choices side by side, the one in use lit.</summary>
         static void ToggleRow(VisualElement parent, string label, bool value, Action<bool> set)
         {
@@ -256,6 +272,23 @@ namespace Ski.Game
                     Ui.Text(r, "Signed in: " + CloudSync.Username, "dialog-label");
                     Ui.Btn(r, "SIGN OUT", async () => { await CloudSync.SignOut(); Build(); }, "btn-plain btn-small");
                     Ui.Text(box, CloudStatus(), "small");
+                    // A new password (there is no e-mail to reset a forgotten one).
+                    var cur = new TextField { maxLength = 30, isPasswordField = true };
+                    cur.AddToClassList("name-field");
+                    var nxt = new TextField { maxLength = 30, isPasswordField = true };
+                    nxt.AddToClassList("name-field");
+                    var p1 = Ui.Div(box, "dialog-row"); Ui.Text(p1, "Password now", "dialog-label"); p1.Add(cur);
+                    var p2 = Ui.Div(box, "dialog-row"); Ui.Text(p2, "New password", "dialog-label"); p2.Add(nxt);
+                    var p3 = Ui.Div(box, "row");
+                    var pmsg = Ui.Text(box, "", "small");
+                    Ui.Btn(p3, "CHANGE", async () =>
+                    {
+                        pmsg.text = "...";
+                        string err = await CloudSync.ChangePassword(cur.value, nxt.value);
+                        pmsg.text = err ?? "Password changed";
+                        if (err == null) { cur.value = ""; nxt.value = ""; }
+                    }, "btn-plain btn-small");
+                    InfoButton(p3, CloudSync.Rules);
                     return;
                 }
                 var user = new TextField { maxLength = 20 };
@@ -264,14 +297,14 @@ namespace Ski.Game
                 pass.AddToClassList("name-field");
                 var r1 = Ui.Div(box, "dialog-row"); Ui.Text(r1, "Username", "dialog-label"); r1.Add(user);
                 var r2 = Ui.Div(box, "dialog-row"); Ui.Text(r2, "Password", "dialog-label"); r2.Add(pass);
-                ToggleRow(box, "Remember me", CloudSync.Remember, v => CloudSync.Remember = v);
+                CheckRow(box, "Remember me", CloudSync.Remember, v => CloudSync.Remember = v);
                 var r3 = Ui.Div(box, "row");
                 var msg = Ui.Text(box, CloudStatus(), "small");
                 async void Go(bool create)
                 {
                     msg.text = "...";
                     string err = await CloudSync.Account(user.value.Trim(), pass.value, create);
-                    if (err == null) Build(); else msg.text = err;
+                    if (err == null) { Signed(create); Build(); } else msg.text = err;
                 }
                 Ui.Btn(r3, "CREATE", () => Go(true), "btn-plain btn-small");
                 Ui.Btn(r3, "SIGN IN", () => Go(false), "btn-plain btn-small");
@@ -312,7 +345,7 @@ namespace Ski.Game
             pass.AddToClassList("name-field");
             var r1 = Ui.Div(acc, "dialog-row"); Ui.Text(r1, "Username", "dialog-label"); r1.Add(user);
             var r2 = Ui.Div(acc, "dialog-row"); Ui.Text(r2, "Password", "dialog-label"); r2.Add(pass);
-            ToggleRow(acc, "Remember me", CloudSync.Remember, v => CloudSync.Remember = v);
+            CheckRow(acc, "Remember me", CloudSync.Remember, v => CloudSync.Remember = v);
             var r3 = Ui.Div(acc, "row");
             var accMsg = Ui.Text(acc, "", "small");
 
@@ -341,6 +374,7 @@ namespace Ski.Game
                 accMsg.text = "...";
                 string err = await CloudSync.Account(u, pass.value, create);
                 if (err != null) { accMsg.text = err; return; }
+                Signed(create);
                 if (SaveData.PlayerName.Length == 0) SaveData.PlayerName = u;
                 Finish();
             }

@@ -864,6 +864,43 @@
     margin: 4px 0 8px 0;
 }
 
+.check {
+    margin: 6px 0 8px 0;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.check .unity-toggle__input {
+    flex-grow: 0;
+    flex-shrink: 0;
+    flex-basis: auto;
+    width: 24px;
+    height: 24px;
+    margin-right: 10px;
+    overflow: visible;
+}
+
+.check .unity-toggle__checkmark {
+    width: 24px;
+    height: 24px;
+    background-color: rgb(245, 235, 216);
+    border-width: 3px;
+    border-color: rgb(27, 20, 48);
+    border-radius: 5px;
+    -unity-background-image-tint-color: rgb(27, 20, 48);
+}
+
+.check:checked .unity-toggle__checkmark {
+    background-color: rgb(255, 198, 74);
+}
+
+.check.unity-toggle > .unity-toggle__label {
+    min-width: 0;
+    font-size: 26px;
+    color: rgb(27, 20, 48);
+}
+
 .toggle-pair {
     flex-shrink: 0;
 }

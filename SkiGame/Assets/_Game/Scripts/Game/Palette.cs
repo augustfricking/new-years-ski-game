@@ -43,6 +43,8 @@ namespace Ski.Game
         public static readonly Color DeadWood = Hex("#8A7A78");
         public static readonly Color Rock = Hex("#6E6A85");
         public static readonly Color RockDark = Hex("#4D4A66");
+        public static readonly Color Ice = Hex("#4F86B5");       // the frozen lake below the village
+        public static readonly Color IceDark = Hex("#1E4470");
         public static readonly Color Bush = Hex("#7A5A4A");
 
         // Built things.

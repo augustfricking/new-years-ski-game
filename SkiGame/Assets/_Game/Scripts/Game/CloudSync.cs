@@ -204,6 +204,26 @@ namespace Ski.Game
             catch (Exception e) { Debug.Log("[Cloud] account: " + e.Message); return Short(e.Message, create); }
         }
 
+        /// <summary>A new password for the signed-in account (null when it worked). Username accounts have no
+        /// e-mail, so a forgotten password cannot be reset: this is the way to keep it known.</summary>
+        public static async Task<string> ChangePassword(string current, string next)
+        {
+            if (string.IsNullOrEmpty(current)) return "Current password";
+            string bad = CheckPassword(next);
+            if (bad != null) return bad;
+            try
+            {
+                await AuthenticationService.Instance.UpdatePasswordAsync(current, next);
+                return null;
+            }
+            catch (Exception e)
+            {
+                Debug.Log("[Cloud] password: " + e.Message);
+                string m = e.Message.ToLowerInvariant();
+                return m.Contains("network") || m.Contains("timeout") ? "Offline" : m.Contains("requirement") ? "Password too weak" : "Wrong password";
+            }
+        }
+
         /// <summary>Leaves the account: this browser goes back to being a device of its own.</summary>
         public static async Task SignOut()
         {

@@ -8,8 +8,8 @@ namespace Ski.Game
     /// <summary>
     /// The rest of the mountain around a run: the forested flanks with the four other runs cut
     /// through them (so that from the village you look back up at the whole ski area), the summit
-    /// above the start, the chairlift that climbs beside the piste, and old ski tracks in the
-    /// off-piste forest.
+    /// above the start, the chairlift that climbs beside the piste, old ski tracks in the
+    /// off-piste forest, and the valley below the village (<see cref="ValleyBuilder"/>).
     /// </summary>
     public static class MountainBuilder
     {
@@ -24,6 +24,7 @@ namespace Ski.Game
             if (c is OffPisteCourse off) BuildTracks(off, root);
             BuildLift(c, root);
             BuildOtherRunMarks(c, root);
+            ValleyBuilder.Build(c, root);
         }
 
         // ---- the lift ----------------------------------------------------------------------------
@@ -382,7 +383,7 @@ namespace Ski.Game
             foreach (var kv in builders) kv.Value.ToObject("Flank trees " + kv.Key, Mats.Trees, parent, false, false);
         }
 
-        static void AddGrid(Transform parent, string name, Vector3[] v, Color32[] col, int rows, int cols, bool flip)
+        internal static void AddGrid(Transform parent, string name, Vector3[] v, Color32[] col, int rows, int cols, bool flip)
         {
             var nrm = new Vector3[v.Length];
             for (int r = 0; r < rows; r++)

@@ -799,6 +799,7 @@ namespace Ski.Game
                 _walkman.SetParent(transform, false);
                 _walkman.localPosition = WalkmanSpot + new Vector3(0f, BarTop + 0.005f, 0f);
                 _walkman.localRotation = Quaternion.Euler(0f, 20f, 0f);
+                _walkman.localScale = Vector3.one * 1.4f;                       // a little larger than life, to be noticed
                 var w = new MeshBuilder();
                 w.Col = Palette.Hex("#E8455A");
                 w.Box(new Vector3(0f, 0.018f, 0f), new Vector3(0.12f, 0.036f, 0.085f));
