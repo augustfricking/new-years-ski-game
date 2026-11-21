@@ -808,6 +808,17 @@
     color: rgb(27, 20, 48);
 }
 
+.shop-swatch-locked {
+    opacity: 0.6;
+    font-size: 13px;
+    -unity-text-align: middle-center;
+}
+
+.shop-swatch-goal {
+    width: 100%;
+    margin-left: 4px;
+}
+
 .shop-swatch-on {
     border-width: 5px;
     border-color: rgb(255, 198, 74);

@@ -16,6 +16,8 @@ namespace Ski.Game
             Palette.Hex("#F7F4EE"), Palette.Hex("#22202E"), Palette.Hex("#E8455A"), Palette.Hex("#F2803A"), Palette.Hex("#FFC64A"),
             Palette.Hex("#8FD14F"), Palette.Hex("#2F9E6E"), Palette.Hex("#18A6A6"), Palette.Hex("#3A78E0"), Palette.Hex("#22305C"),
             Palette.Hex("#6C58C9"), Palette.Hex("#D8437F"), Palette.Hex("#8FE0C0"), Palette.Hex("#8A5A34"),
+            // Rare, earned (Unlocks.RareColours): toxic green, neon pink, electric blue, ultraviolet.
+            Palette.Hex("#7CFF3A"), Palette.Hex("#FF2E93"), Palette.Hex("#1FD1FF"), Palette.Hex("#7B2CFF"),
         };
 
         static readonly Color FlameRed = Palette.Hex("#D9342B"), FlameOrange = Palette.Hex("#F2803A"), FlameYellow = Palette.Hex("#FFD54A");
@@ -30,7 +32,7 @@ namespace Ski.Game
             if (pattern <= 0) return false;
             if (slot == SkinModel.SlotJacket) return true;
             return slot == SkinModel.SlotPants && (pattern == 4 || pattern == 5 || pattern == 6 || pattern == 8 || pattern == 9 || pattern == 10
-                                                    || pattern == Unlocks.PatternFur || pattern == Unlocks.PatternRainbow);
+                                                    || pattern == Unlocks.PatternFur || pattern == Unlocks.PatternRainbow || pattern == Unlocks.PatternLeopard);
         }
 
         /// <summary>Where a vertex reads the print (the texture repeats across, and up for all but flames).</summary>
@@ -44,7 +46,9 @@ namespace Ski.Game
             }
             if (pattern == 9) return new Vector2(p.x / 0.5f + 0.5f, p.y / 0.5f);                  // one pair of stripes down the middle
             if (pattern == Unlocks.PatternRainbow) return new Vector2(across / 0.5f, p.y / 1.1f); // the bands go once from ankle to shoulder
-            float period = pattern == 4 || pattern == 5 || pattern == 8 ? 0.42f : pattern == 1 ? 0.2f : pattern == 11 ? 0.24f : 0.15f;
+            float period = pattern == 4 || pattern == 5 || pattern == 8 ? 0.42f : pattern == 1 ? 0.2f : pattern == 11 ? 0.24f
+                         : pattern == Unlocks.PatternDucks ? 0.22f : pattern == Unlocks.PatternHearts ? 0.17f
+                         : pattern == Unlocks.PatternLightning ? 0.2f : pattern == Unlocks.PatternLeopard ? 0.26f : 0.15f;
             return new Vector2(across / period, p.y / period);
         }
 
@@ -147,6 +151,53 @@ namespace Ski.Game
                     Color[] bands = { Palette.Hex("#6C58C9"), Palette.Hex("#3A78E0"), Palette.Hex("#2F9E6E"), Palette.Hex("#FFC64A"), Palette.Hex("#F2803A"), Palette.Hex("#E8455A") };
                     return bands[Mathf.Clamp((int)(Mathf.Repeat(v, 1f) * bands.Length), 0, bands.Length - 1)];
                 }
+                case Unlocks.PatternDucks:                                                                // rubber ducks, every other row facing back
+                {
+                    bool flip = Mathf.Repeat(v, 1f) > 0.5f;
+                    float x = Mathf.Repeat(u + (flip ? 0.5f : 0f), 1f) - 0.5f, y = Mathf.Repeat(v * 2f, 1f) - 0.45f;
+                    x = (flip ? -x : x) * 2f;
+                    bool body = (x * x) / 0.16f + (y * y) / 0.045f < 1f && y > -0.2f;
+                    bool tail = x < -0.25f && x > -0.46f && y > -0.02f && y < 0.12f + (x + 0.25f) * -0.8f;
+                    float hx = x - 0.24f, hy = y - 0.2f;
+                    bool head = hx * hx + hy * hy < 0.022f;
+                    bool beak = x > 0.36f && x < 0.52f && Mathf.Abs(y - 0.17f) < 0.045f - (x - 0.36f) * 0.15f;
+                    bool eye = (hx - 0.04f) * (hx - 0.04f) + (hy - 0.03f) * (hy - 0.03f) < 0.0012f;
+                    bool wing = ((x + 0.04f) * (x + 0.04f)) / 0.03f + ((y - 0.02f) * (y - 0.02f)) / 0.006f < 1f;
+                    if (eye) return Palette.Ink;
+                    if (beak) return Palette.Hex("#F2803A");
+                    if (wing && body) return Palette.Hex("#E8B020");
+                    if (body || head || tail) return Palette.Hex("#FFD84A");
+                    return col;
+                }
+                case Unlocks.PatternHearts:                                                               // hearts, staggered
+                {
+                    float x = Mathf.Repeat(u + (Mathf.Floor(v) % 2f) * 0.5f, 1f) - 0.5f, y = Mathf.Repeat(v, 1f) - 0.5f;
+                    x *= 2.6f; y = y * 2.6f + 0.15f;
+                    float a = x * x + y * y - 0.3f;
+                    bool heart = a * a * a - x * x * y * y * y < 0f;
+                    return heart ? (ColourDistance(col, Palette.Hex("#E8455A")) < 0.5f ? Palette.White : Palette.Hex("#E8455A")) : col;
+                }
+                case Unlocks.PatternLightning:                                                            // lightning bolts, yellow with an ink edge
+                {
+                    float x = Mathf.Repeat(u + (Mathf.Floor(v) % 2f) * 0.5f, 1f), y = Mathf.Repeat(v, 1f);
+                    if (InPolygon(x, y, Bolt)) return EdgeDistance(x, y, Bolt) < 0.03f ? Palette.Ink : FlameYellow;
+                    return col;
+                }
+                case Unlocks.PatternLeopard:                                                              // leopard rosettes: dark rings round warm spots
+                {
+                    float best = 9f;
+                    float[,] spots = { { 0.15f, 0.2f }, { 0.55f, 0.12f }, { 0.85f, 0.45f }, { 0.35f, 0.55f }, { 0.65f, 0.78f }, { 0.12f, 0.85f }, { 0.9f, 0.95f } };
+                    for (int i = 0; i < spots.GetLength(0); i++)
+                    {
+                        float dx = Mathf.Abs(u - spots[i, 0]); dx = Mathf.Min(dx, 1f - dx);
+                        float dy = Mathf.Abs(v - spots[i, 1]); dy = Mathf.Min(dy, 1f - dy);
+                        float r = Mathf.Sqrt(dx * dx + dy * dy) * (1f + 0.18f * Mathf.Sin(Mathf.Atan2(dy, dx) * 3f + i));
+                        best = Mathf.Min(best, r);
+                    }
+                    if (best < 0.05f) return Color.Lerp(col, Palette.Hex("#8A5A34"), 0.6f);
+                    if (best < 0.085f) return Color.Lerp(Palette.Ink, col, 0.1f);
+                    return col;
+                }
                 case 6:                                                                                   // flames from the bottom
                 {
                     float top = 0.55f + 0.25f * Mathf.Sin(Tau * u) * Mathf.Sin(Tau * 3f * u + 1f) + 0.15f * Mathf.Sin(Tau * 5f * u);
@@ -156,6 +207,31 @@ namespace Ski.Game
                 }
             }
             return col;
+        }
+
+        /// <summary>A lightning bolt in one tile of the print (x, y pairs, y up).</summary>
+        static readonly float[] Bolt = { 0.56f, 0.95f, 0.30f, 0.48f, 0.48f, 0.48f, 0.36f, 0.05f, 0.74f, 0.58f, 0.55f, 0.58f, 0.72f, 0.95f };
+
+        static bool InPolygon(float x, float y, float[] p)
+        {
+            bool inside = false;
+            for (int i = 0, j = p.Length - 2; i < p.Length; j = i, i += 2)
+                if ((p[i + 1] > y) != (p[j + 1] > y) && x < (p[j] - p[i]) * (y - p[i + 1]) / (p[j + 1] - p[i + 1]) + p[i]) inside = !inside;
+            return inside;
+        }
+
+        static float EdgeDistance(float x, float y, float[] p)
+        {
+            float best = 9f;
+            for (int i = 0, j = p.Length - 2; i < p.Length; j = i, i += 2)
+            {
+                float ax = p[j], ay = p[j + 1], bx = p[i], by = p[i + 1];
+                float dx = bx - ax, dy = by - ay;
+                float t = Mathf.Clamp01(((x - ax) * dx + (y - ay) * dy) / Mathf.Max(dx * dx + dy * dy, 1e-6f));
+                float ex = ax + dx * t - x, ey = ay + dy * t - y;
+                best = Mathf.Min(best, Mathf.Sqrt(ex * ex + ey * ey));
+            }
+            return best;
         }
 
         static float ColourDistance(Color a, Color b) => Mathf.Abs(a.r - b.r) + Mathf.Abs(a.g - b.g) + Mathf.Abs(a.b - b.b);

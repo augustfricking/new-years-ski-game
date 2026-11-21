@@ -47,7 +47,7 @@ namespace Ski.Core
         public float Penalty;       // seconds added
         public int Score;           // trick points (blue)
         public float TopSpeed;
-        public int GatesMissed, PeopleHit, Respawns;
+        public int GatesMissed, PeopleHit, Respawns, Crashes;
         public string BestTrickName; public int BestTrickPoints;
 
         public readonly KidCrowd Crowd;                  // green only
@@ -178,7 +178,7 @@ namespace Ski.Core
                         if (e.Trick != null) ScoreTrick(e.Trick);
                         if (e.Type == SkiEventType.Landed) Emit(RunEventType.Landed, e.Value, trick: e.Trick);
                         break;
-                    case SkiEventType.Crash: Emit(RunEventType.Crash, e.Value, reason: e.Reason); break;
+                    case SkiEventType.Crash: Crashes++; Emit(RunEventType.Crash, e.Value, reason: e.Reason); break;
                     case SkiEventType.Recovered: Emit(RunEventType.Recovered); break;
                     case SkiEventType.PolePush: Emit(RunEventType.PolePush, e.Value); break;
                     case SkiEventType.Jump: Emit(RunEventType.Jump); break;

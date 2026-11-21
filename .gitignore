@@ -69,6 +69,7 @@ audio/refs/
 # Third-party source assets fetched for the Blender pipeline (see tools/blender/README)
 tools/blender/_downloads/
 tools/music/_ace/
+tools/music/_yue2/
 tools/music/_work/
 tools/diag/.test_account
 tools/art/_venv/

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Ski.Core
 {
-    public enum ItemKind { Pattern, Headgear, Suit, Gear }
+    public enum ItemKind { Pattern, Headgear, Suit, Gear, Colour }
 
     /// <summary>
     /// How a character is dressed: colour picks (-1 = their own), a pattern, headgear, a suit, and
@@ -49,6 +49,8 @@ namespace Ski.Core
         public float[] best;         // per SlopeId: best time (s), or best score on the park; 0 = none
         public int runs;             // runs finished
         public float topSpeed;       // m/s, the fastest ever
+        public int kidsTotal;        // kids hit on the kids' slope, all runs
+        public int cleanRuns;        // runs with no crash and no missed gate
 
         public float Best(SlopeId s) => best != null && best.Length > (int)s ? best[(int)s] : 0f;
         public bool Finished(SlopeId s) => (slopesFinished & (1 << (int)s)) != 0;
@@ -76,18 +78,24 @@ namespace Ski.Core
     }
 
     /// <summary>
-    /// The shop's items. Colours and the plain prints are free for everyone; everything else
+    /// The shop's items. Most colours and the plain prints are free for everyone; everything else
     /// belongs to one of the four friends and is earned by playing as them. The harder the
     /// challenge, the sillier the reward.
     /// </summary>
     public static class Unlocks
     {
-        public static readonly string[] Patterns = { "Plain", "Stripes", "Checks", "Dots", "Camo", "Tiger", "Flames", "Candy", "Graffiti", "Race stripes", "Skulls", "Pines" };
+        public static readonly string[] Patterns = { "Plain", "Stripes", "Checks", "Dots", "Camo", "Tiger", "Flames", "Candy", "Graffiti", "Race stripes", "Skulls", "Pines",
+                                                       "Fur", "Rainbow", "Ducks", "Hearts", "Lightning", "Leopard" };
         public static readonly string[] Headgear = { "Helmet", "Beanie", "Viking", "Goalie mask", "Boxer", "Crown", "Unicorn", "Bunny ears", "Snapback", "Aero helmet", "Devil horns", "Antlers" };
         public static readonly string[] Suits = { "Own", "Gold", "Banana", "Gingerbread", "Rainbow", "Race suit", "Midnight", "Yeti" };
         public static readonly string[] Gear = { "Own", "Wood", "Neon", "Zebra", "Lava", "Galaxy", "Candy cane", "Ice", "Diamond", "Racing", "Chrome", "Gold", "Camo", "Wolf", "Aurora" };
         /// <summary>Prints that only come with a suit (the yeti's fur, the rainbow), after the ones in the list.</summary>
         public const int PatternFur = 12, PatternRainbow = 13;
+        /// <summary>The loud prints, each earned by one friend's hardest feats.</summary>
+        public const int PatternDucks = 14, PatternHearts = 15, PatternLightning = 16, PatternLeopard = 17;
+        /// <summary>Rare colours after the free ones (Scripts/Game/OutfitPaint.Colours keeps the same order).</summary>
+        public static readonly string[] RareColours = { "Toxic green", "Neon pink", "Electric blue", "Ultraviolet" };
+        public const int FreeColours = 14;
         /// <summary>Items free for everyone: the first prints, the beanie, two board and ski designs.</summary>
         public const int FreePatterns = 5, FreeHeadgear = 2, FreeGear = 3;
 
@@ -135,6 +143,8 @@ namespace Ski.Core
             new Unlock { Who = J, Id = "flames", Name = "Flames", Kind = ItemKind.Pattern, Value = 6, Goal = "100 km/h", Earned = p => p.topSpeed * 3.6f >= 100f },
             new Unlock { Who = J, Id = "goalie", Name = "Goalie mask", Kind = ItemKind.Headgear, Value = 3, Goal = "10 kids, one run", Earned = p => p.kidsHitOneRun >= 10 },
             new Unlock { Who = J, Id = "boxer", Name = "Boxer", Kind = ItemKind.Headgear, Value = 4, Goal = "25 knockouts", Earned = p => p.knockouts >= 25 },
+            new Unlock { Who = J, Id = "ducks", Name = "Ducks", Kind = ItemKind.Pattern, Value = PatternDucks, Goal = "100 kids in all", Earned = p => p.kidsTotal >= 100 },
+            new Unlock { Who = J, Id = "toxic", Name = "Toxic green", Kind = ItemKind.Colour, Value = FreeColours, Goal = "50 knockouts", Earned = p => p.knockouts >= 50 },
             Runs(J, "zebra", "Zebra board", 3, 10), Runs(J, "lava", "Lava board", 4, 25), Runs(J, "galaxy", "Galaxy board", 5, 50),
             // Maja: the kids' slope, the DJ and tricks.
             Slope(M, "candy", "Candy", ItemKind.Pattern, 7, SlopeId.Green, 0),
@@ -143,6 +153,8 @@ namespace Ski.Core
             new Unlock { Who = M, Id = "banana", Name = "Banana suit", Kind = ItemKind.Suit, Value = 2, Goal = "5 songs from the DJ", Earned = p => p.songsRequested >= 5 },
             new Unlock { Who = M, Id = "crown", Name = "Crown", Kind = ItemKind.Headgear, Value = 5, Goal = "A 1000-point trick", Earned = p => p.bestTrick >= 1000 },
             new Unlock { Who = M, Id = "unicorn", Name = "Unicorn", Kind = ItemKind.Headgear, Value = 6, Goal = "All of Maja's others", Earned = p => AllOthers(M, "unicorn", p) },
+            new Unlock { Who = M, Id = "hearts", Name = "Hearts", Kind = ItemKind.Pattern, Value = PatternHearts, Goal = "15 DJ songs", Earned = p => p.songsRequested >= 15 },
+            new Unlock { Who = M, Id = "neonpink", Name = "Neon pink", Kind = ItemKind.Colour, Value = FreeColours + 1, Goal = "A 2000-point trick", Earned = p => p.bestTrick >= 2000 },
             Runs(M, "candycane", "Candy cane skis", 6, 10), Runs(M, "ice", "Ice skis", 7, 25), Runs(M, "diamond", "Diamond skis", 8, 50),
             // Erik: the slalom, the stein and the whole mountain.
             Slope(E, "race", "Race stripes", ItemKind.Pattern, 9, SlopeId.Red, 0),
@@ -150,6 +162,8 @@ namespace Ski.Core
             Slope(E, "racesuit", "Race suit", ItemKind.Suit, 5, SlopeId.Red, 2),
             new Unlock { Who = E, Id = "viking", Name = "Viking", Kind = ItemKind.Headgear, Value = 2, Goal = "Stein in 8 s", Earned = p => p.bestChug > 0f && p.bestChug <= 8f },
             new Unlock { Who = E, Id = "gold", Name = "Gold suit", Kind = ItemKind.Suit, Value = 1, Goal = "Finish all five runs", Earned = p => p.FinishedCount >= 5 },
+            new Unlock { Who = E, Id = "lightning", Name = "Lightning", Kind = ItemKind.Pattern, Value = PatternLightning, Goal = "110 km/h", Earned = p => p.topSpeed * 3.6f >= 110f },
+            new Unlock { Who = E, Id = "electric", Name = "Electric blue", Kind = ItemKind.Colour, Value = FreeColours + 2, Goal = "Stein in 6 s", Earned = p => p.bestChug > 0f && p.bestChug <= 6f },
             Runs(E, "racing", "Racing skis", 9, 10), Runs(E, "chrome", "Chrome skis", 10, 25), Runs(E, "goldskis", "Gold skis", 11, 50),
             // Linn: the black run and the backcountry.
             Slope(L, "skulls", "Skulls", ItemKind.Pattern, 10, SlopeId.Black, 0),
@@ -158,6 +172,8 @@ namespace Ski.Core
             Slope(L, "pines", "Pines", ItemKind.Pattern, 11, SlopeId.OffPiste, 0),
             Slope(L, "antlers", "Antlers", ItemKind.Headgear, 11, SlopeId.OffPiste, 1),
             Slope(L, "yeti", "Yeti suit", ItemKind.Suit, 7, SlopeId.OffPiste, 2),
+            new Unlock { Who = L, Id = "leopard", Name = "Leopard", Kind = ItemKind.Pattern, Value = PatternLeopard, Goal = "100 runs", Earned = p => p.runs >= 100 },
+            new Unlock { Who = L, Id = "ultraviolet", Name = "Ultraviolet", Kind = ItemKind.Colour, Value = FreeColours + 3, Goal = "25 clean runs", Earned = p => p.cleanRuns >= 25 },
             Runs(L, "camo", "Camo skis", 12, 10), Runs(L, "wolf", "Wolf skis", 13, 25), Runs(L, "aurora", "Aurora skis", 14, 50),
         };
 
@@ -174,7 +190,8 @@ namespace Ski.Core
             return null;
         }
 
-        static int FreeCount(ItemKind kind) => kind == ItemKind.Pattern ? FreePatterns : kind == ItemKind.Headgear ? FreeHeadgear : kind == ItemKind.Gear ? FreeGear : 1;
+        static int FreeCount(ItemKind kind) => kind == ItemKind.Pattern ? FreePatterns : kind == ItemKind.Headgear ? FreeHeadgear
+                                             : kind == ItemKind.Gear ? FreeGear : kind == ItemKind.Colour ? FreeColours : 1;
 
         /// <summary>Whether this character may wear this item: free ones always, their own once earned, others' never.</summary>
         public static bool Available(CharacterId who, Progress p, ItemKind kind, int value)
@@ -208,6 +225,9 @@ namespace Ski.Core
             if (!Available(who, p, ItemKind.Headgear, r.headgear)) r.headgear = 0;
             if (!Available(who, p, ItemKind.Suit, r.suit)) r.suit = 0;
             if (!Available(who, p, ItemKind.Gear, r.gear)) r.gear = 0;
+            int Colour(int c) => c < 0 || Available(who, p, ItemKind.Colour, c) ? c : -1;
+            r.jacket = Colour(r.jacket); r.trim = Colour(r.trim); r.pants = Colour(r.pants); r.helmet = Colour(r.helmet);
+            r.gearColour = Colour(r.gearColour); r.gearAccent = Colour(r.gearAccent);
             return r;
         }
     }

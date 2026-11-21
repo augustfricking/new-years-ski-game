@@ -90,6 +90,37 @@ namespace Ski.Tests
         }
 
         [Test]
+        public void RareColoursAndLoudPrintsAreEarned()
+        {
+            var p = new Progress();
+            Assert.IsTrue(Unlocks.Available(J, p, ItemKind.Colour, Unlocks.FreeColours - 1), "the ordinary colours are free");
+            for (int i = 0; i < Unlocks.RareColours.Length; i++)
+            {
+                var u = Unlocks.For(ItemKind.Colour, Unlocks.FreeColours + i);
+                Assert.IsNotNull(u, Unlocks.RareColours[i] + " has a goal");
+                Assert.AreEqual(Unlocks.RareColours[i], u.Name);
+                Assert.IsFalse(Unlocks.Available(u.Who, p, ItemKind.Colour, u.Value), u.Name + " is locked at first");
+            }
+            foreach (int pattern in new[] { Unlocks.PatternDucks, Unlocks.PatternHearts, Unlocks.PatternLightning, Unlocks.PatternLeopard })
+            {
+                Assert.IsNotNull(Unlocks.For(ItemKind.Pattern, pattern), Unlocks.Patterns[pattern] + " has a goal");
+                Assert.IsFalse(Unlocks.Available(Unlocks.For(ItemKind.Pattern, pattern).Who, p, ItemKind.Pattern, pattern));
+            }
+            Assert.IsFalse(Unlocks.Listed(J, ItemKind.Pattern, Unlocks.PatternFur), "the fur only comes with the yeti suit");
+            p.kidsTotal = 100;
+            Assert.IsTrue(Unlocks.Available(J, p, ItemKind.Pattern, Unlocks.PatternDucks), "100 kids: Jonte's ducks");
+            Assert.IsFalse(Unlocks.Available(M, p, ItemKind.Pattern, Unlocks.PatternDucks));
+            p.cleanRuns = 25;
+            Assert.IsTrue(Unlocks.Available(L, p, ItemKind.Colour, Unlocks.FreeColours + 3), "25 clean runs: Linn's ultraviolet");
+            var o = new Outfit { jacket = Unlocks.FreeColours + 1, trim = Unlocks.FreeColours + 3, pants = 2, gearAccent = Unlocks.FreeColours };
+            var allowed = Unlocks.Allowed(L, p, o);
+            Assert.AreEqual(-1, allowed.jacket, "Maja's neon pink is not Linn's");
+            Assert.AreEqual(Unlocks.FreeColours + 3, allowed.trim, "her own, earned");
+            Assert.AreEqual(2, allowed.pants);
+            Assert.AreEqual(-1, allowed.gearAccent);
+        }
+
+        [Test]
         public void OutfitsTravelAsShortCodesAndLockedItemsFallBack()
         {
             var o = new Outfit { jacket = 4, trim = 0, pants = -1, helmet = 11, pattern = 5, headgear = 3, suit = 1, gear = 4, gearColour = 2, gearAccent = 7 };

@@ -241,6 +241,17 @@ Ghosts and boards
 - [x] Cutscene hands: a hand that would go through the bar holds it, hands never meet inside each
       other, the cold beat cups hands at the mouth (arms bent to the spot by `Person.Reach`)
 
+## M15 Round 7
+- [x] Rare colours and loud prints earned by achievements, one of each per friend: Jonte's ducks
+      (100 kids in all) and toxic green (50 knockouts), Maja's hearts (15 DJ songs) and neon pink
+      (a 2000-point trick), Erik's lightning (110 km/h) and electric blue (stein in 6 s), Linn's
+      leopard (100 runs) and ultraviolet (25 clean runs: no crash, no missed gate). Locked swatches
+      show a lock and say what earns them
+- [x] Stuck interface sound: clicks and hovers only answer a real press or a moving pointer
+- [x] Songs: every caption starts with its lead singer (male or female, voice described), and a
+      guest of the other voice sings a passage (ACE-Step repaint)
+- [ ] Characters remade to match the round-3 concept art (separate session; owner approves first)
+
 ## Known gaps and ideas
 - Voice chat needs a free public signalling server (PeerJS) and peer-to-peer connections,
   which some strict networks block. It was not tested with two real microphones.

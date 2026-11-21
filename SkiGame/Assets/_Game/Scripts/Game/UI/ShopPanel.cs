@@ -6,8 +6,8 @@ using UnityEngine.UIElements;
 namespace Ski.Game
 {
     /// <summary>
-    /// The ski shop in the village: the outfit of the friend you skied there as. Colours and the
-    /// plain prints are free; this friend's own things are listed too, locked until earned, with
+    /// The ski shop in the village: the outfit of the friend you skied there as. Most colours and
+    /// the plain prints are free (a rare colour is earned like the items); this friend's own things are listed too, locked until earned, with
     /// what earns them. Everything else belongs to someone else.
     /// </summary>
     public sealed class ShopPanel
@@ -84,17 +84,30 @@ namespace Ski.Game
             var row = Ui.Div(_list, "shop-row");
             Ui.Text(row, label, "shop-label");
             var wrap = Ui.Div(row, "shop-swatches");
+            var p = SaveData.ProgressOf(_who);
+            Label goal = null;
             void Add(int index, Color c)
             {
-                var sw = new Button(() => { set(index); Changed(); });
+                bool open = index < 0 || Unlocks.Available(_who, p, ItemKind.Colour, index);
+                var unlock = index < 0 ? null : Unlocks.For(ItemKind.Colour, index);
+                var sw = new Button(() =>
+                {
+                    if (open) { set(index); Changed(); return; }
+                    // A rare colour not earned yet: say what earns it.
+                    AudioDirector.Sfx("gate_miss", 0.4f);
+                    if (goal == null) { goal = new Label(); goal.AddToClassList("shop-item-goal"); goal.AddToClassList("shop-swatch-goal"); row.Add(goal); }
+                    goal.text = "\U0001F512 " + unlock.Name + ": " + unlock.Goal;
+                });
                 sw.AddToClassList("shop-swatch");
                 if (index == current) sw.AddToClassList("shop-swatch-on");
+                if (!open) { sw.AddToClassList("shop-swatch-locked"); sw.text = "\U0001F512"; }
                 sw.style.backgroundColor = c;
                 if (index < 0) sw.text = "*";
                 wrap.Add(sw);
             }
             Add(-1, own);
-            for (int i = 0; i < OutfitPaint.Colours.Length; i++) Add(i, OutfitPaint.Colours[i]);
+            for (int i = 0; i < OutfitPaint.Colours.Length; i++)
+                if (Unlocks.Listed(_who, ItemKind.Colour, i)) Add(i, OutfitPaint.Colours[i]);
         }
 
         void Choices(string label, ItemKind kind, string[] names, int current, Action<int> set)
