@@ -261,6 +261,27 @@ Ghosts and boards
       runs. Songs only play from the walkman or the DJ. Volumes: music low (15%), songs, voice chat and
       effects on their own sliders
 - [x] Sliders and scroll bars in the game's look
+
+## M16 Round 8 (bug hunt)
+- [x] Clicks no longer replace the music: as a second Play(string, float) the music method won over the
+      click sound, so every button click or hover put a looping click in place of the song or theme.
+      That was the stuck-button sound, songs stopping after Escape, and the walkman going quiet on SKI MAP
+- [x] Walkman: plays on everywhere until switched off, never restarts on a new or restarted run, picks
+      the next song when one ends (in order, or shuffle); the exact song from a list in Settings; repeat
+- [x] A small "now playing" card (bottom right) for every song that starts, walkman or DJ
+- [x] The background theme rests during the cutscene; on everywhere else but the tavern
+- [x] The walkman lies on the bar, a little larger, turning slowly
+- [x] Black slope: crossing a pit at speed is a heavy landing that costs speed, no longer a certain crash
+- [x] The shop keeps the mouse pointer: a click on the interface never grabs the mouse for looking
+- [x] Accounts: the service's rules checked before sending, with what is missing said plainly and an info
+      note; a browser already tied to an account makes a new one; "account made" / "signed in" notes;
+      a password change while signed in (username accounts have no e-mail, so a forgotten password cannot
+      be reset). Unity's own account sign-in does not work in web builds
+- [x] On/off settings show both choices with the one in use lit; Remember me is a tick box
+- [x] The valley past the village: the flanks carry on as its sides, the floor falls to a frozen lake
+      ringed with forest, a row of peaks beyond (ValleyBuilder)
+- [x] Players from other runs ride into the village from where their run meets the plaza instead of
+      jumping across it (not yet seen with real players)
 - [ ] Characters remade to match the round-3 concept art (separate session; owner approves first)
 
 ## Known gaps and ideas

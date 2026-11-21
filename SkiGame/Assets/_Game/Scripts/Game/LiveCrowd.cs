@@ -31,6 +31,9 @@ namespace Ski.Game
             _parent = root.transform;
         }
 
+        /// <summary>How far past their finish someone from another run takes to ride over into the village.</summary>
+        const float HandOff = 45f;
+
         /// <summary>Places everyone for this frame.</summary>
         public void Sync(Camera cam, float dt)
         {
@@ -59,8 +62,17 @@ namespace Ski.Game
                 if (theirs == (int)_s.Slope) p = new Vector3(s.Pos.x, c.Height(s.Pos.x, s.Pos.z) + s.Pos.y, s.Pos.z);
                 else if (mode == LiveMode.Finished || s.Pos.z > Courses.FinishZ[theirs])
                 {
-                    float z = s.Pos.z - Courses.FinishZ[theirs] + c.FinishZ;
-                    p = new Vector3(s.Pos.x, c.Height(s.Pos.x, z) + s.Pos.y, z);
+                    float past = Mathf.Max(0f, s.Pos.z - Courses.FinishZ[theirs]);
+                    float z = past + c.FinishZ;
+                    float x = s.Pos.x;
+                    // Out of their own run: over the first metres past their finish they ride in from where that
+                    // run meets the plaza (where they were drawn a moment ago) instead of jumping across.
+                    if (_pc != null && past < HandOff)
+                    {
+                        Vector3 end = MountainBuilder.OnOtherRun(_pc, theirs, s.Pos.x, Courses.FinishZ[theirs], out _);
+                        x = Mathf.Lerp(end.x, s.Pos.x, M.Smooth(past / HandOff));
+                    }
+                    p = new Vector3(x, c.Height(x, z) + s.Pos.y, z);
                 }
                 else if (_pc != null)
                 {
