@@ -31,7 +31,6 @@ namespace Ski.Game
         // had, the synthesised loops play.
         public const string Theme = "theme";
         AudioClip _theme;
-        bool _themeTried;
         float _windT, _carveT, _skidT, _windPitch = 1f, _time;
         int _next;
 
@@ -62,17 +61,22 @@ namespace Ski.Game
 
         System.Collections.IEnumerator FetchTheme()
         {
-            using (var req = UnityEngine.Networking.UnityWebRequestMultimedia.GetAudioClip(Songs.Url(Theme + ".mp3"), AudioType.MPEG))
+            // A few tries: the host can answer "busy" for a moment (GitHub Pages does while a new version goes up).
+            float[] waits = { 0f, 3f, 8f, 20f, 45f };
+            foreach (float wait in waits)
             {
-                yield return req.SendWebRequest();
-                if (req.result == UnityEngine.Networking.UnityWebRequest.Result.Success)
+                if (wait > 0f) yield return new WaitForSecondsRealtime(wait);
+                using (var req = UnityEngine.Networking.UnityWebRequestMultimedia.GetAudioClip(Songs.Url(Theme + ".mp3"), AudioType.MPEG))
                 {
-                    _theme = UnityEngine.Networking.DownloadHandlerAudioClip.GetContent(req);
-                    if (_theme != null) _theme.name = Theme;
+                    yield return req.SendWebRequest();
+                    if (req.result == UnityEngine.Networking.UnityWebRequest.Result.Success)
+                    {
+                        _theme = UnityEngine.Networking.DownloadHandlerAudioClip.GetContent(req);
+                        if (_theme != null) { _theme.name = Theme; break; }
+                    }
+                    else Debug.Log("[Audio] theme: " + req.error);
                 }
-                else Debug.Log("[Audio] theme: " + req.error);
             }
-            _themeTried = true;
             if (_theme != null && IsThemeScene(_sceneMusic)) Route();
         }
 
