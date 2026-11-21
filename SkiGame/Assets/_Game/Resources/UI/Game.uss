@@ -1117,6 +1117,11 @@
 .settings-body {
     min-width: 640px;
     min-height: 360px;
+    padding-right: 8px;
+}
+
+.settings-scroll {
+    max-height: 430px;
 }
 
 .keys-columns {

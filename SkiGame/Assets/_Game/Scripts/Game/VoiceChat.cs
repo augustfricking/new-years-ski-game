@@ -110,7 +110,7 @@ namespace Ski.Game
                         LRVoiceCall(pid);
                     }
                 }
-                LRVoiceGain(pid, Volume(r, now));
+                LRVoiceGain(pid, Volume(r, now) * SaveData.VoiceChatVolume * SaveData.MasterVolume);
                 _level[r.Id] = LRVoiceLevel(pid);
             }
             _gone.Clear();

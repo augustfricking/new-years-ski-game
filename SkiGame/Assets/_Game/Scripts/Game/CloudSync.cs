@@ -21,7 +21,7 @@ namespace Ski.Game
         const string Key = "save";
         const float MinGap = 30f;
         /// <summary>What travels: everything except what belongs to this device (graphics, sign-in).</summary>
-        static readonly string[] Floats = { "vol_master", "vol_music2", "vol_ambience", "vol_effects", "vol_voice", "mouse", "chug" };
+        static readonly string[] Floats = { "vol_master", "vol_music2", "vol_ambience", "vol_effects", "vol_voice", "mouse", "chug", "vol_theme", "vol_chat" };
         static readonly string[] Ints = { "subs", "invert", "name_asked", "others", "live", "walkman", "voice", "walkman_on", "walkman_repeat", "who" };
         static readonly string[] Strings =
         {

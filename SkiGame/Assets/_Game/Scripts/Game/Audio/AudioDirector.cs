@@ -14,7 +14,8 @@ namespace Ski.Game
         public static AudioDirector I { get; private set; }
 
         // Volumes (0..1), saved by SaveData.
-        public float Master = 0.85f, MusicVol = 0.4f, AmbienceVol = 0.4f, SfxVol = 0.6f, VoiceVol = 1f;
+        /// <summary>MusicVol: the background theme; SongVol: the songs (walkman, the DJ).</summary>
+        public float Master = 0.85f, MusicVol = 0.15f, SongVol = 0.5f, AmbienceVol = 0.3f, SfxVol = 0.7f, VoiceVol = 1f;
         /// <summary>Set while the game is paused: skis and wind fall silent at once.</summary>
         public bool Paused;
 
@@ -23,6 +24,14 @@ namespace Ski.Game
         AudioSource _windA, _windB, _carve, _skid, _musicA, _musicB, _amb, _amb2, _voice;
         string _music = "", _ambience = "", _ambience2 = "";
         float _musicBlend = 1f, _musicLevel = 1f;
+        bool _songA, _songB;          // whether each music source plays a song (its volume is SongVol, else MusicVol)
+
+        // The background theme (StreamingAssets/Music/theme.mp3, made by tools/music/make_theme_yue2.py): one
+        // seamless loop for the menus and the runs, fetched once at start. Until it is here, or if it cannot be
+        // had, the synthesised loops play.
+        public const string Theme = "theme";
+        AudioClip _theme;
+        bool _themeTried;
         float _windT, _carveT, _skidT, _windPitch = 1f, _time;
         int _next;
 
@@ -48,7 +57,27 @@ namespace Ski.Game
                 _pool.Add(s);
             }
             StartCoroutine(Warm());
+            StartCoroutine(FetchTheme());
         }
+
+        System.Collections.IEnumerator FetchTheme()
+        {
+            using (var req = UnityEngine.Networking.UnityWebRequestMultimedia.GetAudioClip(Songs.Url(Theme + ".mp3"), AudioType.MPEG))
+            {
+                yield return req.SendWebRequest();
+                if (req.result == UnityEngine.Networking.UnityWebRequest.Result.Success)
+                {
+                    _theme = UnityEngine.Networking.DownloadHandlerAudioClip.GetContent(req);
+                    if (_theme != null) _theme.name = Theme;
+                }
+                else Debug.Log("[Audio] theme: " + req.error);
+            }
+            _themeTried = true;
+            if (_theme != null && IsThemeScene(_sceneMusic)) Route();
+        }
+
+        /// <summary>The scenes whose music is the theme (their own synthesised loop is the fallback).</summary>
+        static bool IsThemeScene(string id) => id == "music_ski" || id == "music_menu";
 
         AudioSource Loop()
         {
@@ -233,7 +262,10 @@ namespace Ski.Game
         void Route()
         {
             bool walkman = Walkman.Active && !DjHasFloor;
-            Play(walkman ? "song:" + Walkman.Current : _sceneMusic, walkman ? 0.9f : _sceneLevel);
+            string id = walkman ? "song:" + Walkman.Current : _sceneMusic;
+            // Menus and runs share one theme, so going from one to the other does not start it again.
+            if (!walkman && IsThemeScene(id) && _theme != null) id = Theme;
+            Play(id, walkman ? 0.9f : _sceneLevel);
         }
 
         void Play(string id, float level)
@@ -243,6 +275,7 @@ namespace Ski.Game
             _music = id ?? "";
             // Swap the roles: the old track fades out on B, the new one fades in on A.
             var t = _musicA; _musicA = _musicB; _musicB = t;
+            _songB = _songA; _songA = id != null && id.StartsWith("song:");
             _musicBlend = 0f;
             _musicA.Stop();
             _musicA.clip = null;
@@ -264,7 +297,7 @@ namespace Ski.Game
                 return;
             }
             _musicA.loop = true;
-            _musicA.clip = Clip(id);
+            _musicA.clip = id == Theme ? _theme : Clip(id);
             if (_musicA.clip != null) _musicA.Play();
         }
 
@@ -325,8 +358,8 @@ namespace Ski.Game
             }
             _musicBlend = Mathf.MoveTowards(_musicBlend, 1f, dt / 1.2f);
             float duck = _voice.isPlaying ? 0.5f : 1f;
-            _musicA.volume = Mathf.Lerp(_musicA.volume, _musicBlend * MusicVol * _musicLevel * duck, slow * 2f);
-            _musicB.volume = (1f - _musicBlend) * MusicVol * _musicLevel * duck;
+            _musicA.volume = Mathf.Lerp(_musicA.volume, _musicBlend * (_songA ? SongVol : MusicVol) * _musicLevel * duck, slow * 2f);
+            _musicB.volume = (1f - _musicBlend) * (_songB ? SongVol : MusicVol) * _musicLevel * duck;
             if (_musicBlend >= 1f && _musicB.isPlaying) _musicB.Stop();
             _amb.volume = Mathf.Lerp(_amb.volume, AmbienceLevel * AmbienceVol, slow);
             _amb2.volume = Mathf.Lerp(_amb2.volume, AmbienceLevel * 0.8f * AmbienceVol, slow);

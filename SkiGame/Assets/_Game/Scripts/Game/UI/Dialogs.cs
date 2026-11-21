@@ -58,7 +58,12 @@ namespace Ski.Game
         static void AddSettings(VisualElement card)
         {
             var tabs = Ui.Div(card, "row settings-tabs");
-            var body = Ui.Div(card, "settings-body");
+            // The body scrolls when a section is taller than the screen allows (audio with a walkman, the keys).
+            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            scroll.AddToClassList("settings-scroll");
+            card.Add(scroll);
+            var body = scroll.contentContainer;
+            body.AddToClassList("settings-body");
             var buttons = new Button[Sections.Length];
             void Show(int i)
             {
@@ -84,10 +89,12 @@ namespace Ski.Game
         static void AudioSection(VisualElement card)
         {
             SliderRow(card, "Overall volume", SaveData.MasterVolume, 0f, 1f, v => SaveData.MasterVolume = v);
-            SliderRow(card, "Music", SaveData.MusicVolume, 0f, 1f, v => SaveData.MusicVolume = v);
-            SliderRow(card, "Wind and ambience", SaveData.AmbienceVolume, 0f, 1f, v => SaveData.AmbienceVolume = v);
+            SliderRow(card, "Voice chat", SaveData.VoiceChatVolume, 0f, 1f, v => SaveData.VoiceChatVolume = v);
             SliderRow(card, "Effects", SaveData.EffectsVolume, 0f, 1f, v => SaveData.EffectsVolume = v);
             SliderRow(card, "Voices", SaveData.VoiceVolume, 0f, 1f, v => SaveData.VoiceVolume = v);
+            SliderRow(card, "Songs", SaveData.SongVolume, 0f, 1f, v => SaveData.SongVolume = v);
+            SliderRow(card, "Music", SaveData.MusicVolume, 0f, 1f, v => SaveData.MusicVolume = v);
+            SliderRow(card, "Wind and ambience", SaveData.AmbienceVolume, 0f, 1f, v => SaveData.AmbienceVolume = v);
             ToggleRow(card, "Subtitles", SaveData.Subtitles, v => SaveData.Subtitles = v);
             // The walkman: on or off, which song, again and again or the next one.
             if (SaveData.HasWalkman && Songs.All.Count > 0)

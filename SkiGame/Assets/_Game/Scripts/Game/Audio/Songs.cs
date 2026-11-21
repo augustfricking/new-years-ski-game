@@ -25,7 +25,7 @@ namespace Ski.Game
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void Reset() { All.Clear(); Loaded = false; _loading = false; Cache.Clear(); Waiting.Clear(); }
 
-        static string Url(string file)
+        public static string Url(string file)
         {
             string path = Application.streamingAssetsPath + "/Music/" + file;
             return path.Contains("://") ? path : "file://" + path;
