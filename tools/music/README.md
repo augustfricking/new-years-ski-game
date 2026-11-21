@@ -19,3 +19,11 @@ Generate all songs, or some by id:
 
 Output: `SkiGame/Assets/StreamingAssets/Music/<id>.mp3` and `songs.json`. The game streams them
 from there when they are played, so they do not slow the start.
+
+## YuE2 versions (for comparing)
+
+`make_songs_yue2.py` makes the same songs (titles, lyrics) with **YuE2** (`m-a-p/YuE2-3B`): code
+Apache 2.0, weights CC BY-NC 4.0 with a grant to individual creators to use them and publish the
+songs (`_yue2/MODEL_LICENSE`; credit "Music made with YuE2"). Setup is in the script's header. On an
+8 GB GPU it runs with `low_vram` and is slow. Output goes to `_work/compare/<id>_yue2.mp3`, next to
+the ACE-Step versions (`<id>_ace.mp3`); `--install` puts them in the game instead.
