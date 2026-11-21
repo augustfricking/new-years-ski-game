@@ -477,6 +477,99 @@
 
 .slider {
     width: 300px;
+    height: 32px;
+    margin: 0;
+}
+
+/* Sliders: an ink-outlined groove, the part up to the knob filled in yellow, a round cream knob. */
+.slider.unity-base-slider--horizontal .unity-base-slider__drag-container {
+    height: 32px;
+}
+
+.slider.unity-base-slider--horizontal .unity-base-slider__tracker {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 14px;
+    margin-top: -7px;
+    background-color: rgb(222, 208, 184);
+    border-width: 3px;
+    border-color: rgb(27, 20, 48);
+    border-radius: 7px;
+}
+
+.slider.unity-base-slider--horizontal .unity-base-slider__fill {
+    background-color: rgb(255, 198, 74);
+    border-radius: 4px;
+}
+
+.slider.unity-base-slider--horizontal .unity-base-slider__dragger {
+    top: 50%;
+    width: 26px;
+    height: 26px;
+    margin-top: -13px;
+    margin-left: 0;
+    background-color: rgb(245, 235, 216);
+    border-width: 3px;
+    border-color: rgb(27, 20, 48);
+    border-radius: 13px;
+}
+
+.slider.unity-base-slider--horizontal:hover .unity-base-slider__dragger {
+    background-color: rgb(255, 198, 74);
+}
+
+.slider .unity-base-slider__dragger-border {
+    display: none;
+}
+
+/* Scroll bars: no arrow buttons, a slim groove and a rounded ink-outlined yellow handle. */
+.unity-scroller--vertical {
+    width: 18px;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    margin-left: 4px;
+}
+
+.unity-scroller--vertical > .unity-scroller__low-button,
+.unity-scroller--vertical > .unity-scroller__high-button {
+    display: none;
+}
+
+.unity-scroller--vertical > .unity-scroller__slider {
+    margin: 2px 0;
+    width: 18px;
+}
+
+.unity-scroller--vertical .unity-base-slider--vertical .unity-base-slider__tracker {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 8px;
+    margin-left: -4px;
+    background-color: rgba(27, 20, 48, 0.15);
+    border-width: 0;
+    border-radius: 4px;
+}
+
+.unity-scroller--vertical .unity-base-slider--vertical .unity-base-slider__dragger {
+    left: 50%;
+    width: 16px;
+    margin-left: -8px;
+    background-color: rgb(255, 198, 74);
+    border-width: 3px;
+    border-color: rgb(27, 20, 48);
+    border-radius: 8px;
+}
+
+.unity-scroller--vertical .unity-base-slider--vertical .unity-base-slider__dragger-border {
+    display: none;
+}
+
+.unity-scroller--horizontal {
+    display: none;
 }
 
 .board {

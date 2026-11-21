@@ -37,7 +37,7 @@ namespace Ski.Game
         {
             var row = Ui.Div(parent, "dialog-row");
             Ui.Text(row, label, "dialog-label");
-            var s = new Slider(min, max) { value = value };
+            var s = new Slider(min, max) { value = value, fill = true };
             s.AddToClassList("slider");
             s.RegisterValueChangedCallback(e => { set(e.newValue); SaveData.Apply(); });
             row.Add(s);
