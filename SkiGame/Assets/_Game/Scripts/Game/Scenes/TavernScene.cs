@@ -1534,7 +1534,7 @@ namespace Ski.Game
                 else if (seat >= 0) { _seatTable = seat; _seatPos = seatPos; _seatSide = seatSide; _pos = new Vector3(seatPos.x, 0f, seatPos.z); _vy = 0f; _grounded = true; _yaw = seatSide > 0f ? 180f : 0f; AudioDirector.Sfx("land", 0.3f, 1.3f); }
                 else if (atDj) OpenPicker();
                 else if (atWalkman) TakeWalkman();
-                else if (atToilet) AudioDirector.Sfx("flush", 0.8f);
+                else if (atToilet) { AudioDirector.Sfx("flush", 0.8f); SaveData.Record(_who, pr => pr.flushes++); }
                 else if (atBar) StartGame();
                 else if (atDoor) { AudioDirector.Sfx("door", 0.8f); OnLeave?.Invoke(); }
             }

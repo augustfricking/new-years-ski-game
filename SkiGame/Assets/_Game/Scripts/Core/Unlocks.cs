@@ -51,6 +51,21 @@ namespace Ski.Core
         public float topSpeed;       // m/s, the fastest ever
         public int kidsTotal;        // kids hit on the kids' slope, all runs
         public int cleanRuns;        // runs with no crash and no missed gate
+        public float longestAir;     // seconds in the air in one jump, the longest
+        public float longestGrind;   // metres on one rail or box, the longest
+        public int crashes;          // wipeouts, all runs
+        public float distanceKm;     // run length skied, all finished runs
+        public int liftRides, tavernVisits, flushes;
+        public int greenNoKids;      // runs down Barnbacken without bumping a kid
+        public int redClean;         // runs down Slalombacken through every gate with no penalty
+        public int[] runsOn;         // finished runs per SlopeId
+
+        public int RunsOn(SlopeId s) => runsOn != null && runsOn.Length > (int)s ? runsOn[(int)s] : 0;
+        public void AddRunOn(SlopeId s)
+        {
+            if (runsOn == null || runsOn.Length < 5) { var r = new int[5]; if (runsOn != null) Array.Copy(runsOn, r, runsOn.Length); runsOn = r; }
+            runsOn[(int)s]++;
+        }
 
         public float Best(SlopeId s) => best != null && best.Length > (int)s ? best[(int)s] : 0f;
         public bool Finished(SlopeId s) => (slopesFinished & (1 << (int)s)) != 0;
@@ -69,6 +84,8 @@ namespace Ski.Core
     public sealed class Unlock
     {
         public string Id, Name, Goal;
+        /// <summary>How to earn it, in a sentence or two (shown when the lock is hovered in the shop).</summary>
+        public string How;
         public ItemKind Kind;
         public int Value;
         public CharacterId Who;
@@ -107,7 +124,7 @@ namespace Ski.Core
         public static readonly float[][] SlopeGoals =
         {
             new[] { 53f, 41f, 34.6f },        // Barnbacken
-            new[] { 2000f, 3500f, 5000f },    // Parken (score)
+            new[] { 3000f, 5500f, 8000f },    // Parken (score)
             new[] { 93f, 73f, 61f },          // Slalombacken
             new[] { 64f, 50f, 42f },          // Svarta Väggen
             new[] { 109f, 85f, 71.4f },       // Ravinen (off-piste)
@@ -125,46 +142,60 @@ namespace Ski.Core
             return s == SlopeId.Blue ? Courses.Names[(int)s] + " " + goal.ToString("0") + " p" : Courses.Names[(int)s] + " under " + goal.ToString("0.#") + " s";
         }
 
-        static Unlock Slope(CharacterId who, string id, string name, ItemKind kind, int value, SlopeId s, int tier) =>
-            new Unlock { Who = who, Id = id, Name = name, Kind = kind, Value = value, Goal = GoalText(s, tier), Earned = p => Reached(p, s, tier), Slope = (int)s, Tier = tier };
+        static Unlock Slope(CharacterId who, string id, string name, ItemKind kind, int value, SlopeId s, int tier)
+        {
+            float goal = SlopeGoals[(int)s][tier];
+            string how = s == SlopeId.Blue ? "Score " + goal.ToString("0") + " points in " + Courses.Names[(int)s] + " as " + SkierInfo.Get(who).Name + "."
+                                           : "Ski " + Courses.Names[(int)s] + " in under " + goal.ToString("0.#") + " seconds as " + SkierInfo.Get(who).Name + " (penalties count).";
+            return new Unlock { Who = who, Id = id, Name = name, Kind = kind, Value = value, Goal = GoalText(s, tier), How = how, Earned = p => Reached(p, s, tier), Slope = (int)s, Tier = tier };
+        }
 
         static Unlock Runs(CharacterId who, string id, string name, int value, int runs) =>
-            new Unlock { Who = who, Id = id, Name = name, Kind = ItemKind.Gear, Value = value, Goal = runs + " runs", Earned = p => p.runs >= runs };
+            new Unlock { Who = who, Id = id, Name = name, Kind = ItemKind.Gear, Value = value, Goal = runs + " runs", How = "Finish " + runs + " runs as " + SkierInfo.Get(who).Name + ", on any slope.", Earned = p => p.runs >= runs };
+
+        static Unlock Item(CharacterId who, string id, string name, ItemKind kind, int value, string goal, string how, Func<Progress, bool> earned) =>
+            new Unlock { Who = who, Id = id, Name = name, Kind = kind, Value = value, Goal = goal, How = how, Earned = earned };
 
         const CharacterId J = CharacterId.Jonte, M = CharacterId.Maja, E = CharacterId.Erik, L = CharacterId.Linn;
 
         public static readonly Unlock[] All =
         {
-            // Jonte, the snowboarder: the park, speed and trouble.
+            // Jonte, the snowboarder: the park, big air, speed and trouble.
             Slope(J, "graffiti", "Graffiti", ItemKind.Pattern, 8, SlopeId.Blue, 0),
             Slope(J, "snapback", "Snapback", ItemKind.Headgear, 8, SlopeId.Blue, 1),
             Slope(J, "rainbow", "Rainbow suit", ItemKind.Suit, 4, SlopeId.Blue, 2),
-            new Unlock { Who = J, Id = "tiger", Name = "Tiger stripes", Kind = ItemKind.Pattern, Value = 5, Goal = "3000 in the park", Earned = p => p.bestPark >= 3000f },
-            new Unlock { Who = J, Id = "flames", Name = "Flames", Kind = ItemKind.Pattern, Value = 6, Goal = "100 km/h", Earned = p => p.topSpeed * 3.6f >= 100f },
-            new Unlock { Who = J, Id = "goalie", Name = "Goalie mask", Kind = ItemKind.Headgear, Value = 3, Goal = "10 kids, one run", Earned = p => p.kidsHitOneRun >= 10 },
-            new Unlock { Who = J, Id = "boxer", Name = "Boxer", Kind = ItemKind.Headgear, Value = 4, Goal = "25 knockouts", Earned = p => p.knockouts >= 25 },
-            new Unlock { Who = J, Id = "ducks", Name = "Ducks", Kind = ItemKind.Pattern, Value = PatternDucks, Goal = "100 kids in all", Earned = p => p.kidsTotal >= 100 },
-            new Unlock { Who = J, Id = "toxic", Name = "Toxic green", Kind = ItemKind.Colour, Value = FreeColours, Goal = "50 knockouts", Earned = p => p.knockouts >= 50 },
-            Runs(J, "zebra", "Zebra board", 3, 10), Runs(J, "lava", "Lava board", 4, 25), Runs(J, "galaxy", "Galaxy board", 5, 50),
-            // Maja: the kids' slope, the DJ and tricks.
+            Item(J, "tiger", "Tiger stripes", ItemKind.Pattern, 5, "3 s in the air", "Stay in the air for 3 seconds in one jump as Jonte. The big kickers in Parken can do it.", p => p.longestAir >= 3f),
+            Item(J, "flames", "Flames", ItemKind.Pattern, 6, "100 km/h", "Reach 100 km/h as Jonte. A long tuck on Svarta Väggen does it.", p => p.topSpeed * 3.6f >= 100f),
+            Item(J, "goalie", "Goalie mask", ItemKind.Headgear, 3, "10 kids, one run", "Bump into 10 kids in a single run down Barnbacken as Jonte.", p => p.kidsHitOneRun >= 10),
+            Item(J, "boxer", "Boxer", ItemKind.Headgear, 4, "25 knockouts", "Knock 25 people over in the after-ski as Jonte (they get up again).", p => p.knockouts >= 25),
+            Item(J, "ducks", "Ducks", ItemKind.Pattern, PatternDucks, "10 flushes", "Flush the after-ski toilet 10 times as Jonte.", p => p.flushes >= 10),
+            Item(J, "toxic", "Toxic green", ItemKind.Colour, FreeColours, "50 wipeouts", "Wipe out 50 times as Jonte. It is the trying that counts.", p => p.crashes >= 50),
+            Runs(J, "zebra", "Zebra board", 3, 10),
+            Item(J, "lava", "Lava board", ItemKind.Gear, 4, "14 m grind", "Grind 14 metres on one rail or box in Parken as Jonte: the long boxes, end to end.", p => p.longestGrind >= 14f),
+            Item(J, "galaxy", "Galaxy board", ItemKind.Gear, 5, "25 km skied", "Ski 25 km in total as Jonte (every finished run counts its length).", p => p.distanceKm >= 25f),
+            // Maja: the kids' slope, the DJ, tricks and good manners.
             Slope(M, "candy", "Candy", ItemKind.Pattern, 7, SlopeId.Green, 0),
             Slope(M, "bunny", "Bunny ears", ItemKind.Headgear, 7, SlopeId.Green, 1),
             Slope(M, "ginger", "Gingerbread", ItemKind.Suit, 3, SlopeId.Green, 2),
-            new Unlock { Who = M, Id = "banana", Name = "Banana suit", Kind = ItemKind.Suit, Value = 2, Goal = "5 songs from the DJ", Earned = p => p.songsRequested >= 5 },
-            new Unlock { Who = M, Id = "crown", Name = "Crown", Kind = ItemKind.Headgear, Value = 5, Goal = "A 1000-point trick", Earned = p => p.bestTrick >= 1000 },
-            new Unlock { Who = M, Id = "unicorn", Name = "Unicorn", Kind = ItemKind.Headgear, Value = 6, Goal = "All of Maja's others", Earned = p => AllOthers(M, "unicorn", p) },
-            new Unlock { Who = M, Id = "hearts", Name = "Hearts", Kind = ItemKind.Pattern, Value = PatternHearts, Goal = "15 DJ songs", Earned = p => p.songsRequested >= 15 },
-            new Unlock { Who = M, Id = "neonpink", Name = "Neon pink", Kind = ItemKind.Colour, Value = FreeColours + 1, Goal = "A 2000-point trick", Earned = p => p.bestTrick >= 2000 },
-            Runs(M, "candycane", "Candy cane skis", 6, 10), Runs(M, "ice", "Ice skis", 7, 25), Runs(M, "diamond", "Diamond skis", 8, 50),
+            Item(M, "banana", "Banana suit", ItemKind.Suit, 2, "5 songs from the DJ", "Ask the after-ski DJ for 5 songs as Maja.", p => p.songsRequested >= 5),
+            Item(M, "crown", "Crown", ItemKind.Headgear, 5, "A 1000-point trick", "Land one trick worth 1000 points as Maja: spins, flips and grabs add up.", p => p.bestTrick >= 1000),
+            Item(M, "unicorn", "Unicorn", ItemKind.Headgear, 6, "All of Maja's others", "Earn every other one of Maja's things first.", p => AllOthers(M, "unicorn", p)),
+            Item(M, "hearts", "Hearts", ItemKind.Pattern, PatternHearts, "A kind run", "Ski Barnbacken from top to bottom without bumping a single kid as Maja.", p => p.greenNoKids >= 1),
+            Item(M, "neonpink", "Neon pink", ItemKind.Colour, FreeColours + 1, "10 after-skis", "Go to the after-ski 10 times as Maja.", p => p.tavernVisits >= 10),
+            Runs(M, "candycane", "Candy cane skis", 6, 10),
+            Item(M, "ice", "Ice skis", ItemKind.Gear, 7, "15 lift rides", "Ride the chairlift up 15 times as Maja.", p => p.liftRides >= 15),
+            Item(M, "diamond", "Diamond skis", ItemKind.Gear, 8, "2 s in the air", "Stay in the air for 2 seconds in one jump as Maja.", p => p.longestAir >= 2f),
             // Erik: the slalom, the stein and the whole mountain.
             Slope(E, "race", "Race stripes", ItemKind.Pattern, 9, SlopeId.Red, 0),
             Slope(E, "aero", "Aero helmet", ItemKind.Headgear, 9, SlopeId.Red, 1),
             Slope(E, "racesuit", "Race suit", ItemKind.Suit, 5, SlopeId.Red, 2),
-            new Unlock { Who = E, Id = "viking", Name = "Viking", Kind = ItemKind.Headgear, Value = 2, Goal = "Stein in 8 s", Earned = p => p.bestChug > 0f && p.bestChug <= 8f },
-            new Unlock { Who = E, Id = "gold", Name = "Gold suit", Kind = ItemKind.Suit, Value = 1, Goal = "Finish all five runs", Earned = p => p.FinishedCount >= 5 },
-            new Unlock { Who = E, Id = "lightning", Name = "Lightning", Kind = ItemKind.Pattern, Value = PatternLightning, Goal = "110 km/h", Earned = p => p.topSpeed * 3.6f >= 110f },
-            new Unlock { Who = E, Id = "electric", Name = "Electric blue", Kind = ItemKind.Colour, Value = FreeColours + 2, Goal = "Stein in 6 s", Earned = p => p.bestChug > 0f && p.bestChug <= 6f },
-            Runs(E, "racing", "Racing skis", 9, 10), Runs(E, "chrome", "Chrome skis", 10, 25), Runs(E, "goldskis", "Gold skis", 11, 50),
+            Item(E, "viking", "Viking", ItemKind.Headgear, 2, "Stein in 8 s", "Empty the beer stein in 8 seconds or less as Erik.", p => p.bestChug > 0f && p.bestChug <= 8f),
+            Item(E, "gold", "Gold suit", ItemKind.Suit, 1, "Finish all five runs", "Finish each of the five runs at least once as Erik.", p => p.FinishedCount >= 5),
+            Item(E, "lightning", "Lightning", ItemKind.Pattern, PatternLightning, "110 km/h", "Reach 110 km/h as Erik.", p => p.topSpeed * 3.6f >= 110f),
+            Item(E, "electric", "Electric blue", ItemKind.Colour, FreeColours + 2, "A clean slalom", "Ski Slalombacken through every gate with no penalty at all as Erik.", p => p.redClean >= 1),
+            Runs(E, "racing", "Racing skis", 9, 10),
+            Item(E, "chrome", "Chrome skis", ItemKind.Gear, 10, "Slalombacken x10", "Finish Slalombacken 10 times as Erik.", p => p.RunsOn(SlopeId.Red) >= 10),
+            Item(E, "goldskis", "Gold skis", ItemKind.Gear, 11, "50 km skied", "Ski 50 km in total as Erik (every finished run counts its length).", p => p.distanceKm >= 50f),
             // Linn: the black run and the backcountry.
             Slope(L, "skulls", "Skulls", ItemKind.Pattern, 10, SlopeId.Black, 0),
             Slope(L, "devil", "Devil horns", ItemKind.Headgear, 10, SlopeId.Black, 1),
@@ -172,9 +203,11 @@ namespace Ski.Core
             Slope(L, "pines", "Pines", ItemKind.Pattern, 11, SlopeId.OffPiste, 0),
             Slope(L, "antlers", "Antlers", ItemKind.Headgear, 11, SlopeId.OffPiste, 1),
             Slope(L, "yeti", "Yeti suit", ItemKind.Suit, 7, SlopeId.OffPiste, 2),
-            new Unlock { Who = L, Id = "leopard", Name = "Leopard", Kind = ItemKind.Pattern, Value = PatternLeopard, Goal = "100 runs", Earned = p => p.runs >= 100 },
-            new Unlock { Who = L, Id = "ultraviolet", Name = "Ultraviolet", Kind = ItemKind.Colour, Value = FreeColours + 3, Goal = "25 clean runs", Earned = p => p.cleanRuns >= 25 },
-            Runs(L, "camo", "Camo skis", 12, 10), Runs(L, "wolf", "Wolf skis", 13, 25), Runs(L, "aurora", "Aurora skis", 14, 50),
+            Item(L, "leopard", "Leopard", ItemKind.Pattern, PatternLeopard, "Svarta Väggen x10", "Finish Svarta Väggen 10 times as Linn.", p => p.RunsOn(SlopeId.Black) >= 10),
+            Item(L, "ultraviolet", "Ultraviolet", ItemKind.Colour, FreeColours + 3, "25 clean runs", "Finish 25 runs without a crash or a missed gate as Linn.", p => p.cleanRuns >= 25),
+            Runs(L, "camo", "Camo skis", 12, 10),
+            Item(L, "wolf", "Wolf skis", ItemKind.Gear, 13, "Ravinen x10", "Finish Ravinen, the off-piste, 10 times as Linn.", p => p.RunsOn(SlopeId.OffPiste) >= 10),
+            Item(L, "aurora", "Aurora skis", ItemKind.Gear, 14, "100 km skied", "Ski 100 km in total as Linn (every finished run counts its length).", p => p.distanceKm >= 100f),
         };
 
         static bool AllOthers(CharacterId who, string except, Progress p)

@@ -77,6 +77,7 @@ namespace Ski.Game
                 try { await AuthenticationService.Instance.GetPlayerInfoAsync(); } catch (Exception) { }
                 Username = AuthenticationService.Instance.PlayerInfo?.Username;
                 if (string.IsNullOrEmpty(Username)) Username = null;
+                if (Username != null) OnlineBoards.NameChanged();          // the boards show the account (not a guest)
                 var got = await CloudSaveService.Instance.Data.Player.LoadAsync(new HashSet<string> { Key }, new Unity.Services.CloudSave.Models.Data.Player.LoadOptions());
                 _pulled = true;
                 if (got.TryGetValue(Key, out var item))
@@ -196,6 +197,7 @@ namespace Ski.Game
                 PlayerPrefs.SetInt("forget_account", Remember ? 0 : 1);           // not remembered: forgotten at the next start
                 PlayerPrefs.Save();
                 Username = username;
+                OnlineBoards.NameChanged();
                 _pulled = false;                                                    // fetch (or send) the save for this account
                 return null;
             }

@@ -48,6 +48,7 @@ namespace Ski.Core
         public int Score;           // trick points (blue)
         public float TopSpeed;
         public int GatesMissed, PeopleHit, Respawns, Crashes;
+        public float LongestAir, LongestGrind;   // seconds / metres, this run
         public string BestTrickName; public int BestTrickPoints;
 
         public readonly KidCrowd Crowd;                  // green only
@@ -175,6 +176,8 @@ namespace Ski.Core
                 {
                     case SkiEventType.Landed:
                     case SkiEventType.GrindEnd:
+                        if (e.Type == SkiEventType.Landed) LongestAir = Mathf.Max(LongestAir, Sim.AirTime);
+                        else LongestGrind = Mathf.Max(LongestGrind, e.Value);
                         if (e.Trick != null) ScoreTrick(e.Trick);
                         if (e.Type == SkiEventType.Landed) Emit(RunEventType.Landed, e.Value, trick: e.Trick);
                         break;
@@ -183,7 +186,7 @@ namespace Ski.Core
                     case SkiEventType.PolePush: Emit(RunEventType.PolePush, e.Value); break;
                     case SkiEventType.Jump: Emit(RunEventType.Jump); break;
                     case SkiEventType.Takeoff: Emit(RunEventType.Takeoff); break;
-                    case SkiEventType.HeavyLanding: Emit(RunEventType.HeavyLanding, e.Value); break;
+                    case SkiEventType.HeavyLanding: LongestAir = Mathf.Max(LongestAir, Sim.AirTime); Emit(RunEventType.HeavyLanding, e.Value); break;
                     case SkiEventType.GrindStart: Emit(RunEventType.GrindStart); break;
                     case SkiEventType.Brush: Emit(RunEventType.Brush); break;
                 }

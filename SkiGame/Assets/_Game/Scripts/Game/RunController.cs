@@ -112,6 +112,13 @@ namespace Ski.Game
                     p.slopesFinished |= 1 << (int)s.Slope;
                     if (s.Slope == SlopeId.Green) { p.kidsHitOneRun = Mathf.Max(p.kidsHitOneRun, s.PeopleHit); p.kidsTotal += s.PeopleHit; }
                     if (s.Respawns == 0 && s.GatesMissed == 0 && s.Crashes == 0) p.cleanRuns++;
+                    p.crashes += s.Crashes;
+                    p.longestAir = Mathf.Max(p.longestAir, s.LongestAir);
+                    p.longestGrind = Mathf.Max(p.longestGrind, s.LongestGrind);
+                    p.distanceKm += s.Course.FinishZ / 1000f;
+                    p.AddRunOn(s.Slope);
+                    if (s.Slope == SlopeId.Green && s.PeopleHit == 0) p.greenNoKids++;
+                    if (s.Slope == SlopeId.Red && s.GatesMissed == 0 && s.Penalty <= 0f) p.redClean++;
                     if (s.Slope == SlopeId.Blue) p.bestPark = Mathf.Max(p.bestPark, s.ResultValue);
                     if (s.Slope == SlopeId.Black && (p.bestBlack <= 0f || s.ResultValue < p.bestBlack)) p.bestBlack = s.ResultValue;
                     p.bestTrick = Mathf.Max(p.bestTrick, s.BestTrickPoints);

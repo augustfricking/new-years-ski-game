@@ -32,8 +32,9 @@ namespace Ski.Game
             Texture = new RenderTexture(720, 900, 24) { name = "ShopStage", antiAliasing = 1 };
             var camGo = new GameObject("ShopCamera");
             camGo.transform.SetParent(transform, false);
-            camGo.transform.localPosition = new Vector3(0f, 1.15f, 3.6f);
-            camGo.transform.localRotation = Quaternion.Euler(6f, 180f, 0f);
+            // Far enough back for the whole skier with the tallest hat (horns, the unicorn's horn) and the stand.
+            camGo.transform.localPosition = new Vector3(0f, 1.2f, 4.4f);
+            camGo.transform.localRotation = Quaternion.Euler(3f, 180f, 0f);
             _cam = camGo.AddComponent<Camera>();
             _cam.fieldOfView = 34f; _cam.nearClipPlane = 0.1f; _cam.farClipPlane = 30f;
             _cam.clearFlags = CameraClearFlags.SolidColor;

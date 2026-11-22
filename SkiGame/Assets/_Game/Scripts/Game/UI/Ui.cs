@@ -59,6 +59,27 @@ namespace Ski.Game
             _fade.pickingMode = PickingMode.Ignore;
         }
 
+        /// <summary>A note that shows beside <paramref name="target"/> while the pointer is over it (on the top
+        /// layer, so nothing covers it): an info button's text, how to earn a locked item.</summary>
+        public static void Tooltip(VisualElement target, string text)
+        {
+            var top = Instance.TopLayer;
+            Label tip = null;
+            target.RegisterCallback<PointerEnterEvent>(_ =>
+            {
+                tip?.RemoveFromHierarchy();
+                tip = Text(top, text, "info-tip");
+                tip.pickingMode = PickingMode.Ignore;
+                var r = target.worldBound;
+                var at = top.WorldToLocal(new Vector2(r.xMax + 8f, r.yMin - 4f));
+                // Kept on the screen: flipped to the left of the target near the right edge.
+                if (at.x > top.layout.width - 360f) at = top.WorldToLocal(new Vector2(r.xMin - 8f - 340f, r.yMin - 4f));
+                tip.style.left = Mathf.Max(8f, at.x); tip.style.top = at.y;
+            });
+            target.RegisterCallback<PointerLeaveEvent>(_ => { tip?.RemoveFromHierarchy(); tip = null; });
+            target.RegisterCallback<DetachFromPanelEvent>(_ => { tip?.RemoveFromHierarchy(); tip = null; });
+        }
+
         /// <summary>Whether the mouse is over something of the interface (a card, a button, the shop): a click
         /// there is for the interface, not for grabbing the mouse to look around. The layers themselves let clicks through.</summary>
         public bool PointerOverUi()

@@ -166,6 +166,7 @@ namespace Ski.Game
             LiveRooms.Enter("lift"); VoiceChat.Place = "lift";
             Lift = LiftScene.Create(transform, LiftScene.Mode.Ride, Character);
             _rideTimer = 3.8f;
+            SaveData.Record(Character, p => p.liftRides++);
         }
 
         public void ShowTavern()
@@ -173,6 +174,7 @@ namespace Ski.Game
             CloseAll();
             Screen = GameScreen.Tavern;
             Tavern = TavernScene.Create(transform, Character);
+            SaveData.Record(Character, p => p.tavernVisits++);
             Tavern.OnLeave = () => Transition(() => { StartRun(_lastSlope, Character); Run.StartInVillage(); });
         }
 

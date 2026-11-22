@@ -376,7 +376,7 @@
     bottom: 2.5%;
     flex-direction: row;
     justify-content: center;
-    align-items: flex-end;
+    align-items: stretch;          /* every card as tall as the tallest */
 }
 
 .char-card {
@@ -602,6 +602,44 @@
     text-overflow: ellipsis;
 }
 
+.name-box {
+    flex-direction: row;
+    overflow: hidden;
+}
+
+.name-text {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.name-sliding {
+    flex-shrink: 0;
+    flex-grow: 0;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+.board-guest {
+    flex-shrink: 0;
+    margin: 4px 4px 4px 2px;
+    padding: 0 4px;
+    font-size: 13px;
+    color: rgb(245, 235, 216);
+    background-color: rgb(120, 112, 130);
+    border-radius: 3px;
+    -unity-font-definition: resource("Fonts/Bangers-Regular");
+    -unity-text-align: middle-center;
+}
+
+.clip-icon {
+    width: 22px;
+    height: 16px;
+}
+
 .board-who {
     flex-shrink: 0;
     width: 70px;
@@ -782,10 +820,12 @@
 
 .btn-watch {
     font-size: 18px;
-    padding: 0 10px;
+    padding: 0 6px;
     margin: 0 0 0 10px;
     min-width: 34px;
     height: 28px;
+    justify-content: center;
+    align-items: center;
 }
 
 .btn-watch-wide {

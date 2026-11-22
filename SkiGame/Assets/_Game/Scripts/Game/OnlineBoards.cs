@@ -31,6 +31,7 @@ namespace Ski.Game
             public bool Me;
             public string Ghost;      // encoded GhostTrack, may be empty
             public int Character;     // CharacterId, or -1
+            public bool Guest;        // no account (a browser of its own)
         }
 
         [Serializable]
@@ -111,18 +112,32 @@ namespace Ski.Game
             return sb.Length > 24 ? sb.ToString(0, 24) : sb.ToString();
         }
 
+        /// <summary>Board names of players with an account end in this (shown without it); everyone else is a guest.</summary>
+        const string AccountMark = "__a";
+
+        static string Bare(string cloud)
+        {
+            if (string.IsNullOrEmpty(cloud)) return "";
+            int hash = cloud.LastIndexOf('#');
+            return hash > 0 ? cloud.Substring(0, hash) : cloud;
+        }
+
+        static bool IsAccount(string cloud) => Bare(cloud).EndsWith(AccountMark);
+
         static string DisplayName(string cloud)
         {
-            if (string.IsNullOrEmpty(cloud)) return "Skier";
-            int hash = cloud.LastIndexOf('#');
-            if (hash > 0) cloud = cloud.Substring(0, hash);
-            return cloud.Replace('_', ' ');
+            string bare = Bare(cloud);
+            if (bare.EndsWith(AccountMark)) bare = bare.Substring(0, bare.Length - AccountMark.Length);
+            return bare.Length == 0 ? "Skier" : bare.Replace('_', ' ');
         }
 
         static async Task PushName()
         {
             string name = CloudName(SaveData.PlayerName);
             if (Status != State.Online || name.Length < 2) return;
+            // Signed in to an account: the board says so (guests have browsers of their own, and may share a name).
+            if (!string.IsNullOrEmpty(AuthenticationService.Instance.PlayerInfo?.Username))
+                name = (name.Length > 24 - AccountMark.Length ? name.Substring(0, 24 - AccountMark.Length) : name) + AccountMark;
             try { await AuthenticationService.Instance.UpdatePlayerNameAsync(name); }
             catch (Exception e) { Debug.Log("[Online] name not updated: " + e.Message); }
         }
@@ -246,7 +261,7 @@ namespace Ski.Game
         static void Add(List<Entry> list, Unity.Services.Leaderboards.Models.LeaderboardEntry e)
         {
             foreach (var have in list) if (have.Rank == e.Rank) return;
-            var entry = new Entry { Name = DisplayName(e.PlayerName), Score = e.Score, Rank = e.Rank, Me = e.PlayerId == PlayerId, Character = -1 };
+            var entry = new Entry { Name = DisplayName(e.PlayerName), Score = e.Score, Rank = e.Rank, Me = e.PlayerId == PlayerId, Character = -1, Guest = !IsAccount(e.PlayerName) };
             if (!string.IsNullOrEmpty(e.Metadata))
             {
                 try { var m = JsonUtility.FromJson<Meta>(e.Metadata); if (m != null) { entry.Ghost = m.g; entry.Character = m.c; } }

@@ -352,15 +352,15 @@ namespace Ski.Game
                     if (n >= 5 && !e.Me) continue;
                     var row = Ui.Div(_infoBoard, "board-row" + (e.Me ? " board-row-me" : ""));
                     Ui.Text(row, (e.Rank + 1) + ".", "board-rank");
-                    Ui.Text(row, e.Name + (e.Me ? " (you)" : ""), "board-name");
+                    BoardRow.Name(row, e);
                     ResultsPanel.WhoTag(row, e.Character);
                     Ui.Text(row, Leaderboards.Format(id, (float)e.Score), "board-value");
                     if (!string.IsNullOrEmpty(e.Ghost))
                     {
                         var entry = e;
-                        Ui.Btn(row, "WATCH", () => { if (!_picked) { _picked = true; AudioDirector.Click(); OnWatch?.Invoke(id, entry); } }, "btn-watch btn-watch-wide");
+                        BoardRow.Watch(row, () => { if (!_picked) { _picked = true; AudioDirector.Click(); OnWatch?.Invoke(id, entry); } });
                     }
-                    else Ui.Div(row, "btn-watch-gap btn-watch-wide");
+                    else Ui.Div(row, "btn-watch-gap");
                     n++;
                 }
             }

@@ -61,8 +61,8 @@ namespace Ski.Tests
             p.Offer(SlopeId.Green, 34f, false);
             Assert.IsTrue(Unlocks.Available(M, p, ItemKind.Suit, 3), "near perfect: gingerbread");
             var q = new Progress();
-            q.Offer(SlopeId.Blue, 3600f, true);
-            Assert.IsTrue(Unlocks.Available(J, q, ItemKind.Headgear, 8), "3500 in the park: Jonte's snapback");
+            q.Offer(SlopeId.Blue, 5600f, true);
+            Assert.IsTrue(Unlocks.Available(J, q, ItemKind.Headgear, 8), "5500 in the park: Jonte's snapback");
             Assert.IsFalse(Unlocks.Available(J, q, ItemKind.Suit, 4));
         }
 
@@ -71,8 +71,8 @@ namespace Ski.Tests
         {
             var p = new Progress { runs = 24 };
             Assert.IsTrue(Unlocks.Available(L, p, ItemKind.Gear, 12), "camo after 10 runs");
-            Assert.IsFalse(Unlocks.Available(L, p, ItemKind.Gear, 13), "wolf after 25");
-            p.runs = 25;
+            Assert.IsFalse(Unlocks.Available(L, p, ItemKind.Gear, 13), "wolf: ten times down Ravinen");
+            for (int i = 0; i < 10; i++) p.AddRunOn(SlopeId.OffPiste);
             Assert.IsTrue(Unlocks.Available(L, p, ItemKind.Gear, 13));
             Assert.IsFalse(Unlocks.Available(E, p, ItemKind.Gear, 13), "Linn's, not Erik's");
         }
@@ -107,8 +107,8 @@ namespace Ski.Tests
                 Assert.IsFalse(Unlocks.Available(Unlocks.For(ItemKind.Pattern, pattern).Who, p, ItemKind.Pattern, pattern));
             }
             Assert.IsFalse(Unlocks.Listed(J, ItemKind.Pattern, Unlocks.PatternFur), "the fur only comes with the yeti suit");
-            p.kidsTotal = 100;
-            Assert.IsTrue(Unlocks.Available(J, p, ItemKind.Pattern, Unlocks.PatternDucks), "100 kids: Jonte's ducks");
+            p.flushes = 10;
+            Assert.IsTrue(Unlocks.Available(J, p, ItemKind.Pattern, Unlocks.PatternDucks), "10 flushes: Jonte's ducks");
             Assert.IsFalse(Unlocks.Available(M, p, ItemKind.Pattern, Unlocks.PatternDucks));
             p.cleanRuns = 25;
             Assert.IsTrue(Unlocks.Available(L, p, ItemKind.Colour, Unlocks.FreeColours + 3), "25 clean runs: Linn's ultraviolet");
@@ -118,6 +118,23 @@ namespace Ski.Tests
             Assert.AreEqual(Unlocks.FreeColours + 3, allowed.trim, "her own, earned");
             Assert.AreEqual(2, allowed.pants);
             Assert.AreEqual(-1, allowed.gearAccent);
+        }
+
+        [Test]
+        public void EveryItemSaysHowToEarnIt()
+        {
+            foreach (var u in Unlocks.All)
+            {
+                Assert.IsFalse(string.IsNullOrEmpty(u.How), u.Id + " has no how");
+                Assert.That(u.How.Length, Is.LessThan(140), u.Id + ": a sentence or two");
+                StringAssert.Contains(SkierInfo.Get(u.Who).Name, u.How, u.Id + " says whose it is");
+            }
+            // No friend earns two things the same way (the park's 2000 and 3000 were too alike).
+            foreach (CharacterId who in System.Enum.GetValues(typeof(CharacterId)))
+            {
+                var goals = new System.Collections.Generic.HashSet<string>();
+                foreach (var u in Unlocks.All) if (u.Who == who) Assert.IsTrue(goals.Add(u.Goal), who + " has two items for " + u.Goal);
+            }
         }
 
         [Test]

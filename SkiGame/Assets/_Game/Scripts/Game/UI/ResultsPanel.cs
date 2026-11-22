@@ -136,7 +136,7 @@ namespace Ski.Game
                 if (shown >= 9 && !e.Me) continue;
                 var row = Ui.Div(_board, "board-row" + (e.Me ? " board-row-me" : ""));
                 Ui.Text(row, (e.Rank + 1) + ".", "board-rank");
-                Ui.Text(row, e.Name + (e.Me ? " (you)" : ""), "board-name");
+                BoardRow.Name(row, e);
                 WhoTag(row, e.Character);
                 Ui.Text(row, Leaderboards.Format(_slope, (float)e.Score), "board-value");
                 // Each recorded run can be watched: its number key, or a click when the mouse is free.
@@ -144,12 +144,12 @@ namespace Ski.Game
                 {
                     var entry = e;
                     _watchable.Add(e);
-                    Ui.Btn(row, _watchable.Count.ToString(), () => OnWatch?.Invoke(entry), "btn-watch");
+                    BoardRow.Watch(row, () => OnWatch?.Invoke(entry));
                 }
                 else Ui.Div(row, "btn-watch-gap");
                 shown++;
             }
-            _boardTitle.text = _watchable.Count > 0 ? "WORLD BOARD      1-" + _watchable.Count + "  watch" : "WORLD BOARD";
+            _boardTitle.text = "WORLD BOARD";
             return record;
         }
 

@@ -34,6 +34,7 @@ namespace Ski.Game
         public static bool Live = true;
         /// <summary>The walkman from the tavern: picked up, playing, and which song.</summary>
         public static bool HasWalkman, WalkmanOn = true, WalkmanRepeat, WalkmanShuffle;
+        static bool _loadedOnce;
         /// <summary>Voice chat with the other players (hold V to talk).</summary>
         public static bool Voice = true;
         /// <summary>Graphics: 0 low, 1 medium, 2 high; and the share of the screen resolution the 3D view is drawn at.</summary>
@@ -165,7 +166,10 @@ namespace Ski.Game
             Voice = PlayerPrefs.GetInt("voice", 1) == 1;
             Quality = PlayerPrefs.GetInt("quality", 1);
             RenderScale = PlayerPrefs.GetFloat("render_scale", 1f);
-            WalkmanOn = PlayerPrefs.GetInt("walkman_on", 1) == 1;
+            // The walkman rests when the game opens (the theme greets you); N or the settings start it, and from then
+            // on it plays everywhere until it is switched off.
+            if (!_loadedOnce) WalkmanOn = false;     // (a cloud save arriving later leaves it as the player set it)
+            _loadedOnce = true;
             WalkmanRepeat = PlayerPrefs.GetInt("walkman_repeat", 0) == 1;
             WalkmanShuffle = PlayerPrefs.GetInt("walkman_shuffle", 0) == 1;
             WalkmanSong = PlayerPrefs.GetString("walkman_song", "");

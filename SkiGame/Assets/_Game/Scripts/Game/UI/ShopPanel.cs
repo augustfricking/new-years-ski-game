@@ -87,7 +87,6 @@ namespace Ski.Game
             Ui.Text(row, label, "shop-label");
             var wrap = Ui.Div(row, "shop-swatches");
             var p = SaveData.ProgressOf(_who);
-            Label goal = null;
             void Add(int index, Color c)
             {
                 bool open = index < 0 || Unlocks.Available(_who, p, ItemKind.Colour, index);
@@ -95,14 +94,11 @@ namespace Ski.Game
                 var sw = new Button(() =>
                 {
                     if (open) { set(index); Changed(); return; }
-                    // A rare colour not earned yet: say what earns it.
-                    AudioDirector.Sfx("gate_miss", 0.4f);
-                    if (goal == null) { goal = new Label(); goal.AddToClassList("shop-item-goal"); goal.AddToClassList("shop-swatch-goal"); row.Add(goal); }
-                    goal.text = "\U0001F512 " + unlock.Name + ": " + unlock.Goal;
+                    AudioDirector.Sfx("gate_miss", 0.4f);          // locked: the note on hover says how to earn it
                 });
                 sw.AddToClassList("shop-swatch");
                 if (index == current) sw.AddToClassList("shop-swatch-on");
-                if (!open) { sw.AddToClassList("shop-swatch-locked"); sw.text = "\U0001F512"; }
+                if (!open) { sw.AddToClassList("shop-swatch-locked"); sw.text = "\U0001F512"; Ui.Tooltip(sw, Locked(unlock)); }
                 else if (SaveData.IsNew(unlock) || _fresh.Contains(unlock)) { _fresh.Add(unlock); sw.AddToClassList("shop-swatch-new"); sw.text = "NEW"; }
                 sw.style.backgroundColor = c;
                 if (index < 0) sw.text = "*";
@@ -141,16 +137,13 @@ namespace Ski.Game
                 name.AddToClassList("shop-item-name");
                 name.pickingMode = PickingMode.Ignore;
                 item.Add(name);
-                if (!open && unlock != null)
-                {
-                    var goal = new Label(unlock.Goal);
-                    goal.AddToClassList("shop-item-goal");
-                    goal.pickingMode = PickingMode.Ignore;
-                    item.Add(goal);
-                }
+                if (!open && unlock != null) Ui.Tooltip(item, Locked(unlock));
                 wrap.Add(item);
             }
         }
+
+        /// <summary>The note for a locked item: its name, and how to earn it.</summary>
+        static string Locked(Unlock u) => u == null ? "" : u.Name.ToUpperInvariant() + "\n" + (u.How ?? u.Goal);
 
         public void Close()
         {

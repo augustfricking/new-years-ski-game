@@ -273,7 +273,7 @@ namespace Ski.Game
                     if (n >= 8 && !e.Me) continue;
                     var line = Ui.Div(board, e.Me ? "board-row board-row-me" : "board-row");
                     Ui.Text(line, (e.Rank + 1) + ".", "board-rank");
-                    Ui.Text(line, e.Name + (e.Me ? " (you)" : ""), "board-name");
+                    BoardRow.Name(line, e);
                     Ui.Text(line, e.Score.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " s", "board-value");
                     n++;
                 }
