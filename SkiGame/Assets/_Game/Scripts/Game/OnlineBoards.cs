@@ -43,7 +43,8 @@ namespace Ski.Game
         /// Editor (development, tests, screenshots) unless this is switched on by hand.
         /// </summary>
         public static bool SendFromEditor;
-        public static string BoardId(SlopeId slope) => "slope_" + slope.ToString().ToLowerInvariant();
+        /// <summary>A slope's world board. A slope whose course changed gets a fresh board (_v2...), since old times are not comparable.</summary>
+        public static string BoardId(SlopeId slope) => "slope_" + slope.ToString().ToLowerInvariant() + (slope == SlopeId.Red ? "_v2" : "");
 
         static readonly Dictionary<string, List<Entry>> Cache = new Dictionary<string, List<Entry>>();
         static readonly HashSet<string> Missing = new HashSet<string>();
@@ -112,8 +113,9 @@ namespace Ski.Game
             return sb.Length > 24 ? sb.ToString(0, 24) : sb.ToString();
         }
 
-        /// <summary>Board names of players with an account end in this (shown without it); everyone else is a guest.</summary>
-        const string AccountMark = "__a";
+        /// <summary>Board names end in one of these (shown without it): an account, or a guest (a browser of its own).
+        /// Names from before the marks carry neither, and are shown as they are, without a tag.</summary>
+        const string AccountMark = "__a", GuestMark = "__g";
 
         static string Bare(string cloud)
         {
@@ -122,12 +124,12 @@ namespace Ski.Game
             return hash > 0 ? cloud.Substring(0, hash) : cloud;
         }
 
-        static bool IsAccount(string cloud) => Bare(cloud).EndsWith(AccountMark);
+        static bool IsGuest(string cloud) => Bare(cloud).EndsWith(GuestMark);
 
         static string DisplayName(string cloud)
         {
             string bare = Bare(cloud);
-            if (bare.EndsWith(AccountMark)) bare = bare.Substring(0, bare.Length - AccountMark.Length);
+            if (bare.EndsWith(AccountMark) || bare.EndsWith(GuestMark)) bare = bare.Substring(0, bare.Length - AccountMark.Length);
             return bare.Length == 0 ? "Skier" : bare.Replace('_', ' ');
         }
 
@@ -135,9 +137,9 @@ namespace Ski.Game
         {
             string name = CloudName(SaveData.PlayerName);
             if (Status != State.Online || name.Length < 2) return;
-            // Signed in to an account: the board says so (guests have browsers of their own, and may share a name).
-            if (!string.IsNullOrEmpty(AuthenticationService.Instance.PlayerInfo?.Username))
-                name = (name.Length > 24 - AccountMark.Length ? name.Substring(0, 24 - AccountMark.Length) : name) + AccountMark;
+            // The board says whether this is an account or a guest (guests have browsers of their own, and may share a name).
+            bool account = !string.IsNullOrEmpty(AuthenticationService.Instance.PlayerInfo?.Username);
+            name = (name.Length > 24 - AccountMark.Length ? name.Substring(0, 24 - AccountMark.Length) : name) + (account ? AccountMark : GuestMark);
             try { await AuthenticationService.Instance.UpdatePlayerNameAsync(name); }
             catch (Exception e) { Debug.Log("[Online] name not updated: " + e.Message); }
         }
@@ -261,7 +263,7 @@ namespace Ski.Game
         static void Add(List<Entry> list, Unity.Services.Leaderboards.Models.LeaderboardEntry e)
         {
             foreach (var have in list) if (have.Rank == e.Rank) return;
-            var entry = new Entry { Name = DisplayName(e.PlayerName), Score = e.Score, Rank = e.Rank, Me = e.PlayerId == PlayerId, Character = -1, Guest = !IsAccount(e.PlayerName) };
+            var entry = new Entry { Name = DisplayName(e.PlayerName), Score = e.Score, Rank = e.Rank, Me = e.PlayerId == PlayerId, Character = -1, Guest = IsGuest(e.PlayerName) };
             if (!string.IsNullOrEmpty(e.Metadata))
             {
                 try { var m = JsonUtility.FromJson<Meta>(e.Metadata); if (m != null) { entry.Ghost = m.g; entry.Character = m.c; } }

@@ -56,7 +56,7 @@ namespace Ski.Core
         public int NextGate;
         public readonly List<RunEvent> Events = new List<RunEvent>();
 
-        public const float GatePenalty = 4f, PersonPenalty = 5f, RespawnPenalty = 5f;
+        public const float GatePenalty = 6f, PersonPenalty = 5f, RespawnPenalty = 5f;
         public const float StartLineZ = 9f;
         public const float GateWidth = 5.5f;
 
@@ -96,16 +96,17 @@ namespace Ski.Core
             while (z < Course.FinishZ - 50f)
             {
                 int kind = section++ % 4;
-                int count = kind == 0 ? 4 : kind == 1 ? 5 : kind == 2 ? 5 : 2;
+                int count = kind == 0 ? 3 : kind == 1 ? 4 : kind == 2 ? 3 : 2;
                 for (int i = 0; i < count && z < Course.FinishZ - 50f; i++)
                 {
                     float offset, gap;
                     switch (kind)
                     {
-                        case 0: offset = rng.Range(4.0f, 5.0f); gap = rng.Range(26f, 30f); break;   // open
-                        case 1: offset = rng.Range(2.6f, 3.3f); gap = rng.Range(19f, 21f); break;   // rhythm
-                        case 2: offset = rng.Range(1.0f, 1.5f); gap = rng.Range(13f, 14.5f); break; // flush
-                        default: offset = rng.Range(5.4f, 6.2f); gap = rng.Range(33f, 37f); break;  // delay
+                        // Room between them to carry speed: a gate should be worth taking, not cheaper to miss.
+                        case 0: offset = rng.Range(4.0f, 5.0f); gap = rng.Range(34f, 38f); break;   // open
+                        case 1: offset = rng.Range(3.0f, 3.6f); gap = rng.Range(27f, 30f); break;   // rhythm
+                        case 2: offset = rng.Range(1.4f, 1.9f); gap = rng.Range(21f, 23f); break;   // flush
+                        default: offset = rng.Range(5.4f, 6.2f); gap = rng.Range(42f, 46f); break;  // delay
                     }
                     // The distance to a gate depends on that gate: a wide one needs room to get to.
                     if (!first) z += gap;

@@ -291,8 +291,8 @@ Ghosts and boards
 
 ## M17 Round 9 (boards, shop, speed)
 - [x] Board rows: a long name slides left under the pointer so all of it can be read; a GUEST tag on
-      rows from players without an account (account names carry a hidden mark from now on, so older
-      account rows show as guests until their owners play again); a film-clip button to watch a run
+      rows from players without an account (names carry a hidden account or guest mark from now on;
+      rows from before it carry no tag until their owners play again); a film-clip button to watch a run
       instead of a second number, on the ski map only (after a run the mouse looks around, so the results
       card shows the board without it)
 - [x] Shop: every locked colour, print and item says how to earn it on hover, the same way for all
@@ -308,6 +308,8 @@ Ghosts and boards
       lines (low: outlines from depth alone, without the pass that draws everything again for normals),
       effects; a preset row and an FPS meter
 - [x] Song covers in the now-playing card (FLUX.1-schnell, local)
+- [x] Slalombacken: 24 gates instead of 34, 21-46 m apart instead of 13-37, 6 s per missed gate; a test
+      checks that skipping the gates never pays; a fresh world board (slope_red_v2) for the new course
 - [ ] Characters remade to match the round-3 concept art (separate session; owner approves first)
 
 ## Known gaps and ideas

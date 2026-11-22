@@ -32,13 +32,40 @@ namespace Ski.Tests
         public void SlalomBotClearsMostGates()
         {
             var s = PlayBot(SlopeId.Red, CharacterId.Erik, out _);
-            Assert.That(s.Gates.Count, Is.GreaterThan(30));
-            Assert.That(s.GatesMissed, Is.LessThanOrEqualTo(5), "gates missed");
-            // The rhythm really varies: both tight flushes and long open turns are in the course.
+            Assert.That(s.Gates.Count, Is.InRange(18, 28), "a slalom, not a picket fence");
+            Assert.That(s.GatesMissed, Is.LessThanOrEqualTo(3), "gates missed");
+            // The rhythm varies, but even the tightest gates leave room to carry speed.
             float minGap = float.MaxValue, maxGap = 0f;
             for (int i = 1; i < s.Gates.Count; i++) { float g = s.Gates[i].Z - s.Gates[i - 1].Z; minGap = Mathf.Min(minGap, g); maxGap = Mathf.Max(maxGap, g); }
-            Assert.That(minGap, Is.LessThan(15f));
-            Assert.That(maxGap, Is.GreaterThan(26f));
+            Assert.That(minGap, Is.InRange(20f, 24f));
+            Assert.That(maxGap, Is.GreaterThan(40f));
+        }
+
+        [Test, Timeout(600000)]
+        public void SkippingTheGatesNeverPays()
+        {
+            // Straight down the racing line in a tuck, through no gate at all, against the bot that takes them.
+            var log = new System.Text.StringBuilder("Slalom: gates vs skipping\n");
+            foreach (CharacterId who in System.Enum.GetValues(typeof(CharacterId)))
+            {
+                var g = new RunSession(SlopeId.Red, who);
+                Assert.IsTrue(Bot.Play(g, new Bot(g)), who + " finishes through the gates");
+                var k = new RunSession(SlopeId.Red, who);
+                Bot.Play(k, new Bot(k) { IgnoreGates = true, SpeedLimit = 40f, UseTuck = true });
+                log.AppendLine(who + ": gates " + g.Time.ToString("0.0") + "+" + g.Penalty.ToString("0") + " = " + g.FinalTime.ToString("0.0")
+                    + " (" + g.GatesMissed + "/" + g.Gates.Count + " missed)   skipping " + k.Time.ToString("0.0") + "+" + k.Penalty.ToString("0")
+                    + " = " + k.FinalTime.ToString("0.0") + " (" + k.GatesMissed + " missed)");
+                Assert.That(k.FinalTime, Is.GreaterThan(g.FinalTime + 10f), who + ": skipping the gates must not pay");
+                // Faster and faster through the gates, missing more of them as the speed grows.
+                foreach (float limit in new[] { 16f, 20f, 26f })
+                {
+                    var f = new RunSession(SlopeId.Red, who);
+                    Bot.Play(f, new Bot(f) { SpeedLimit = limit, UseTuck = true });
+                    log.AppendLine("   at " + (limit * 3.6f).ToString("0") + " km/h: " + f.Time.ToString("0.0") + "+" + f.Penalty.ToString("0") + " = " + f.FinalTime.ToString("0.0")
+                        + " (" + f.GatesMissed + " missed)");
+                }
+            }
+            Debug.Log(log.ToString());
         }
 
         [Test]

@@ -125,7 +125,7 @@ namespace Ski.Core
         {
             new[] { 53f, 41f, 34.6f },        // Barnbacken
             new[] { 3000f, 5500f, 8000f },    // Parken (score)
-            new[] { 93f, 73f, 61f },          // Slalombacken
+            new[] { 82f, 65f, 54f },          // Slalombacken (24 gates)
             new[] { 64f, 50f, 42f },          // Svarta Väggen
             new[] { 109f, 85f, 71.4f },       // Ravinen (off-piste)
         };

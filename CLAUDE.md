@@ -29,6 +29,9 @@ The game design lives in `docs/GAME_SPEC.md` (source of truth). The plan and mil
   live and hold real players' results: nothing is sent from the Editor (`SendFromEditor` stays
   false), from the bot, or with an implausible value (`Courses.Plausible`). Never teleport a
   player past the finish with submissions enabled. No seeded rivals, no bot ghosts.
+  Boards are `Assets/_Game/Cloud/*.lb`: with Unity Hub running, `unity ugs login --unity-hub`, then
+  `unity ugs deploy <file> -p <cloudProjectId> -e production` (dry-run first). A slope whose course
+  changes gets a fresh board (`OnlineBoards.BoardId`, e.g. `slope_red_v2`); the old one is left alone.
 - **Music and voice.** The DJ's songs are made locally with YuE2 by `tools/music/make_songs_yue2.py`
   (titles and lyrics in `make_songs.py`; weights CC BY-NC 4.0 with a creator grant, credited in
   Settings > Audio; setup in its header) into `Assets/StreamingAssets/Music` and streamed by

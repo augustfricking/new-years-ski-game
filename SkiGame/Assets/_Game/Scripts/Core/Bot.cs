@@ -13,6 +13,8 @@ namespace Ski.Core
         public bool DoTricks = true;
         public float Skill = 1f;          // 0..1, lower = sloppier pole timing
         public float Lane;                // metres to the side of the usual line (rivals skiing beside each other)
+        /// <summary>Slalom: straight down the racing line, ignoring the gates (to check that skipping them never pays).</summary>
+        public bool IgnoreGates;
 
         readonly RunSession _s;
         int _airPlan, _jumps;
@@ -44,7 +46,7 @@ namespace Ski.Core
             // --- where do we want to be a little further down? ---------------------------
             float look = Mathf.Clamp(speed * 0.9f, 7f, 26f);
             if (_s.Slope == SlopeId.OffPiste) look = Mathf.Clamp(speed * 0.75f, 5f, 11f); // glades twist: look closer
-            if (_s.Slope == SlopeId.Red) look = Mathf.Clamp(speed * 0.6f, 5f, 12f);        // gates come quickly
+            if (_s.Slope == SlopeId.Red && !IgnoreGates) look = Mathf.Clamp(speed * 0.6f, 5f, 12f);        // gates come quickly
             float tz = sim.Pos.z + look;
             float tx = TargetX(tz, look);
             float desired = Mathf.Atan2(tx - sim.Pos.x, look);
@@ -111,7 +113,7 @@ namespace Ski.Core
                 case SlopeId.Red:
                 {
                     // Aim through the middle of the next gate, then the one after.
-                    if (_s.NextGate < _s.Gates.Count)
+                    if (_s.NextGate < _s.Gates.Count && !IgnoreGates)
                     {
                         var g = _s.Gates[_s.NextGate];
                         float aim = g.InnerX + g.Side * 1.5f;
