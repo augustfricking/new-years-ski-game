@@ -1188,7 +1188,7 @@ namespace Ski.Game
             if (_seatTable >= 0) flags |= LiveFlags.Sit;
             VoiceChat.MyPos = _pos; VoiceChat.Place = "tavern"; VoiceChat.MyTable = _seatTable;
             _rec.PacketSeconds = Time.time - _lastMove < 2f || flags != LiveFlags.None ? 2f : 4.9f;
-            LiveRooms.Send(_rec.Tick(now, new LiveSample { Pos = new Vector3(_pos.x, _pos.y, _pos.z), Yaw = _yaw, Flags = flags }));
+            LiveRooms.Send(_rec, now, new LiveSample { Pos = new Vector3(_pos.x, _pos.y, _pos.z), Yaw = _yaw, Flags = flags });
         }
 
         float FloorAt(Vector3 c)

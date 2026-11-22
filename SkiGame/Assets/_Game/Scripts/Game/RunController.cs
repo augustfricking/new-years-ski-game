@@ -268,7 +268,7 @@ namespace Ski.Game
             if (sim.Plough > 0.4f) flags |= LiveFlags.Plough;
             if (sim.Crashed) flags |= LiveFlags.Crashed;
             var sample = new LiveSample { Pos = new Vector3(sim.Pos.x, sim.Contact ? 0f : sim.AirHeight, sim.Pos.z), Yaw = sim.Heading * Mathf.Rad2Deg, Flags = flags };
-            LiveRooms.Send(_rec.Tick(LiveRooms.Now, sample));
+            LiveRooms.Send(_rec, LiveRooms.Now, sample);
         }
 
         void Update()

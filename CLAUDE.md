@@ -54,6 +54,12 @@ The game design lives in `docs/GAME_SPEC.md` (source of truth). The plan and mil
   (`LiveRooms.SendFromEditor`). Test only in the private room `test` with `tools/diag/live_test.cs`
   + `live_standin.cs` (`join 1` makes a one-place world to try the queue). Replays of board rows
   are watched, never raced.
+- **Direct lines.** `LiveLink` + `Plugins/WebGL/LastRunLink.jslib`: WebRTC data channels (PeerJS)
+  between players in the room, 20 samples a second, played about 0.12 s behind (`LiveTimeline`);
+  the room's packets stay as the fallback. Try it in a WebGL build with two tabs on a local
+  server: `?room=linktest&profile=a` and `?room=linktest&profile=b&echo=1` (open the echo tab first;
+  it sends every player's movement back 4 m to the side). `?room=` keeps out of the public world and
+  off the boards. Show FPS also shows `DIRECT open/others` and the round trip.
 - **Hints and labels** are one to three words. The owner finds longer ones over-explained.
 - **Flow.** `GameApp`: lift menu -> cutscene -> ski map -> run -> village -> lift ride or tavern.
 - One MonoBehaviour per file, file named after the class.

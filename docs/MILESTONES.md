@@ -310,6 +310,11 @@ Ghosts and boards
 - [x] Song covers in the now-playing card (FLUX.1-schnell, local)
 - [x] Slalombacken: 24 gates instead of 34, 21-46 m apart instead of 13-37, 6 s per missed gate; a test
       checks that skipping the gates never pays; a fresh world board (slope_red_v2) for the new course
+- [x] Live players in near real time: direct browser-to-browser lines (WebRTC through PeerJS, like the
+      voice chat) carry each player 20 times a second and they are shown about 0.12 s late instead of
+      3-5 s; the room's packets stay as the fallback, and playback slides between the two without jumps
+      (tests); punches go both ways and act once. Checked with two tabs and an echo stand-in (`?echo=1`)
+- [ ] A real two-person test of the direct lines (different networks; some block direct connections)
 - [ ] Characters remade to match the round-3 concept art (separate session; owner approves first)
 
 ## Known gaps and ideas

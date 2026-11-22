@@ -3,7 +3,8 @@ using UnityEngine.UIElements;
 
 namespace Ski.Game
 {
-    /// <summary>The frame rate in the top corner, when the graphics settings ask for it (to tune them by).</summary>
+    /// <summary>The frame rate in the top corner, when the graphics settings ask for it (to tune them by), and how
+    /// the other players come in: by a direct line or only through the room.</summary>
     public sealed class FpsMeter : MonoBehaviour
     {
         Label _label;
@@ -33,7 +34,15 @@ namespace Ski.Game
             _time += Time.unscaledDeltaTime;
             _frames++;
             if (_time < 0.5f) return;
-            _label.text = Mathf.RoundToInt(_frames / _time) + " FPS";
+            // With other players about: how many of them come by a direct line, and its round trip.
+            string live = "";
+            int others = LiveRooms.Others.Count;
+            if (others > 0)
+            {
+                live = "  ·  DIRECT " + LiveLink.OpenLines + "/" + others;
+                if (LiveLink.RoundTrip > 0f) live += "  " + Mathf.RoundToInt(LiveLink.RoundTrip) + " ms";
+            }
+            _label.text = Mathf.RoundToInt(_frames / _time) + " FPS" + live;
             _time = 0f; _frames = 0;
         }
     }

@@ -91,19 +91,7 @@ namespace Ski.Game
             }
         }
 
-        static string ProfileFromUrl()
-        {
-            string url = Application.absoluteURL ?? "";
-            int i = url.IndexOf("profile=", StringComparison.Ordinal);
-            if (i < 0) return null;
-            var sb = new System.Text.StringBuilder();
-            for (int k = i + 8; k < url.Length && sb.Length < 20; k++)
-            {
-                char c = url[k];
-                if (char.IsLetterOrDigit(c) || c == '_' || c == '-') sb.Append(c); else break;
-            }
-            return sb.Length > 0 ? sb.ToString() : null;
-        }
+        static string ProfileFromUrl() => PageArgs.Get("profile");
 
         static string CloudName(string name)
         {
@@ -181,8 +169,9 @@ namespace Ski.Game
             double? before = null;
             try { before = (await LeaderboardsService.Instance.GetPlayerScoreAsync(board)).Score; }
             catch (Exception) { /* nothing here yet */ }
-            bool sent = send && (!Application.isEditor || SendFromEditor);
-            if (send && !sent) Debug.Log("[Online] not sent from the Editor: " + board + " " + score.ToString("0.##"));
+            // Nothing from the Editor, nor from a private test room ("?room=" in the address).
+            bool sent = send && (!Application.isEditor || SendFromEditor) && PageArgs.TestRoom == null;
+            if (send && !sent) Debug.Log("[Online] not sent (Editor or test room): " + board + " " + score.ToString("0.##"));
             if (sent)
             {
                 try

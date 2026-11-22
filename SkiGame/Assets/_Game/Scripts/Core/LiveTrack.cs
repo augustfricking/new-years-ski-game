@@ -106,44 +106,70 @@ namespace Ski.Core
     }
 
     /// <summary>
-    /// Plays a live player back a little behind real time, so the packets that arrive every couple
-    /// of seconds join up into smooth movement. The sender's clock is mapped onto ours by the
-    /// quickest delivery seen so far.
+    /// Plays a live player back a little behind real time. Their movement comes two ways: straight
+    /// from their browser (twenty samples a second, a tenth of a second old) when a direct line is
+    /// open, and through the room every couple of seconds otherwise. Played back just behind the
+    /// newest sample, the movement stays smooth: about 0.12 s behind with a direct line, 3.2 s
+    /// without, sliding between the two (catching up, or easing back) rather than jumping. The
+    /// sender's clock is mapped onto ours by the quickest delivery seen so far.
     /// </summary>
     public sealed class LiveTimeline
     {
-        /// <summary>How far behind the sender we play: one packet's length plus room for a late one.</summary>
-        public float Delay = 3.2f;
+        /// <summary>How far behind the sender we play: with a direct line, and through the room (one packet plus room for a late one).</summary>
+        public const float DirectDelay = 0.12f, RoomDelay = 3.2f;
+        /// <summary>How long a direct line may stay quiet before playback eases back to the room's pace.</summary>
+        public const double DirectQuiet = 0.8;
         /// <summary>After this long without news a player is taken off the screen.</summary>
         public float Stale = 9f;
 
         struct Timed { public double T; public LiveSample S; public LiveMode Mode; }
         readonly List<Timed> _samples = new List<Timed>();
-        double _offset = double.NaN;
-        double _lastArrival = double.NegativeInfinity;
+        // Our clock minus theirs, as each way delivers (the quickest delivery seen, nudged up by slower ones).
+        double _offsetRoom = double.NaN, _offsetDirect = double.NaN;
+        double _lastArrival = double.NegativeInfinity, _lastDirect = double.NegativeInfinity;
+        double _lagAt = double.NaN, _lag;
         int _lastSeq = -1;
+        double Offset => double.IsNaN(_offsetDirect) ? _offsetRoom : double.IsNaN(_offsetRoom) ? _offsetDirect : Math.Min(_offsetRoom, _offsetDirect);
 
         public int Count => _samples.Count;
         public LiveMode Mode { get; private set; }
         public int Character { get; private set; }
         /// <summary>Where they are (<see cref="LivePlace"/>), from their latest packet.</summary>
         public byte Place { get; private set; }
+        /// <summary>Whether their movement is coming straight from their browser right now.</summary>
+        public bool Direct(double now) => now - _lastDirect < DirectQuiet;
 
-        /// <summary>Adds a packet that arrived at local time <paramref name="now"/>. Returns false for an old or repeated one.</summary>
+        /// <summary>Adds a packet from the room that arrived at local time <paramref name="now"/>. Returns false for an old or repeated one.</summary>
         public bool Add(LivePacket p, double now)
         {
             if (p == null || p.Samples.Count == 0) return false;
             int ahead = (p.Seq - _lastSeq) & 0xFFFF;
             if (_lastSeq >= 0 && (ahead == 0 || ahead > 0x8000)) return false;
             _lastSeq = p.Seq;
+            Take(p, now, ref _offsetRoom);
+            return true;
+        }
+
+        /// <summary>Adds samples that came straight from the sender's browser (numbered on their own, apart from the room's packets).</summary>
+        public bool AddDirect(LivePacket p, double now)
+        {
+            if (p == null || p.Samples.Count == 0) return false;
+            if (_samples.Count > 0 && p.End <= _samples[_samples.Count - 1].T + 1e-4) return false;   // late: something newer is here already
+            _lastDirect = now;
+            Take(p, now, ref _offsetDirect);
+            return true;
+        }
+
+        void Take(LivePacket p, double now, ref double offset)
+        {
             _lastArrival = now;
             Mode = p.Mode;
             Character = p.Character;
             Place = p.Place;
             double guess = now - p.End;
             // The quickest delivery is the truest; a slow one only nudges the estimate.
-            if (double.IsNaN(_offset) || guess < _offset) _offset = guess;
-            else _offset += (guess - _offset) * 0.05;
+            if (double.IsNaN(offset) || guess < offset) offset = guess;
+            else offset += (guess - offset) * 0.05;
             double newest = _samples.Count > 0 ? _samples[_samples.Count - 1].T : double.NegativeInfinity;
             for (int i = 0; i < p.Samples.Count; i++)
             {
@@ -156,33 +182,77 @@ namespace Ski.Core
             double keep = _samples[_samples.Count - 1].T - 30.0;
             while (drop < _samples.Count - 2 && _samples[drop].T < keep) drop++;
             if (drop > 0) _samples.RemoveRange(0, drop);
-            return true;
+        }
+
+        /// <summary>
+        /// How far our clock is ahead of the moment of theirs being shown at local time <paramref name="now"/>:
+        /// the trip plus the direct line's short wait while it carries news, else the room's trip and wait.
+        /// A change is spread out: catching up plays a little fast, easing back plays slower (never backwards).
+        /// </summary>
+        public double LagAt(double now)
+        {
+            double target = Direct(now) || double.IsNaN(_offsetRoom) ? _offsetDirect + DirectDelay : _offsetRoom + RoomDelay;
+            if (!Direct(now) && double.IsNaN(_offsetRoom)) target = _offsetDirect + RoomDelay;   // only ever direct, now quiet: wait as the room would
+            if (double.IsNaN(_lagAt)) { _lagAt = now; _lag = target; return _lag; }
+            double dt = Math.Max(0.0, now - _lagAt);
+            _lagAt = Math.Max(_lagAt, now);
+            if (target < _lag) _lag = Math.Max(target, _lag - dt * 1.5);
+            else if (target > _lag) _lag = Math.Min(target, _lag + dt * 0.7);
+            // Never more than a moment past the newest sample: rather wait there for the next news than leap to it.
+            if (_samples.Count > 0) _lag = Math.Max(_lag, now - (_samples[_samples.Count - 1].T + Coast));
+            return _lag;
         }
 
         /// <summary>The sender's clock at the moment being shown at local time <paramref name="now"/> (NaN before any packet).</summary>
-        public double PlaybackTime(double now) => double.IsNaN(_offset) ? double.NaN : now - _offset - Delay;
+        public double PlaybackTime(double now) => double.IsNaN(Offset) ? double.NaN : now - LagAt(now);
 
         /// <summary>The sender's clock right now, as far as we can tell (NaN before any packet).</summary>
-        public double SenderClock(double now) => double.IsNaN(_offset) ? double.NaN : now - _offset;
+        public double SenderClock(double now) => double.IsNaN(Offset) ? double.NaN : now - Offset;
 
         /// <summary>True when there is something to show at local time <paramref name="now"/>.</summary>
         public bool Visible(double now) => _samples.Count > 0 && now - _lastArrival < Stale;
+
+        /// <summary>How long past the newest sample movement is carried on along its last direction (a late sample on a direct line).</summary>
+        const double Coast = 0.25;
 
         /// <summary>The player at local time <paramref name="now"/>; speed in metres a second along the ground.</summary>
         public bool At(double now, out LiveSample s, out float speed, out LiveMode mode)
         {
             s = default; speed = 0f; mode = Mode;
-            if (_samples.Count == 0 || double.IsNaN(_offset)) return false;
-            double t = now - _offset - Delay;
+            if (_samples.Count == 0 || double.IsNaN(Offset)) return false;
+            double t = now - LagAt(now);
             if (t <= _samples[0].T) { s = _samples[0].S; mode = _samples[0].Mode; return true; }
             int last = _samples.Count - 1;
-            if (t >= _samples[last].T) { s = _samples[last].S; mode = _samples[last].Mode; return true; }
+            if (t >= _samples[last].T)
+            {
+                s = _samples[last].S; mode = _samples[last].Mode;
+                // Just past the newest: carry on a moment along the last stretch, then hold.
+                if (last > 0)
+                {
+                    var p = _samples[last - 1];
+                    double span = Math.Max(_samples[last].T - p.T, 1e-4);
+                    if (span < 0.3)
+                    {
+                        Vector3 v = (_samples[last].S.Pos - p.S.Pos) / (float)span;
+                        v.y = 0f;
+                        s.Pos += v * (float)Math.Min(t - _samples[last].T, Coast);
+                        speed = v.magnitude;
+                    }
+                }
+                return true;
+            }
             int i = last - 1;
             while (i > 0 && _samples[i].T > t) i--;
             var a = _samples[i]; var b = _samples[i + 1];
-            float f = (float)((t - a.T) / Math.Max(b.T - a.T, 1e-4));
-            Vector3 pa = _samples[Math.Max(i - 1, 0)].S.Pos, pd = _samples[Math.Min(i + 2, last)].S.Pos;
-            s.Pos = new Vector3(CatmullRom(pa.x, a.S.Pos.x, b.S.Pos.x, pd.x, f), Mathf.Lerp(a.S.Pos.y, b.S.Pos.y, f), CatmullRom(pa.z, a.S.Pos.z, b.S.Pos.z, pd.z, f));
+            double h = Math.Max(b.T - a.T, 1e-4);
+            float f = (float)((t - a.T) / h);
+            // A curve through the samples with each one's velocity taken over its neighbours' times, so it stays
+            // true where the spacing changes (the room's samples beside the direct line's, a gap between them).
+            var pa = _samples[Math.Max(i - 1, 0)]; var pd = _samples[Math.Min(i + 2, last)];
+            Vector3 va = (b.S.Pos - pa.S.Pos) / (float)Math.Max(b.T - pa.T, 1e-4), vb = (pd.S.Pos - a.S.Pos) / (float)Math.Max(pd.T - a.T, 1e-4);
+            float f2 = f * f, f3 = f2 * f;
+            Vector3 curve = (2f * f3 - 3f * f2 + 1f) * a.S.Pos + (f3 - 2f * f2 + f) * (float)h * va + (-2f * f3 + 3f * f2) * b.S.Pos + (f3 - f2) * (float)h * vb;
+            s.Pos = new Vector3(curve.x, Mathf.Lerp(a.S.Pos.y, b.S.Pos.y, f), curve.z);
             s.Yaw = Mathf.LerpAngle(a.S.Yaw, b.S.Yaw, f);
             s.Flags = f < 0.5f ? a.S.Flags : b.S.Flags;
             mode = f < 0.5f ? a.Mode : b.Mode;
@@ -191,11 +261,6 @@ namespace Ski.Core
             return true;
         }
 
-        static float CatmullRom(float a, float b, float c, float d, float t)
-        {
-            float t2 = t * t, t3 = t2 * t;
-            return 0.5f * (2f * b + (-a + c) * t + (2f * a - 5f * b + 4f * c - d) * t2 + (-a + 3f * b - 3f * c + d) * t3);
-        }
     }
 
     /// <summary>Collects the local player's samples and cuts them into packets.</summary>

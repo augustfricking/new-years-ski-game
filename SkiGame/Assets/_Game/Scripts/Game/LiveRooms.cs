@@ -27,8 +27,10 @@ namespace Ski.Game
         public const int WorldSize = 24;
         /// <summary>The world real players share. The Editor never takes a place in it: it has its own
         /// rooms (and the private "test" one the live test tools use).</summary>
-        static string WorldId => !Application.isEditor ? "lastrun-world-1" : Place == "test" ? "lastrun-test-1" : "lastrun-editor-1";
-        static string QueueId => !Application.isEditor ? "lastrun-queue-1" : "lastrun-editor-queue-1";
+        static string WorldId => PageArgs.TestRoom != null ? "lastrun-room-" + PageArgs.TestRoom
+            : !Application.isEditor ? "lastrun-world-1" : Place == "test" ? "lastrun-test-1" : "lastrun-editor-1";
+        static string QueueId => PageArgs.TestRoom != null ? "lastrun-room-" + PageArgs.TestRoom + "-queue"
+            : !Application.isEditor ? "lastrun-queue-1" : "lastrun-editor-queue-1";
         const float MinGap = 1.1f;      // the room service allows one player update a second
 
         public sealed class Remote
@@ -36,7 +38,8 @@ namespace Ski.Game
             public string Id, Name = "Skier";
             public CharacterId Who = CharacterId.Erik;
             public readonly LiveTimeline Timeline = new LiveTimeline();
-            public string PunchSeen;
+            /// <summary>Punches already acted on (each comes by the direct line and by the room: once is enough).</summary>
+            public readonly HashSet<string> Punches = new HashSet<string>();
             /// <summary>Their outfit from the shop (<see cref="Outfit.Code"/>).</summary>
             public string Outfit = "";
             public double Arrived;
@@ -284,17 +287,7 @@ namespace Ski.Game
                         if (packet.Character >= 0 && packet.Character < 4) r.Who = (CharacterId)packet.Character;
                     }
                 }
-                if (props.TryGetValue("h", out var h) && h.Value != r.PunchSeen)
-                {
-                    r.PunchSeen = h.Value;
-                    // "target|count|yaw|time": only a punch from the last few seconds counts, not one left standing from before.
-                    var parts = h.Value.Split('|');
-                    var inv = System.Globalization.CultureInfo.InvariantCulture;
-                    if (parts.Length == 4 && float.TryParse(parts[2], System.Globalization.NumberStyles.Float, inv, out float yaw)
-                        && double.TryParse(parts[3], System.Globalization.NumberStyles.Float, inv, out double at)
-                        && r.Timeline.SenderClock(now) - at < 8.0)
-                        Punched?.Invoke(r, parts[0], yaw, at);
-                }
+                if (props.TryGetValue("h", out var h)) TakePunch(r, h.Value, now);
             }
             // Anyone no longer listed has gone.
             List<string> gone = null;
@@ -307,10 +300,46 @@ namespace Ski.Game
             if (gone != null) foreach (var id in gone) Others.Remove(id);
         }
 
+        /// <summary>Movement that came straight from another player's browser (<see cref="LiveLink"/>).</summary>
+        internal static void TakeDirect(Remote r, LivePacket packet, double now)
+        {
+            if (packet == null || !r.Timeline.AddDirect(packet, now)) return;
+            r.Arrived = now;
+            if (packet.Character >= 0 && packet.Character < 4) r.Who = (CharacterId)packet.Character;
+        }
+
+        /// <summary>
+        /// A punch from another player, by the room or the direct line, acted on once: "target|count|yaw|time",
+        /// and only one from the last few seconds counts, not one left standing from before.
+        /// </summary>
+        internal static void TakePunch(Remote r, string text, double now)
+        {
+            if (string.IsNullOrEmpty(text) || text.Length > 120 || !r.Punches.Add(text)) return;
+            if (r.Punches.Count > 32) { r.Punches.Clear(); r.Punches.Add(text); }
+            var parts = text.Split('|');
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            if (parts.Length == 4 && float.TryParse(parts[2], System.Globalization.NumberStyles.Float, inv, out float yaw)
+                && double.TryParse(parts[3], System.Globalization.NumberStyles.Float, inv, out double at)
+                && r.Timeline.SenderClock(now) - at < 8.0)
+                Punched?.Invoke(r, parts[0], yaw, at);
+        }
+
+        /// <summary>
+        /// This player's movement this frame, for everyone else: twenty times a second on the direct lines,
+        /// and every couple of seconds through the room (which everyone can always read).
+        /// </summary>
+        public static void Send(LiveRecorder rec, double now, LiveSample sample)
+        {
+            string packet = rec.Tick(now, sample);
+            if (!CanSend || !Connected || LiveLink.Echo) return;     // an echo tab only answers others
+            LiveLink.Send(rec, now, sample);
+            Send(packet);
+        }
+
         /// <summary>Hands over this player's latest stretch of movement (an encoded <see cref="LivePacket"/>).</summary>
         public static void Send(string packet)
         {
-            if (packet == null || !CanSend || !Connected) return;
+            if (packet == null || !CanSend || !Connected || LiveLink.Echo) return;
             _pendingState = packet;
             Flush();
         }
@@ -322,12 +351,14 @@ namespace Ski.Game
             _punchCount++;
             var inv = System.Globalization.CultureInfo.InvariantCulture;
             _pendingPunch = targetId + "|" + _punchCount + "|" + yaw.ToString("0", inv) + "|" + Now.ToString("0.00", inv);
+            LiveLink.SendPunch(_pendingPunch);      // there at once on a direct line; the room brings it too
             Flush();
         }
 
         /// <summary>Call every frame: sends whatever is waiting once the service allows it.</summary>
         public static void Tick()
         {
+            LiveLink.Tick();
             if (_pendingState != null || _pendingPunch != null) Flush();
         }
 
