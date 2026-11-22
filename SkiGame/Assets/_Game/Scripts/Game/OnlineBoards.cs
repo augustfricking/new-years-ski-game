@@ -143,25 +143,69 @@ namespace Ski.Game
             await PushName();
         }
 
-        /// <summary>Sends a result (the service keeps the best per device), then refreshes the list.</summary>
-        public static async void Submit(string board, double score, string ghost, int character, Action<List<Entry>> done = null)
+        /// <summary>What the world board says about one result.</summary>
+        public sealed class WorldResult
+        {
+            public List<Entry> Rows;          // the top of the board and the rows around this player
+            public int RunRank = -1;          // 1-based: where this result stands among everyone else's best
+            public int BestRank = -1;         // 1-based: this player's own entry (their best), -1 when none
+            public bool NewBest, First;       // beat this player's earlier best here / their first result here
+        }
+
+        /// <summary>
+        /// A finished run (or stein) against the world: this player's earlier best is read, the result sent (when
+        /// <paramref name="send"/>: the board keeps only each player's best, with the character it was made with),
+        /// the board fetched, and the exact place this very result would take among everyone else. Null when offline.
+        /// </summary>
+        public static async void Report(string board, double score, string ghost, int character, bool higherBetter, bool send, Action<WorldResult> done)
         {
             await Connect();
-            if (Application.isEditor && !SendFromEditor)
-            {
-                Debug.Log("[Online] not sent from the Editor: " + board + " " + score.ToString("0.##"));
-                Fetch(board, done);
-                return;
-            }
             if (Status != State.Online || Missing.Contains(board)) { done?.Invoke(null); return; }
+            double? before = null;
+            try { before = (await LeaderboardsService.Instance.GetPlayerScoreAsync(board)).Score; }
+            catch (Exception) { /* nothing here yet */ }
+            bool sent = send && (!Application.isEditor || SendFromEditor);
+            if (send && !sent) Debug.Log("[Online] not sent from the Editor: " + board + " " + score.ToString("0.##"));
+            if (sent)
+            {
+                try
+                {
+                    var options = new AddPlayerScoreOptions { Metadata = new Dictionary<string, object> { { "g", ghost ?? "" }, { "c", character } } };
+                    await LeaderboardsService.Instance.AddPlayerScoreAsync(board, score, options);
+                    Debug.Log("[Online] sent " + score.ToString("0.##") + " to " + board);
+                }
+                catch (Exception e) { Fail(board, e); done?.Invoke(null); return; }
+            }
+            var rows = await Rows(board);
+            if (rows == null) { done?.Invoke(null); return; }
+            var res = new WorldResult { Rows = rows, First = before == null };
+            res.NewBest = sent && (before == null || (higherBetter ? score > before.Value : score < before.Value));
+            foreach (var e in rows) if (e.Me) res.BestRank = e.Rank + 1;
+            res.RunRank = await RankAmongOthers(board, score, higherBetter);
+            done?.Invoke(res);
+        }
+
+        /// <summary>1 + how many other players' best beat this score (ties do not), -1 when it cannot be told.</summary>
+        static async Task<int> RankAmongOthers(string board, double score, bool higherBetter)
+        {
             try
             {
-                var options = new AddPlayerScoreOptions { Metadata = new Dictionary<string, object> { { "g", ghost ?? "" }, { "c", character } } };
-                await LeaderboardsService.Instance.AddPlayerScoreAsync(board, score, options);
-                Debug.Log("[Online] sent " + score.ToString("0.##") + " to " + board);
+                int better = 0, offset = 0;
+                const int Page = 500;
+                while (true)
+                {
+                    var page = await LeaderboardsService.Instance.GetScoresAsync(board, new GetScoresOptions { Offset = offset, Limit = Page, IncludeMetadata = false });
+                    foreach (var e in page.Results)
+                    {
+                        if (e.PlayerId == PlayerId || !Plausible(board, e.Score)) continue;
+                        if (higherBetter ? e.Score > score : e.Score < score) better++;
+                        else return better + 1;                     // best first: nobody after this one is better
+                    }
+                    offset += page.Results.Count;
+                    if (page.Results.Count < Page || offset >= page.Total) return better + 1;
+                }
             }
-            catch (Exception e) { Fail(board, e); done?.Invoke(null); return; }
-            Fetch(board, done);
+            catch (Exception) { return -1; }
         }
 
         /// <summary>The top of a board plus the rows around this device. The callback gets null when offline.</summary>
@@ -169,13 +213,18 @@ namespace Ski.Game
         {
             await Connect();
             if (Status != State.Online || Missing.Contains(board)) { done?.Invoke(null); return; }
+            done?.Invoke(await Rows(board));
+        }
+
+        static async Task<List<Entry>> Rows(string board)
+        {
             var list = new List<Entry>();
             try
             {
                 var top = await LeaderboardsService.Instance.GetScoresAsync(board, new GetScoresOptions { Limit = 12, IncludeMetadata = true });
                 foreach (var e in top.Results) Add(list, e);
             }
-            catch (Exception e) { Fail(board, e); done?.Invoke(null); return; }
+            catch (Exception e) { Fail(board, e); return null; }
             try
             {
                 var near = await LeaderboardsService.Instance.GetPlayerRangeAsync(board, new GetPlayerRangeOptions { RangeLimit = 2, IncludeMetadata = true });
@@ -191,7 +240,7 @@ namespace Ski.Game
                 var e = list[i]; e.Rank -= dropped; list[i] = e;
             }
             Cache[board] = list;
-            done?.Invoke(list);
+            return list;
         }
 
         static void Add(List<Entry> list, Unity.Services.Leaderboards.Models.LeaderboardEntry e)

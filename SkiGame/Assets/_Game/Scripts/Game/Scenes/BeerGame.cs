@@ -235,17 +235,40 @@ namespace Ski.Game
             var title = Ui.Text(card, beatBar ? "SKÅL! PERSONAL BEST!" : "SKÅL!", "h1");
             Ui.Text(card, t.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " s", "results-big");
             Ui.Text(card, _game.Spills == 0 ? "Not a drop spilled." : _game.Spills + " spill" + (_game.Spills > 1 ? "s" : "") + " (+" + (_game.Spills * ChugGame.SpillPenalty).ToString("0.0") + " s)", "small");
-            // The board: your own times first; the world's fastest once they arrive.
+            // The board: the world's fastest (one time each, the best); this tavern's own times only when the world cannot be reached.
             var list = SaveData.Chug.Entries;
-            var boardTitle = Ui.Text(card, "YOUR TIMES", "tiny");
+            var place = Ui.Text(card, "", "h2");
+            var boardTitle = Ui.Text(card, "WORLD'S FASTEST", "tiny");
             var board = Ui.Div(card, "board");
-            OnlineBoards.Submit(OnlineBoards.ChugBoard, t, "", (int)who, world =>
+            Ui.Text(board, "Loading...", "small board-wait");
+            bool shownWorld = false;
+            void Local()
             {
-                if (world == null || world.Count == 0 || board.parent == null) return;
-                boardTitle.text = "WORLD'S FASTEST";
+                if (shownWorld || board.parent == null) return;
+                shownWorld = true;
+                boardTitle.text = "YOUR TIMES  (world board offline)";
                 board.Clear();
+                int shown = 0;
+                for (int i = 0; i < list.Count && shown < 8; i++)
+                {
+                    bool mine = i == res.Rank - 1;
+                    if (!mine && i >= 6 && res.Rank - 1 > i) continue;   // keep room for the player's own row
+                    var line = Ui.Div(board, mine ? "board-row board-row-me" : "board-row");
+                    Ui.Text(line, (i + 1) + ".", "board-rank");
+                    Ui.Text(line, SaveData.BoardName(list[i]), "board-name");
+                    Ui.Text(line, list[i].Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " s", "board-value");
+                    shown++;
+                }
+            }
+            OnlineBoards.Report(OnlineBoards.ChugBoard, t, "", (int)who, false, true, w =>
+            {
+                if (board.parent == null) return;
+                if (w == null || w.Rows == null) { Local(); return; }
+                shownWorld = true;
+                board.Clear();
+                if (w.RunRank > 0) place.text = "#" + w.RunRank + " IN THE WORLD" + (!w.NewBest && w.BestRank > 0 ? "  -  YOUR BEST #" + w.BestRank : "");
                 int n = 0;
-                foreach (var e in world)
+                foreach (var e in w.Rows)
                 {
                     if (n >= 8 && !e.Me) continue;
                     var line = Ui.Div(board, e.Me ? "board-row board-row-me" : "board-row");
@@ -254,19 +277,12 @@ namespace Ski.Game
                     Ui.Text(line, e.Score.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " s", "board-value");
                     n++;
                 }
-                if (world.Count > 1 && world[0].Me && best) { title.text = "SKÅL! HOUSE RECORD!"; _tavern.Cheer(6f); }
+                if (w.Rows.Count == 0) Ui.Text(board, "Nobody yet", "small board-wait");
+                if (w.RunRank == 1 && w.NewBest && w.Rows.Count > 1) { title.text = "SKÅL! HOUSE RECORD!"; _tavern.Cheer(6f); }
             });
-            int shown = 0;
-            for (int i = 0; i < list.Count && shown < 8; i++)
-            {
-                bool mine = i == res.Rank - 1;
-                if (!mine && i >= 6 && res.Rank - 1 > i) continue;   // keep room for the player's own row
-                var line = Ui.Div(board, mine ? "board-row board-row-me" : "board-row");
-                Ui.Text(line, (i + 1) + ".", "board-rank");
-                Ui.Text(line, SaveData.BoardName(list[i]), "board-name");
-                Ui.Text(line, list[i].Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " s", "board-value");
-                shown++;
-            }
+            float waited = 0f;
+            System.Action<float> tick = null;
+            tick = ui.AddTicker(dt => { waited += dt; if (shownWorld || board.parent == null) { ui.RemoveTicker(tick); return; } if (waited > 8f) { ui.RemoveTicker(tick); Local(); } });
             var row = Ui.Div(card);
             Ui.Keys(row, "SPACE", "again");
             Ui.Keys(row, "ESC", "done");

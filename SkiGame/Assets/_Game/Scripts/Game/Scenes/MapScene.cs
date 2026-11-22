@@ -353,7 +353,8 @@ namespace Ski.Game
                     var row = Ui.Div(_infoBoard, "board-row" + (e.Me ? " board-row-me" : ""));
                     Ui.Text(row, (e.Rank + 1) + ".", "board-rank");
                     Ui.Text(row, e.Name + (e.Me ? " (you)" : ""), "board-name");
-                    Ui.Text(row, Leaderboards.Format(id, (float)e.Score));
+                    ResultsPanel.WhoTag(row, e.Character);
+                    Ui.Text(row, Leaderboards.Format(id, (float)e.Score), "board-value");
                     if (!string.IsNullOrEmpty(e.Ghost))
                     {
                         var entry = e;

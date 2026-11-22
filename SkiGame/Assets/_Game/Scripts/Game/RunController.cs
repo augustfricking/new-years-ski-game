@@ -98,9 +98,7 @@ namespace Ski.Game
             string recording = _track.Encode();
             if (r.PersonalBest) SaveData.SetGhost(Session.Slope, recording);
             var panel = _results;
-            // New Year's fireworks for a new best; the big show if it is the best in the world.
-            bool improved = r.PersonalBest && !float.IsNaN(r.PreviousBest);
-            if (improved) Celebrate(10f);
+            // New Year's fireworks for a new best (by the world board, this account's own entry); the big show for a world record.
             // Only a person's own run goes to the world: never the autopilot, never a result no run could give.
             bool real = !_botDrove && Courses.Plausible(Session.Slope, Session.ResultValue);
             if (!_botDrove)
@@ -120,11 +118,12 @@ namespace Ski.Game
                     if (Courses.Plausible(s.Slope, s.ResultValue)) p.Offer(s.Slope, s.ResultValue, s.ScoreBased);
                 });
             }
-            if (!real) { OnlineBoards.Fetch(OnlineBoards.BoardId(Session.Slope), list => { if (Session != null && panel != null) panel.ShowWorld(list); }); return; }
-            OnlineBoards.Submit(OnlineBoards.BoardId(Session.Slope), Session.ResultValue, recording, (int)Session.Character, list =>
+            OnlineBoards.Report(OnlineBoards.BoardId(Session.Slope), Session.ResultValue, recording, (int)Session.Character, Session.ScoreBased, real, w =>
             {
                 if (Session == null || panel == null) return;
-                if (panel.ShowWorld(list) && r.PersonalBest) Celebrate(20f);
+                bool record = panel.ShowWorld(w);
+                if (record) Celebrate(20f);
+                else if (w != null ? w.NewBest && !w.First : r.PersonalBest && !float.IsNaN(r.PreviousBest)) Celebrate(10f);
             });
         }
 

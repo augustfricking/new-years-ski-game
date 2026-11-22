@@ -595,6 +595,39 @@
 
 .board-name {
     flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.board-who {
+    flex-shrink: 0;
+    width: 70px;
+    margin: 2px 10px 2px 6px;
+    padding: 0 4px;
+    font-size: 16px;
+    -unity-font-definition: resource("Fonts/Bangers-Regular");
+    -unity-text-align: middle-center;
+    border-radius: 4px;
+    border-width: 2px;
+    border-color: rgb(27, 20, 48);
+}
+
+.board-who-none {
+    border-width: 0;
+}
+
+.board-value {
+    flex-shrink: 0;
+    min-width: 92px;
+    -unity-text-align: middle-right;
+}
+
+.board-wait {
+    margin: 10px 12px;
+    color: rgb(90, 84, 100);
 }
 
 .results {
