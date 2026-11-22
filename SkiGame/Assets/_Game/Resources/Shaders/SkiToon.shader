@@ -249,6 +249,7 @@ Shader "Ski/Toon"
                 float4 positionOS : POSITION;
                 float3 normalOS : NORMAL;
                 float3 smoothNormalOS : TEXCOORD3;
+                float4 tangentOS : TANGENT;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -263,8 +264,10 @@ Shader "Ski/Toon"
                 Varyings OUT;
                 UNITY_SETUP_INSTANCE_ID(IN);
                 float3 pos = ApplyWind(IN.positionOS.xyz);
-                // Smoothed normals are baked into UV3 so hard-edged meshes get a closed hull.
-                float3 nOS = dot(IN.smoothNormalOS, IN.smoothNormalOS) > 0.01 ? IN.smoothNormalOS : IN.normalOS;
+                // Smoothed normals are baked into UV3 so hard-edged meshes get a closed hull; a merged figure
+                // carries them in its tangents instead (marked w = 2), which skinning turns with the limbs.
+                float3 nOS = dot(IN.smoothNormalOS, IN.smoothNormalOS) > 0.01 ? IN.smoothNormalOS
+                           : IN.tangentOS.w > 1.5 ? IN.tangentOS.xyz : IN.normalOS;
                 float4 cs = TransformObjectToHClip(pos);
                 float3 nWS = TransformObjectToWorldNormal(nOS);
                 float2 nCS = mul((float3x3)UNITY_MATRIX_VP, nWS).xy;

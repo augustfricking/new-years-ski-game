@@ -119,6 +119,7 @@ namespace Ski.Game
                 for (int s = 0; s < seats; s++)
                 {
                     var person = Person.Create(PersonLook.Random(rng, false), chairs[j], "Rider");
+                    person.Crowd = true;
                     person.transform.localPosition = new Vector3(0.86f - (s + rng.Range(0, 2)) * 0.573f, -3.07f, -0.02f);
                     person.transform.localRotation = Quaternion.identity;
                     person.Poles = PoleMode.Lap;

@@ -23,6 +23,10 @@ namespace Ski.Game
         /// <summary>The camera the snow should fall around.</summary>
         public Transform Follow;
         public float FogStart = 140f, FogEnd = 1100f;
+        /// <summary>The view distance of the graphics settings: the fog's distances are scaled by it.</summary>
+        public float Reach = 1f;
+        /// <summary>The effects level of the graphics settings: bloom only on high, less snowfall on low.</summary>
+        public int Effects = 1;
 
         public static readonly Vector3 SunDirection = new Vector3(0.74f, 0.4f, 0.54f).normalized;
 
@@ -30,6 +34,7 @@ namespace Ski.Game
         ParticleSystem _snow;
         Volume _volume;
         Vignette _vignette;
+        Bloom _bloom;
         ColorAdjustments _colour;
 
         public static WorldLook Create(Transform parent)
@@ -76,7 +81,7 @@ namespace Ski.Game
             _volume.isGlobal = true;
             var profile = ScriptableObject.CreateInstance<VolumeProfile>();
             var tone = profile.Add<Tonemapping>(true); tone.mode.Override(TonemappingMode.Neutral);
-            var bloom = profile.Add<Bloom>(true); bloom.intensity.Override(0.35f); bloom.threshold.Override(1.05f); bloom.scatter.Override(0.6f);
+            var bloom = _bloom = profile.Add<Bloom>(true); bloom.intensity.Override(0.35f); bloom.threshold.Override(1.05f); bloom.scatter.Override(0.6f);
             _vignette = profile.Add<Vignette>(true); _vignette.intensity.Override(0.22f); _vignette.smoothness.Override(0.4f);
             _colour = profile.Add<ColorAdjustments>(true); _colour.saturation.Override(10f); _colour.contrast.Override(8f);
             _volume.sharedProfile = profile;
@@ -127,8 +132,11 @@ namespace Ski.Game
             float s = Mathf.Clamp01(Storm), n = Mathf.Clamp01(Night);
             Color fog = Color.Lerp(Color.Lerp(Palette.Fog, Palette.SkyTop, n * 0.8f), Palette.Storm, s);
             RenderSettings.fogColor = fog;
-            RenderSettings.fogStartDistance = FogStart * Mathf.Pow(1.5f / FogStart, s);
-            RenderSettings.fogEndDistance = FogEnd * Mathf.Pow(22f / FogEnd, s); // exponential: thickens steadily
+            float fs = FogStart * Reach, fe = FogEnd * Reach;
+            RenderSettings.fogStartDistance = fs * Mathf.Pow(1.5f / fs, s);
+            RenderSettings.fogEndDistance = fe * Mathf.Pow(22f / fe, s); // exponential: thickens steadily
+            // Bloom needs the bright range only high effects keep (HDR); without it it costs and shows nothing.
+            if (_bloom != null) _bloom.active = Effects >= 2;
             Sun.intensity = Mathf.Lerp(1.02f, 0.25f, n) * Mathf.Lerp(1f, 0.45f, s);
             Sun.color = Color.Lerp(Color.Lerp(Palette.Sun, Palette.AmbientSky, n * 0.7f), Palette.Storm, s * 0.8f);
             RenderSettings.ambientSkyColor = Color.Lerp(Color.Lerp(Palette.AmbientSky, Palette.Mul(Palette.SkyTop, 1.2f), n), Palette.Storm, s * 0.7f);
@@ -140,7 +148,7 @@ namespace Ski.Game
             _sky.SetColor("_Mid", Color.Lerp(Palette.SkyMid, Palette.Mul(Palette.SkyTop, 0.8f), n));
             _sky.SetColor("_Horizon", Color.Lerp(Palette.SkyHorizon, Palette.SkyMid, n * 0.8f));
             var emission = _snow.emission;
-            emission.rateOverTime = Mathf.Lerp(90f, 1500f, s);
+            emission.rateOverTime = Mathf.Lerp(90f, 1500f, s) * (Effects == 0 ? 0.35f : Effects == 1 ? 0.7f : 1f);
             var vel = _snow.velocityOverLifetime;
             vel.x = new ParticleSystem.MinMaxCurve(Mathf.Lerp(-1.2f, -11f, s), Mathf.Lerp(0.4f, -5f, s));
             _vignette.intensity.Override(Mathf.Lerp(0.22f, 0.36f, s));

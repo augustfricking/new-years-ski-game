@@ -15,6 +15,7 @@ Shader "Ski/InkEdges"
         _FadeEnd ("Fade end (m)", Float) = 140
         _InnerStart ("Inner lines fade start (m)", Float) = 7
         _InnerEnd ("Inner lines fade end (m)", Float) = 24
+        _UseNormals ("Normals texture (0 = outlines from depth alone)", Float) = 1
     }
     SubShader
     {
@@ -33,7 +34,7 @@ Shader "Ski/InkEdges"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareNormalsTexture.hlsl"
 
             half4 _InkColor;
-            float _Thickness, _InnerThickness, _DepthSens, _NormalSens, _FadeStart, _FadeEnd, _InnerStart, _InnerEnd;
+            float _Thickness, _InnerThickness, _DepthSens, _NormalSens, _FadeStart, _FadeEnd, _InnerStart, _InnerEnd, _UseNormals;
 
             float Eye(float2 uv) { return LinearEyeDepth(SampleSceneDepth(uv), _ZBufferParams); }
 
@@ -68,15 +69,22 @@ Shader "Ski/InkEdges"
 
                 // Surfaces seen at a grazing angle change depth quickly without being an edge,
                 // so the threshold rises there.
-                float3 n0 = SampleSceneNormals(uv);
                 float3 posWS = ComputeWorldSpacePosition(uv, raw, UNITY_MATRIX_I_VP);
-                float ndv = saturate(dot(n0, normalize(_WorldSpaceCameraPos - posWS)));
+                float3 toCam = normalize(_WorldSpaceCameraPos - posWS);
+                float ndv;
+                if (_UseNormals > 0.5) ndv = saturate(dot(SampleSceneNormals(uv), toCam));
+                else
+                {
+                    // Without the normals pass (low ink lines), the surface's direction from the slope of its depth.
+                    float3 n = cross(ddy(posWS), ddx(posWS));
+                    ndv = saturate(abs(dot(normalize(n + 1e-6), toCam)));
+                }
                 float thr = _DepthSens * (1.0 + 14.0 * (1.0 - ndv) * (1.0 - ndv));
                 float e = DepthEdge(uv, px * _Thickness * scale, d0, thr);
 
                 // Inner lines from the surface direction, thinner, and only up close.
                 float inner = 1.0 - smoothstep(_InnerStart, _InnerEnd, d0);
-                if (inner > 0.01 && e < 0.5)
+                if (_UseNormals > 0.5 && inner > 0.01 && e < 0.5)
                 {
                     float2 r = px * _InnerThickness * scale;
                     float3 nA = SampleSceneNormals(uv + r * float2(1, 1)), nB = SampleSceneNormals(uv - r * float2(1, 1));

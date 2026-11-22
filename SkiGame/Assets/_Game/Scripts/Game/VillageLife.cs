@@ -84,6 +84,7 @@ namespace Ski.Game
         Citizen Add(PersonLook look, Kind kind, Vector2 at)
         {
             var p = Person.Create(look, transform, kind.ToString());
+            p.Crowd = true;
             p.SetGogglesUp(true, true);
             var cz = new Citizen { P = p, Kind = kind, Pos = at, Phase = _rng.Range(0f, 6f) };
             p.Snap(kind == Kind.Glider ? Pose.Ski : Pose.Stand);

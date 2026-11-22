@@ -325,7 +325,7 @@ namespace Ski.Game
         {
             Look = look;
             _model = look.Kid ? null : SkinModel.Load(look.Model);
-            if (_model != null) { BuildSkinned(look); Apply(); return; }
+            if (_model != null) { BuildSkinned(look); Apply(); if (!look.Hero) Merge(); return; }
             float s = _s = look.Height / 1.75f;
             _hipX = 0.095f * s; _hipDrop = 0.04f * s;
             _ankle = 0.1f * s; _shin = 0.41f * s; _thigh = 0.42f * s; _torsoLen = 0.5f * s;
@@ -404,6 +404,42 @@ namespace Ski.Game
             BuildArms(b, look, s, sides);
             BuildLegs(b, look, s, sides);
             Apply();
+            if (!look.Hero) Merge();
+        }
+
+        /// <summary>
+        /// Someone in the background (the kids' slope, the chairs, the village): drawn only within the
+        /// people distance of the graphics settings, and casting no shadow when shadows are low.
+        /// </summary>
+        public bool Crowd;
+        int _gfx = -1;
+        bool _far;
+
+        /// <summary>Whether crowd figures are merged (off only to compare the two in a diagnostic view).</summary>
+        public static bool MergeCrowd = true;
+
+        /// <summary>A figure in the crowd becomes one skinned mesh: a draw call per material, not one per part.</summary>
+        void Merge()
+        {
+            if (MergeCrowd && MeshMerge.Figure(transform, _hips, _ownMeshes) != null) { _probe = null; _all = null; }
+        }
+
+        void Cull()
+        {
+            _all ??= GetComponentsInChildren<Renderer>(true);
+            if (_gfx != GraphicsQuality.Version)
+            {
+                _gfx = GraphicsQuality.Version;
+                var mode = GraphicsQuality.CrowdShadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
+                foreach (var r in _all) if (r != null && !(r is LineRenderer)) r.shadowCastingMode = mode;
+            }
+            else if (((Time.frameCount + (int)(_seed * 10f)) & 7) != 0) return;
+            var cam = Camera.main;
+            float reach = GraphicsQuality.PeopleReach;
+            bool far = cam != null && (cam.transform.position - transform.position).sqrMagnitude > reach * reach;
+            if (far == _far) return;
+            _far = far;
+            foreach (var r in _all) if (r != null) r.forceRenderingOff = far;
         }
 
         // ---- head ------------------------------------------------------------------------------
@@ -1430,6 +1466,7 @@ namespace Ski.Game
         void Update()
         {
             float dt = Time.deltaTime;
+            if (Crowd) Cull();
             // Someone nobody can see is only brought up to date now and then.
             _probe ??= GetComponentInChildren<Renderer>();
             if (Look != null && !Look.Hero && _probe != null && !_probe.isVisible && ((++_frame + (int)(_seed * 10f)) & 7) != 0) { _time += dt; return; }

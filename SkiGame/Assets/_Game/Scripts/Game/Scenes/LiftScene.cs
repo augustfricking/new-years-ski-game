@@ -201,7 +201,7 @@ namespace Ski.Game
             var camGo = new GameObject("Camera") { tag = "MainCamera" };
             camGo.transform.SetParent(transform, false);
             Cam = camGo.AddComponent<Camera>();
-            Cam.nearClipPlane = 0.1f; Cam.farClipPlane = 2500f;
+            Cam.nearClipPlane = 0.1f; Cam.farClipPlane = GraphicsQuality.Far;
             var data = camGo.AddComponent<UniversalAdditionalCameraData>();
             data.renderPostProcessing = true;
             data.antialiasing = AntialiasingMode.FastApproximateAntialiasing;
@@ -324,6 +324,7 @@ namespace Ski.Game
                     for (int i = 0; i < riders; i++)
                     {
                         var p = Person.Create(PersonLook.Random(rng, false), ch, "Rider");
+                        p.Crowd = true;
                         p.transform.localRotation = Upright;
                         p.transform.localPosition = Upright * new Vector3(SeatX(rng.Range(0, 4)) + rng.Range(-0.05f, 0.05f), -3.07f, -0.02f);
                         p.Snap(Pose.Sit);
@@ -384,6 +385,7 @@ namespace Ski.Game
             for (int i = 0; i < n; i++)
             {
                 _skiers[i] = Person.Create(PersonLook.Random(rng, false), _slope, "Skier");
+                _skiers[i].Crowd = true;
                 _skiers[i].Snap(Pose.Ski);
                 _skiers[i].Alive = false;
                 _skierS[i] = rng.Range(-300f, 20f);

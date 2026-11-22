@@ -47,9 +47,6 @@ namespace Ski.Game
             Application.targetFrameRate = -1;
             Look = WorldLook.Create(transform);
             GraphicsQuality.Apply();
-            // The inked contour: a touch heavier than the default, as in a comic.
-            var ink = Resources.Load<Material>("Materials/InkEdges");
-            if (ink != null) { ink.SetFloat("_Thickness", 2.1f); ink.SetFloat("_InnerThickness", 0.9f); ink.SetFloat("_InnerEnd", 28f); }
             AudioDirector.Create(transform);
             Ui.Create(transform);
             SaveData.Load();
@@ -58,6 +55,7 @@ namespace Ski.Game
             AudioDirector.SongStarted += NowPlaying.Show;
             OnlineBoards.Connect();
             Songs.LoadList(this, () => AudioDirector.I?.RefreshMusic());
+            FpsMeter.Create(transform);
             VoiceChat.Create(transform);   // anonymous device profile for the world boards; local play does not wait for it
             Character = SaveData.LastCharacter;
             if (DebugSlope.HasValue) StartRun(DebugSlope.Value, Character);

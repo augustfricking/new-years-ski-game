@@ -156,23 +156,31 @@ namespace Ski.Game
 
         static void GraphicsSection(VisualElement card)
         {
-            var row = Ui.Div(card, "dialog-row");
-            Ui.Text(row, "Quality", "dialog-label");
-            var pick = Ui.Div(row, "row");
-            var qs = new Button[GraphicsQuality.Names.Length];
-            for (int i = 0; i < qs.Length; i++)
+            // Each part low, medium or high; the preset sets them all (and shows none when they differ).
+            Action refresh = null;
+            void Levels(string label, Func<int> get, Action<int> set)
             {
-                int k = i;
-                qs[i] = Ui.Btn(pick, GraphicsQuality.Names[i], () =>
+                var row = Ui.Div(card, "dialog-row");
+                Ui.Text(row, label, "dialog-label");
+                var pick = Ui.Div(row, "row toggle-pair");
+                var bs = new Button[GraphicsQuality.Names.Length];
+                for (int i = 0; i < bs.Length; i++)
                 {
-                    SaveData.Quality = k;
-                    for (int j = 0; j < qs.Length; j++) qs[j].EnableInClassList("btn-selected", j == k);
-                    GraphicsQuality.Apply();
-                }, "btn-plain btn-small");
-                qs[i].EnableInClassList("btn-selected", i == SaveData.Quality);
+                    int k = i;
+                    bs[i] = Ui.Btn(pick, GraphicsQuality.Names[i], () => { set(k); GraphicsQuality.Apply(); refresh(); }, "btn-plain btn-small toggle-option");
+                }
+                refresh += () => { int v = get(); for (int j = 0; j < bs.Length; j++) bs[j].EnableInClassList("btn-selected", j == v); };
             }
+            Levels("Preset", () => GraphicsQuality.Preset, GraphicsQuality.SetPreset);
+            Levels("Shadows", () => SaveData.Shadows, v => SaveData.Shadows = v);
+            Levels("Crowds", () => SaveData.People, v => SaveData.People = v);
+            Levels("View distance", () => SaveData.View, v => SaveData.View = v);
+            Levels("Ink lines", () => SaveData.Lines, v => SaveData.Lines = v);
+            Levels("Effects", () => SaveData.Effects, v => SaveData.Effects = v);
+            refresh();
             SliderRow(card, "Resolution", SaveData.RenderScale, 0.5f, 1f, v => { SaveData.RenderScale = v; GraphicsQuality.Apply(); });
-            Ui.Text(card, "Lower both if the game stutters.", "small");
+            ToggleRow(card, "Show FPS", SaveData.ShowFps, v => SaveData.ShowFps = v);
+            Ui.Text(card, "Lower these if it stutters.", "small");
         }
 
         static void ControlsSection(VisualElement card)

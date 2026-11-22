@@ -37,8 +37,10 @@ namespace Ski.Game
         static bool _loadedOnce;
         /// <summary>Voice chat with the other players (hold V to talk).</summary>
         public static bool Voice = true;
-        /// <summary>Graphics: 0 low, 1 medium, 2 high; and the share of the screen resolution the 3D view is drawn at.</summary>
-        public static int Quality = 1;
+        /// <summary>Graphics, each 0 low, 1 medium, 2 high (see <see cref="GraphicsQuality"/>); and the share of the screen resolution the 3D view is drawn at.</summary>
+        public static int Shadows = 1, People = 1, View = 1, Lines = 1, Effects = 1;
+        /// <summary>The frame rate in a corner of the screen.</summary>
+        public static bool ShowFps;
         public static float RenderScale = 1f;
         public static string WalkmanSong = "";
 
@@ -164,7 +166,13 @@ namespace Ski.Game
             Live = PlayerPrefs.GetInt("live", 1) == 1;
             HasWalkman = PlayerPrefs.GetInt("walkman", 0) == 1;
             Voice = PlayerPrefs.GetInt("voice", 1) == 1;
-            Quality = PlayerPrefs.GetInt("quality", 1);
+            int preset = PlayerPrefs.GetInt("quality", 1);    // the one setting there was before the five parts
+            Shadows = PlayerPrefs.GetInt("gfx_shadows", preset);
+            People = PlayerPrefs.GetInt("gfx_people", preset);
+            View = PlayerPrefs.GetInt("gfx_view", preset);
+            Lines = PlayerPrefs.GetInt("gfx_lines", preset);
+            Effects = PlayerPrefs.GetInt("gfx_effects", preset);
+            ShowFps = PlayerPrefs.GetInt("show_fps", 0) == 1;
             RenderScale = PlayerPrefs.GetFloat("render_scale", 1f);
             // The walkman rests when the game opens (the theme greets you); N or the settings start it, and from then
             // on it plays everywhere until it is switched off.
@@ -196,7 +204,12 @@ namespace Ski.Game
             PlayerPrefs.SetInt("live", Live ? 1 : 0);
             PlayerPrefs.SetInt("walkman", HasWalkman ? 1 : 0);
             PlayerPrefs.SetInt("voice", Voice ? 1 : 0);
-            PlayerPrefs.SetInt("quality", Quality);
+            PlayerPrefs.SetInt("gfx_shadows", Shadows);
+            PlayerPrefs.SetInt("gfx_people", People);
+            PlayerPrefs.SetInt("gfx_view", View);
+            PlayerPrefs.SetInt("gfx_lines", Lines);
+            PlayerPrefs.SetInt("gfx_effects", Effects);
+            PlayerPrefs.SetInt("show_fps", ShowFps ? 1 : 0);
             PlayerPrefs.SetFloat("render_scale", RenderScale);
             PlayerPrefs.SetInt("walkman_on", WalkmanOn ? 1 : 0);
             PlayerPrefs.SetInt("walkman_repeat", WalkmanRepeat ? 1 : 0);

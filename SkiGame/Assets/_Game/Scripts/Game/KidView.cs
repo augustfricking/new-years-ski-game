@@ -40,6 +40,7 @@ namespace Ski.Game
             }
             look.Poles = adult && k.Kind == KidKind.Instructor;
             var p = Person.Create(look, transform, k.Kind.ToString());
+            p.Crowd = true;
             p.Snap(PoseFor(k));
             if (k.Kind == KidKind.Bomber) p.MouthOpen = 1f;
             if (k.Kind == KidKind.HarnessParent)

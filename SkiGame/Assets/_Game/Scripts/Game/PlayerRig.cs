@@ -42,7 +42,7 @@ namespace Ski.Game
             camGo.transform.SetParent(parent, false);
             camGo.tag = "MainCamera";
             Cam = camGo.AddComponent<Camera>();
-            Cam.nearClipPlane = 0.06f; Cam.farClipPlane = 2500f; Cam.fieldOfView = _fov = BaseFov;
+            Cam.nearClipPlane = 0.06f; Cam.farClipPlane = GraphicsQuality.Far; Cam.fieldOfView = _fov = BaseFov;
             Cam.clearFlags = CameraClearFlags.Skybox;
             var data = camGo.AddComponent<UniversalAdditionalCameraData>();
             data.renderPostProcessing = true;
