@@ -282,6 +282,11 @@ Ghosts and boards
       ringed with forest, a row of peaks beyond (ValleyBuilder)
 - [x] Players from other runs ride into the village from where their run meets the plaza instead of
       jumping across it (not yet seen with real players)
+- [x] World boards first: after a run (and a stein) the card waits for the world board instead of
+      flashing this device's own runs (those only when the world cannot be reached within 8 s), says
+      where this very run stands among everyone else's best and where your best stands, and every slope
+      row carries the character it was skied with. One entry per account (guests are accounts of their
+      own), the best kept, with the character of that best
 - [ ] Characters remade to match the round-3 concept art (separate session; owner approves first)
 
 ## Known gaps and ideas
