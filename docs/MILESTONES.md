@@ -293,7 +293,8 @@ Ghosts and boards
 - [x] Board rows: a long name slides left under the pointer so all of it can be read; a GUEST tag on
       rows from players without an account (account names carry a hidden mark from now on, so older
       account rows show as guests until their owners play again); a film-clip button to watch a run
-      instead of a second number
+      instead of a second number, on the ski map only (after a run the mouse looks around, so the results
+      card shows the board without it)
 - [x] Shop: every locked colour, print and item says how to earn it on hover, the same way for all
       three (a sentence or two); the goals vary per friend (time in the air, grind length, top speed,
       wipeouts, lift rides, flushes, distance skied, a clean slalom, a run without hitting a kid, runs

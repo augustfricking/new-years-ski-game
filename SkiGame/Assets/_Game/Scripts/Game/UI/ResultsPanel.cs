@@ -10,17 +10,6 @@ namespace Ski.Game
         readonly VisualElement _root, _banner, _board;
         readonly Label _boardTitle, _verdict;
         readonly SlopeId _slope;
-        readonly System.Collections.Generic.List<OnlineBoards.Entry> _watchable = new System.Collections.Generic.List<OnlineBoards.Entry>();
-        /// <summary>Called with the row to watch.</summary>
-        public System.Action<OnlineBoards.Entry> OnWatch;
-
-        /// <summary>Watches the n-th row that has a recording (0-based). False if there is none.</summary>
-        public bool Watch(int n)
-        {
-            if (n < 0 || n >= _watchable.Count || OnWatch == null || _root.parent == null) return false;
-            OnWatch(_watchable[n]);
-            return true;
-        }
 
         public ResultsPanel(RunSession s, SubmitResult r)
         {
@@ -128,7 +117,6 @@ namespace Ski.Game
             if (record) Ui.Text(_banner, "WORLD RECORD!", "banner-text");
             else if (w.NewBest && !w.First) Ui.Text(_banner, "PERSONAL BEST!", "banner-text");
             _board.Clear();
-            _watchable.Clear();
             if (list.Count == 0) Ui.Text(_board, "Nobody yet", "small board-wait");
             int shown = 0;
             foreach (var e in list)
@@ -138,15 +126,8 @@ namespace Ski.Game
                 Ui.Text(row, (e.Rank + 1) + ".", "board-rank");
                 BoardRow.Name(row, e);
                 WhoTag(row, e.Character);
+                // (Runs are watched from the ski map, where the mouse is free; here it looks around.)
                 Ui.Text(row, Leaderboards.Format(_slope, (float)e.Score), "board-value");
-                // Each recorded run can be watched: its number key, or a click when the mouse is free.
-                if (!string.IsNullOrEmpty(e.Ghost) && _watchable.Count < 9)
-                {
-                    var entry = e;
-                    _watchable.Add(e);
-                    BoardRow.Watch(row, () => OnWatch?.Invoke(entry));
-                }
-                else Ui.Div(row, "btn-watch-gap");
                 shown++;
             }
             _boardTitle.text = "WORLD BOARD";

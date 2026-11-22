@@ -93,7 +93,7 @@ namespace Ski.Game
             if (Result.HasValue) return;
             var r = SaveData.Boards.Submit(Session.Slope, Session.Character, Session.ResultValue);
             Result = r;
-            if (Ui.Instance != null) _results = new ResultsPanel(Session, r) { OnWatch = e => Watch(e) };
+            if (Ui.Instance != null) _results = new ResultsPanel(Session, r);
             // A personal best is kept as this device's ghost, and goes to the world board with its recording.
             string recording = _track.Encode();
             if (r.PersonalBest) SaveData.SetGhost(Session.Slope, recording);
@@ -299,10 +299,6 @@ namespace Ski.Game
                 return;
             }
             var kb = Keyboard.current;
-            // On the results card: number keys watch the runs on the board.
-            if (kb != null && Result.HasValue && _results != null && InputEnabled && !Paused && !Dialogs.Open)
-                for (int i = 0; i < 9; i++)
-                    if (kb[(Key)((int)Key.Digit1 + i)].wasPressedThisFrame && _results.Watch(i)) return;
             if (kb != null && InputEnabled && Autopilot == null)
             {
                 if (kb.spaceKey.wasPressedThisFrame) _jump = true;
