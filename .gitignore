@@ -76,5 +76,7 @@ tools/art/_venv/
 tools/art/_models/
 tools/art/_out/
 tools/art/_out2/
+tools/art/_covers/
+tools/art/_covers.log
 tools/model/_tmp/
 tools/model/art/

@@ -25,7 +25,15 @@ namespace Ski.Game
             if (_card != null) { _card.RemoveFromHierarchy(); if (_tick != null) ui.RemoveTicker(_tick); }
             var card = Ui.Div(ui.TopLayer, "now-playing now-playing-hidden");
             card.pickingMode = PickingMode.Ignore;
-            Ui.Text(card, "♪", "now-playing-note");
+            // The song's cover, or a note where a song has none.
+            var cover = Resources.Load<Texture2D>("Covers/" + id);
+            if (cover != null)
+            {
+                var art = Ui.Div(card, "now-playing-cover");
+                art.style.backgroundImage = new StyleBackground(cover);
+                art.pickingMode = PickingMode.Ignore;
+            }
+            else Ui.Text(card, "♪", "now-playing-note");
             var words = Ui.Div(card);
             words.pickingMode = PickingMode.Ignore;
             Ui.Text(words, song.title.ToUpperInvariant(), "now-playing-title");

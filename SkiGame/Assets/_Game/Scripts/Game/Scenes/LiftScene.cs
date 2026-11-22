@@ -201,7 +201,7 @@ namespace Ski.Game
             var camGo = new GameObject("Camera") { tag = "MainCamera" };
             camGo.transform.SetParent(transform, false);
             Cam = camGo.AddComponent<Camera>();
-            Cam.nearClipPlane = 0.1f; Cam.farClipPlane = GraphicsQuality.Far;
+            Cam.nearClipPlane = 0.1f; Cam.farClipPlane = GraphicsQuality.Far; GraphicsQuality.Outdoor = Cam;
             var data = camGo.AddComponent<UniversalAdditionalCameraData>();
             data.renderPostProcessing = true;
             data.antialiasing = AntialiasingMode.FastApproximateAntialiasing;

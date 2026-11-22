@@ -1234,6 +1234,15 @@
     -unity-font-definition: resource("Fonts/Bangers-Regular");
 }
 
+.now-playing-cover {
+    width: 88px;
+    height: 88px;
+    margin-right: 12px;
+    border-width: 2px;
+    border-color: rgb(255, 198, 74);
+    border-radius: 4px;
+}
+
 .now-playing-title {
     font-size: 22px;
     color: rgb(245, 235, 216);

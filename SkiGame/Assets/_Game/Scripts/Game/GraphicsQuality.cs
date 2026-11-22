@@ -53,6 +53,9 @@ namespace Ski.Game
             }
         }
 
+        /// <summary>The camera of the run or the lift, whose far edge follows the view distance.</summary>
+        public static Camera Outdoor;
+
         public static void Apply()
         {
             int sh = Level(SaveData.Shadows), ln = Level(SaveData.Lines), fx = Level(SaveData.Effects);
@@ -91,9 +94,8 @@ namespace Ski.Game
                 look.Effects = fx;
                 look.Apply();
             }
-            // The camera outdoors follows the view distance (the tavern and the map keep their own).
-            var cam = Camera.main;
-            if (cam != null && cam.farClipPlane > 400f) cam.farClipPlane = Far;
+            // The camera outdoors follows the view distance (the tavern, the map and the shop keep their own).
+            if (Outdoor != null) Outdoor.farClipPlane = Far;
             QualitySettings.vSyncCount = 0;
 #if UNITY_WEBGL && !UNITY_EDITOR
             // In the browser the frame comes with the screen's refresh (requestAnimationFrame); a target rate

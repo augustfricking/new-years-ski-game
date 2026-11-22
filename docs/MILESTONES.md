@@ -289,6 +289,26 @@ Ghosts and boards
       own), the best kept, with the character of that best
 - [ ] Characters remade to match the round-3 concept art (separate session; owner approves first)
 
+## M17 Round 9 (boards, shop, speed)
+- [x] Board rows: a long name slides left under the pointer so all of it can be read; a GUEST tag on
+      rows from players without an account (account names carry a hidden mark from now on, so older
+      account rows show as guests until their owners play again); a film-clip button to watch a run
+      instead of a second number
+- [x] Shop: every locked colour, print and item says how to earn it on hover, the same way for all
+      three (a sentence or two); the goals vary per friend (time in the air, grind length, top speed,
+      wipeouts, lift rides, flushes, distance skied, a clean slalom, a run without hitting a kid, runs
+      on one slope); the park's tiers are 3000, 5500 and 8000 points; the shop camera shows the whole hat
+- [x] The four character cards are the same height; the walkman rests at start so the theme plays first
+- [x] Speed: each person in the crowd is one skinned mesh (the kids' slope went from about 720 person
+      renderers to 60, the village crowd from 124 to 18); crowds are drawn only within the chosen
+      distance; in the browser the frame follows the screen's refresh (a target rate switched to a timer
+      and stuttered); bloom only where it shows (HDR, high effects)
+- [x] Graphics settings in five parts, each low, medium or high: shadows, crowds, view distance, ink
+      lines (low: outlines from depth alone, without the pass that draws everything again for normals),
+      effects; a preset row and an FPS meter
+- [x] Song covers in the now-playing card (FLUX.1-schnell, local)
+- [ ] Characters remade to match the round-3 concept art (separate session; owner approves first)
+
 ## Known gaps and ideas
 - Voice chat needs a free public signalling server (PeerJS) and peer-to-peer connections,
   which some strict networks block. It was not tested with two real microphones.
