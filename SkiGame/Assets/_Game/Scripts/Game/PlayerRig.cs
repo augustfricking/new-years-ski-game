@@ -24,6 +24,33 @@ namespace Ski.Game
         float _poleAnim = 1f, _shake, _shakeTime, _fov, _crashSpin, _lift, _third, _visualYaw, _hopSide = 1f;
         bool _tpInit;
         Pose _pose;
+        // A crash taken by the body (physics), and how it was moving just before.
+        CrashDoll _doll;
+        Vector3 _lastVel, _lastSpin;
+        Quaternion _lastFull = Quaternion.identity, _crashCam;
+        bool _fullInit;
+
+        /// <summary>Whether the body is down in a physical crash right now.</summary>
+        public bool Limp => _doll != null;
+
+        /// <summary>
+        /// The run says the skier crashed: the body goes limp and takes the fall its own way, by what
+        /// brought it down (see <see cref="CrashDoll"/>). <paramref name="world"/> holds what the fall needs.
+        /// </summary>
+        public void Crash(SkiSim sim, CrashReason reason, Transform world)
+        {
+            if (_doll != null || Body == null) return;
+            _doll = CrashDoll.Begin(Body, world, sim.Course, _lastVel, _lastSpin, reason, sim.Pos);
+            _crashCam = Cam.transform.rotation;
+        }
+
+        /// <summary>Gives the body back to its animation at once (leaving the run, or a replay starting).</summary>
+        public void EndCrash()
+        {
+            if (_doll == null) return;
+            _doll.End();
+            _doll = null;
+        }
 
         public static PlayerRig Create(CharacterId who, Transform parent)
         {
@@ -75,7 +102,8 @@ namespace Ski.Game
             MakeBody();
         }
 
-        void OnDestroy() { if (Cam != null) Destroy(Cam.gameObject); }
+        // Leaving the run mid-crash: what the fall made goes with the run's world (nothing to hand back).
+        void OnDestroy() { _doll = null; if (Cam != null) Destroy(Cam.gameObject); }
 
         /// <summary>Adds a camera shake impulse (landing, crash, bump).</summary>
         public void Kick(float amount) { _shake = Mathf.Max(_shake, amount); }
@@ -193,10 +221,27 @@ namespace Ski.Game
             Quaternion full = rot * trick;
             transform.SetPositionAndRotation(sim.Pos + _up * Pivot - full * Vector3.up * Pivot, full);
 
+            // A physical crash: the body falls on its own until the run stands the skier up again.
+            if (_doll != null && !sim.Crashed) EndCrash();
+            if (_doll != null) _doll.Follow(sim.Pos, dt);
+            else if (dt > 1e-4f)
+            {
+                // How the body is moving, for the moment a crash comes.
+                _lastVel = sim.Vel;
+                if (_fullInit)
+                {
+                    (full * Quaternion.Inverse(_lastFull)).ToAngleAxis(out float ang, out Vector3 axis);
+                    if (ang > 180f) ang -= 360f;
+                    _lastSpin = float.IsInfinity(axis.x) ? Vector3.zero : axis * (ang * Mathf.Deg2Rad / dt);
+                }
+                _lastFull = full; _fullInit = true;
+            }
+
             // --- body ------------------------------------------------------------------------
             _poleAnim = Mathf.Min(_poleAnim + dt / 0.42f, 1f);
             Pose target = TargetPose(sim, air, out float airTuck);
             _pose = Pose.Lerp(_pose, target, 1f - Mathf.Exp(-18f * dt));
+            if (_doll != null) { CameraFollow(sim, dt, speed, tuck, plough, lean, air, c, full); return; }
             // The snowplough V: feet just far enough apart that the tips almost touch.
             if (!_board && _pose.FootIn > 0.01f) _pose.LegOut = Mathf.Max(_pose.LegOut, Body.LegOutForPlough(_pose));
             if (!_board && _poleAnim < 1f)
@@ -220,7 +265,12 @@ namespace Ski.Game
             // Just back on your feet: you blink, and nothing can knock you down for a moment.
             Body.SetVisible(sim.Shield <= 0f || Mathf.Repeat(sim.Shield * 7f, 1f) < 0.6f);
 
-            // --- camera ----------------------------------------------------------------------
+            CameraFollow(sim, dt, speed, tuck, plough, lean, air, c, full);
+        }
+
+        /// <summary>The camera: at the eyes, or behind and above. In a physical crash it goes with the body.</summary>
+        void CameraFollow(SkiSim sim, float dt, float speed, float tuck, float plough, float lean, bool air, Course c, Quaternion full)
+        {
             _third = Mathf.MoveTowards(_third, ThirdPerson ? 1f : 0f, dt * 3.2f);
             Body.SetHeadVisible(_third > 0.2f);
 
@@ -235,13 +285,22 @@ namespace Ski.Game
             // First person: at the eyes, turning with the body.
             Vector3 fpPos = Body.EyeWorld + full * jitter;
             Quaternion fpRot = full * Quaternion.Euler(tuck * 6f + plough * 3f, 0f, roll) * Quaternion.Euler(-Look.y, Look.x, 0f);
+            if (_doll != null)
+            {
+                // Down in a crash: the view goes with the falling head, steadied, and keeps some of the horizon.
+                Quaternion head = Body.Head.rotation * Quaternion.Euler(-Look.y, Look.x, 0f);
+                _crashCam = Quaternion.Slerp(_crashCam, head, 1f - Mathf.Exp(-7f * dt));
+                Vector3 f = _crashCam * Vector3.forward; f.y = 0f;
+                Quaternion level = f.sqrMagnitude > 1e-4f ? Quaternion.LookRotation(f) : _crashCam;
+                fpRot = Quaternion.Slerp(_crashCam, level, 0.35f);
+            }
 
             // Third person: behind and above, following the direction of travel, not the spins.
             Vector3 flat = speed > 2.5f ? sim.Vel : sim.Forward;
             flat.y = 0f;
             if (flat.sqrMagnitude > 1e-4f) _heading = Vector3.Slerp(_heading, flat.normalized, 1f - Mathf.Exp(-4f * dt)).normalized;
             Quaternion orbit = Quaternion.LookRotation(_heading) * Quaternion.Euler(Mathf.Clamp(15f - Look.y * 0.6f, -8f, 62f), Look.x, 0f);
-            Vector3 focus = sim.Pos + Vector3.up * 1.2f;
+            Vector3 focus = (_doll != null ? Vector3.Lerp(sim.Pos, _doll.Centre, 0.7f) : sim.Pos) + Vector3.up * 1.2f;
             Vector3 want = focus - orbit * Vector3.forward * (4.7f + speed * 0.05f);
             want.y = Mathf.Max(want.y, c.Height(want.x, want.z) + 0.8f);
             if (!_tpInit) { _tpPos = want; _tpInit = true; }

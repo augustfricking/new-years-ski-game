@@ -19,6 +19,10 @@ namespace Ski.Game
         public Rigidbody Pelvis { get; private set; }
         public Rigidbody Chest { get; private set; }
         public Rigidbody HeadBody { get; private set; }
+        /// <summary>Upper and lower arms (left then right), thighs and shins (left then right).</summary>
+        public readonly List<Rigidbody> Arms = new List<Rigidbody>(), Legs = new List<Rigidbody>();
+        /// <summary>Every part of the body.</summary>
+        public IReadOnlyList<Rigidbody> Bodies => _bodies;
         public float Age;
 
         Ragdoll(Person p) { _p = p; }
@@ -78,6 +82,7 @@ namespace Ski.Game
                 var fore = Body(el, upper, 1.8f);
                 Capsule(el, hand.localPosition, 0.048f * k, 0.08f * k);
                 Joint(fore, upper, -140f, 2f, 8f, 8f);
+                Arms.Add(upper); Arms.Add(fore);
 
                 var hip = side < 0 ? p.ThighL : p.ThighR;
                 var knee = side < 0 ? p.KneeL : p.KneeR;
@@ -88,6 +93,7 @@ namespace Ski.Game
                 var shin = Body(knee, thigh, 4.5f);
                 Capsule(knee, foot.localPosition, 0.058f * k, 0.06f * k);
                 Joint(shin, thigh, -2f, 140f, 5f, 5f);
+                Legs.Add(thigh); Legs.Add(shin);
             }
 
             // Parts of one body do not collide with each other.
@@ -181,7 +187,7 @@ namespace Ski.Game
         {
             // Joints first, then bodies: a body cannot go while a joint still hangs on it.
             foreach (var o in _added) if (o != null) Object.DestroyImmediate(o);
-            _added.Clear(); _bodies.Clear(); _colliders.Clear();
+            _added.Clear(); _bodies.Clear(); _colliders.Clear(); Arms.Clear(); Legs.Clear();
             if (_p != null) _p.enabled = true;
         }
     }

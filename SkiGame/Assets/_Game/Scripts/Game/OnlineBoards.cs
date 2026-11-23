@@ -30,14 +30,17 @@ namespace Ski.Game
             public int Rank;          // 0-based
             public bool Me;
             public string Ghost;      // encoded GhostTrack, may be empty
+            public string Inputs;     // encoded RunInputs (the run itself, played again exactly), may be empty
             public int Character;     // CharacterId, or -1
             public bool Guest;        // no account (a browser of its own)
         }
 
         [Serializable]
-        sealed class Meta { public string g; public int c = -1; }
+        sealed class Meta { public string g; public int c = -1; public string i; }
 
         public const string ChugBoard = "chug";
+        /// <summary>Longest input recording sent with a score (characters).</summary>
+        const int MaxInputs = 9000;
         /// <summary>
         /// The world boards are for people playing the game. Nothing is ever sent from the Unity
         /// Editor (development, tests, screenshots) unless this is switched on by hand.
@@ -162,7 +165,7 @@ namespace Ski.Game
         /// <paramref name="send"/>: the board keeps only each player's best, with the character it was made with),
         /// the board fetched, and the exact place this very result would take among everyone else. Null when offline.
         /// </summary>
-        public static async void Report(string board, double score, string ghost, int character, bool higherBetter, bool send, Action<WorldResult> done)
+        public static async void Report(string board, double score, string ghost, int character, bool higherBetter, bool send, Action<WorldResult> done, string inputs = null)
         {
             await Connect();
             if (Status != State.Online || Missing.Contains(board)) { done?.Invoke(null); return; }
@@ -176,9 +179,19 @@ namespace Ski.Game
             {
                 try
                 {
-                    var options = new AddPlayerScoreOptions { Metadata = new Dictionary<string, object> { { "g", ghost ?? "" }, { "c", character } } };
-                    await LeaderboardsService.Instance.AddPlayerScoreAsync(board, score, options);
-                    Debug.Log("[Online] sent " + score.ToString("0.##") + " to " + board);
+                    var meta = new Dictionary<string, object> { { "g", ghost ?? "" }, { "c", character } };
+                    // The run's inputs go too (watched later, exactly as it was), unless they are unusually long.
+                    bool withInputs = !string.IsNullOrEmpty(inputs) && inputs.Length <= MaxInputs;
+                    if (withInputs) meta["i"] = inputs;
+                    try { await LeaderboardsService.Instance.AddPlayerScoreAsync(board, score, new AddPlayerScoreOptions { Metadata = meta }); }
+                    catch (Exception first) when (withInputs)
+                    {
+                        // Refused with the recording (too big for the service, say): the score and the ghost alone.
+                        Debug.Log("[Online] sent again without the inputs: " + first.Message);
+                        meta.Remove("i");
+                        await LeaderboardsService.Instance.AddPlayerScoreAsync(board, score, new AddPlayerScoreOptions { Metadata = meta });
+                    }
+                    Debug.Log("[Online] sent " + score.ToString("0.##") + " to " + board + (withInputs ? " with " + inputs.Length + " characters of inputs" : ""));
                 }
                 catch (Exception e) { Fail(board, e); done?.Invoke(null); return; }
             }
@@ -255,7 +268,7 @@ namespace Ski.Game
             var entry = new Entry { Name = DisplayName(e.PlayerName), Score = e.Score, Rank = e.Rank, Me = e.PlayerId == PlayerId, Character = -1, Guest = IsGuest(e.PlayerName) };
             if (!string.IsNullOrEmpty(e.Metadata))
             {
-                try { var m = JsonUtility.FromJson<Meta>(e.Metadata); if (m != null) { entry.Ghost = m.g; entry.Character = m.c; } }
+                try { var m = JsonUtility.FromJson<Meta>(e.Metadata); if (m != null) { entry.Ghost = m.g; entry.Character = m.c; entry.Inputs = m.i; } }
                 catch (Exception) { /* a row without a recording is still a row */ }
             }
             list.Add(entry);

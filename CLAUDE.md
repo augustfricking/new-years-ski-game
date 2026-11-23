@@ -45,7 +45,7 @@ The game design lives in `docs/GAME_SPEC.md` (source of truth). The plan and mil
 - **Settings.** `Dialogs` (sections Audio, Graphics, Controls, Online); `GraphicsQuality.Apply`
   sets the render pipeline from `SaveData.Quality` and `RenderScale`.
 - **Fonts.** Barlow Semi Condensed (OFL) for text, Bangers for buttons and headings.
-- **Physics** is used only for the tavern's ragdolls (`Ragdoll`); everything else is `SkiSim`.
+- **Physics** is used only for ragdolls (`Ragdoll`: the tavern, and crashes on the slope via `CrashDoll`); the skiing itself is `SkiSim`.
 - **Live players.** `LiveRooms`: one shared world room for everyone (`WorldSize` 24, then a queue
   room), Multiplayer sessions with player data only, no game networking. Each packet carries its
   place (`LivePlace`: slope, tavern, lift); `LiveCrowd` shows other runs' players on those runs
@@ -54,6 +54,14 @@ The game design lives in `docs/GAME_SPEC.md` (source of truth). The plan and mil
   (`LiveRooms.SendFromEditor`). Test only in the private room `test` with `tools/diag/live_test.cs`
   + `live_standin.cs` (`join 1` makes a one-place world to try the queue). Replays of board rows
   are watched, never raced.
+- **Replays are the run itself.** A run records its keys every step (`RunInputs`, 120 a second) and
+  sends them with the score (metadata `i`, beside the old position track `g`); watching re-runs them
+  in a fresh `RunSession` (`RunReplay`), kids included, exactly. Any change to `SkiSim`, `RunSession`,
+  the kids or a course moves the runs: bump `RunInputs.SimVersion` (older recordings then fall back
+  on their path) and re-pin `ReplayTests.Pinned`, which fails until you do.
+- **Crashes** are taken by the body (`CrashDoll`: a `Ragdoll` on a snow patch with the obstacles close
+  by, thrown by `CrashReason`), for the player, replays and live players on the same slope. Cosmetic
+  only: the simulation still decides the slide and the getting-up.
 - **Direct lines.** `LiveLink` + `Plugins/WebGL/LastRunLink.jslib`: WebRTC data channels (PeerJS)
   between players in the room, 20 samples a second, played about 0.12 s behind (`LiveTimeline`);
   the room's packets stay as the fallback. Try it in a WebGL build with two tabs on a local

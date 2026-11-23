@@ -86,6 +86,8 @@ namespace Ski.Game
                 // A ghost only appears once it is clear of the player: nobody stands inside you.
                 if (!solid && (p - me).sqrMagnitude < 9f) { v.Hide(); continue; }
                 float tuck = (s.Flags & LiveFlags.Tuck) != 0 ? 1f : 0f, plough = (s.Flags & LiveFlags.Plough) != 0 ? 1f : 0f;
+                // On this very slope a crash is taken by the body; across the flanks it is too far off to matter.
+                v.CrashCourse = theirs == (int)_s.Slope && mode != LiveMode.Finished ? c : null;
                 v.Show(p, yaw, speed, s.Pos.y, tuck, plough, cam, dt, (s.Flags & LiveFlags.Crashed) != 0);
                 v.SetTalking(VoiceChat.IsTalking(r.Id));
                 _order.Add(((p - me).sqrMagnitude, v));

@@ -159,6 +159,27 @@ namespace Ski.Core
             }
         }
 
+        /// <summary>Every obstacle within <paramref name="reach"/> metres of a point (centre to edge), added to <paramref name="into"/>.</summary>
+        public void ObstaclesNear(float x, float z, float reach, List<Obstacle> into)
+        {
+            if (_buckets == null) BuildBuckets();
+            float r = reach + _maxObstacleExtent;
+            int b0 = Mathf.Clamp(Mathf.FloorToInt((z - r - MinZ) / BucketSize), 0, _buckets.Length - 1);
+            int b1 = Mathf.Clamp(Mathf.FloorToInt((z + r - MinZ) / BucketSize), 0, _buckets.Length - 1);
+            for (int b = b0; b <= b1; b++)
+            {
+                var list = _buckets[b];
+                if (list == null) continue;
+                for (int k = 0; k < list.Count; k++)
+                {
+                    var o = Obstacles[list[k]];
+                    float ext = o.IsBox ? Mathf.Max(o.Hx, o.Hz) : o.Radius;
+                    float dx = x - o.X, dz = z - o.Z, rr = reach + ext;
+                    if (dx * dx + dz * dz <= rr * rr) into.Add(o);
+                }
+            }
+        }
+
         /// <summary>First obstacle overlapping a circle at ground level, if any.</summary>
         public bool HitObstacle(float x, float z, float radius, float heightAboveGround, out Obstacle hit)
         {

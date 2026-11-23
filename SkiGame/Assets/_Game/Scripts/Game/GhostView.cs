@@ -21,6 +21,11 @@ namespace Ski.Game
         CharacterId _who;
         bool _onFoot;
         Person _ghost, _solid;
+        /// <summary>The slope this skier is on: with it, a crash is taken by the body (physics); without, a tumble.</summary>
+        public Course CrashCourse;
+        CrashDoll _doll;
+        Vector3 _lastPos, _vel;
+        bool _hasLast;
         Transform _name;
         TextMesh _nameText;
         float _heading, _lean, _walk;
@@ -55,6 +60,7 @@ namespace Ski.Game
         /// <summary>Ghost or solid. Each body is built the first time it is needed.</summary>
         public void SetSolid(bool solid)
         {
+            if (_doll != null) { _doll.End(); _doll = null; }
             Solid = solid;
             if (solid && _solid == null) _solid = Build(true);
             if (!solid && _ghost == null) _ghost = Build(false);
@@ -84,10 +90,26 @@ namespace Ski.Game
             return p;
         }
 
-        /// <summary>Places a skier for this frame.</summary>
-        public void Show(Vector3 pos, float heading, float speed, float air, float tuck, float plough, Camera cam, float dt, bool crashed = false)
+        /// <summary>Places a skier for this frame. <paramref name="reason"/>: what brought them down, when known.</summary>
+        public void Show(Vector3 pos, float heading, float speed, float air, float tuck, float plough, Camera cam, float dt, bool crashed = false, CrashReason reason = CrashReason.Cliff)
         {
             if (!gameObject.activeSelf) gameObject.SetActive(true);
+            // A crash with the slope known: the body takes it (see CrashDoll) until they are up again.
+            if (_doll != null && !crashed) { _doll.End(); _doll = null; _hasLast = false; }
+            if (_doll == null && crashed && CrashCourse != null && _placed)
+                _doll = CrashDoll.Begin(Body, transform.parent, CrashCourse, _hasLast ? _vel : Vector3.zero, Vector3.zero, reason, pos);
+            if (_doll != null)
+            {
+                transform.position = pos;
+                _doll.Follow(pos, dt);
+                PlaceName(cam);
+                return;
+            }
+            if (dt > 1e-4f)
+            {
+                if (_hasLast) _vel = Vector3.Lerp(_vel, (pos - _lastPos) / dt, 0.5f);
+                _lastPos = pos; _hasLast = true;
+            }
             float turn = _placed && dt > 0f ? Mathf.DeltaAngle(_heading * Mathf.Rad2Deg, heading * Mathf.Rad2Deg) / dt : 0f;
             _heading = heading;
             _lean = Mathf.Lerp(_lean, Mathf.Clamp(turn * 0.25f, -24f, 24f), 1f - Mathf.Exp(-6f * dt));
@@ -167,6 +189,13 @@ namespace Ski.Game
             PlaceName(cam);
         }
 
-        public void Hide() { if (gameObject.activeSelf) gameObject.SetActive(false); _placed = false; }
+        public void Hide()
+        {
+            if (_doll != null) { _doll.End(); _doll = null; }
+            if (gameObject.activeSelf) gameObject.SetActive(false);
+            _placed = false; _hasLast = false;
+        }
+
+        void OnDestroy() { _doll?.Drop(); _doll = null; }
     }
 }

@@ -36,6 +36,8 @@ namespace Ski.Game
         float _fovBeforeReplay;
         VillageLife _village;
         readonly GhostTrack _track = new GhostTrack();
+        /// <summary>Every step's keys, from the start gate to the finish: the run, to be played again exactly.</summary>
+        readonly RunInputs _inputs = new RunInputs();
         SnowFx _snow;
         bool _left;
         public event Action<RunEvent> OnEvent;
@@ -125,13 +127,14 @@ namespace Ski.Game
                     if (Courses.Plausible(s.Slope, s.ResultValue)) p.Offer(s.Slope, s.ResultValue, s.ScoreBased);
                 });
             }
+            string inputs = _botDrove ? null : _inputs.Encode();
             OnlineBoards.Report(OnlineBoards.BoardId(Session.Slope), Session.ResultValue, recording, (int)Session.Character, Session.ScoreBased, real, w =>
             {
                 if (Session == null || panel == null) return;
                 bool record = panel.ShowWorld(w);
                 if (record) Celebrate(20f);
                 else if (w != null ? w.NewBest && !w.First : r.PersonalBest && !float.IsNaN(r.PreviousBest)) Celebrate(10f);
-            });
+            }, inputs);
         }
 
         void Celebrate(float seconds)
@@ -230,9 +233,12 @@ namespace Ski.Game
             if (track == null || Session == null) return false;
             StopWatching(false);
             var who = e.Character >= 0 && e.Character < 4 ? (CharacterId)e.Character : CharacterId.Erik;
-            _replay = new RunReplay(transform, Session.Course, Session.Slope, track, e.Me ? "You" : e.Name, who);
+            _replay = new RunReplay(transform, Session.Course, Session.Slope, track, RunInputs.Decode(e.Inputs), e.Me ? "You" : e.Name, who);
+            // A run played again brings its own children; this run's wait, out of sight, until it is over.
+            if (_replay.Exact && Kids != null) Kids.gameObject.SetActive(false);
             _replayDone = done;
             _fovBeforeReplay = Rig.Cam.fieldOfView;
+            Rig.EndCrash();
             Rig.Body.gameObject.SetActive(false);
             if (Ui.Instance != null) { Ui.Instance.HudLayer.style.display = DisplayStyle.None; Ui.Instance.ShowGoggles(false); }
             AudioDirector.Click();
@@ -245,6 +251,7 @@ namespace Ski.Game
             if (_replay == null) return;
             _replay.Dispose();
             _replay = null;
+            if (Kids != null) Kids.gameObject.SetActive(true);
             if (Rig != null)
             {
                 Rig.Body.gameObject.SetActive(true);
@@ -279,22 +286,15 @@ namespace Ski.Game
                 float rdt = Mathf.Min(Time.deltaTime, 0.1f);
                 _replay.Tick(Rig.Cam, rdt);
                 _live.Sync(Rig.Cam, rdt);
-                // The kids carry on around the replayed skier, and go down if it runs into them.
                 Vector3 rp = _replay.Position;
-                if (Session.Crowd != null)
+                // An older recording (a path) has no children of its own: this run's carry on around it, but
+                // they are not the ones that were there, so nobody is run into.
+                if (!_replay.Exact && Session.Crowd != null)
                 {
                     Session.Crowd.Step(rdt, rp.z, rp.x);
-                    var kid = _replay.Crashed ? null : Session.Crowd.Hit(rp.x, rp.z, Session.Sim.P.BodyRadius);
-                    if (kid != null && !kid.Fallen)
-                    {
-                        // Both go down, as they would in a run.
-                        Session.Crowd.Knock(kid);
-                        _replay.Crash();
-                        AudioDirector.Sfx("crash", 0.8f);
-                    }
+                    if (Kids != null) { Kids.ViewerZ = rp.z; Kids.Sync(rdt); }
                 }
                 _village.Tick(rp.z, rdt);
-                if (Kids != null) { Kids.ViewerZ = rp.z; Kids.Sync(rdt); }
                 if (_replay.Done) StopWatching();
                 return;
             }
@@ -307,7 +307,7 @@ namespace Ski.Game
                 if (kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame) _pole = true;
                 if (mouse != null && mouse.leftButton.wasPressedThisFrame && !Paused && !Dialogs.Open && !_clickSwallowed) _pole = true;
                 _clickSwallowed = false;
-                if (kb.rKey.wasPressedThisFrame && !Paused) Session.Respawn();
+                if (kb.rKey.wasPressedThisFrame && !Paused) { Session.Respawn(); if (!Result.HasValue) _inputs.Respawn(); }
                 if (kb.cKey.wasPressedThisFrame && !Paused)
                 {
                     Rig.SetThirdPerson(!Rig.ThirdPerson);
@@ -330,7 +330,14 @@ namespace Ski.Game
                 while (_acc >= SkiSim.FixedDt && guard++ < 16)
                 {
                     _acc -= SkiSim.FixedDt;
-                    Session.Step(ReadInput(), SkiSim.FixedDt);
+                    var input = ReadInput();
+                    if (!Result.HasValue && Autopilot == null)
+                    {
+                        // Kept exactly as it will be played back: the run is recorded by what it was given.
+                        input = RunInputs.Quantize(input);
+                        _inputs.Record(input);
+                    }
+                    Session.Step(input, SkiSim.FixedDt);
                     if (Session.Phase != RunPhase.Ready)
                     {
                         if (Session.Phase == RunPhase.Running) _track.Record(Session.Time, Session.Sim.Pos.x, Session.Sim.Pos.z, Session.Sim.Contact ? 0f : Session.Sim.AirHeight);
@@ -348,7 +355,7 @@ namespace Ski.Game
                     case RunEventType.PolePush: Rig.PolePush(); break;
                     case RunEventType.HeavyLanding: Rig.Kick(0.12f); _snow.Puff(Session.Sim.Pos, Session.Sim.Vel, 40, 4f); break;
                     case RunEventType.Landed: Rig.Kick(0.05f); _snow.Puff(Session.Sim.Pos, Session.Sim.Vel, 22, 3f); break;
-                    case RunEventType.Crash: Rig.Kick(0.3f); _snow.Puff(Session.Sim.Pos, Session.Sim.Vel, 70, 6f); break;
+                    case RunEventType.Crash: Rig.Kick(0.3f); _snow.Puff(Session.Sim.Pos, Session.Sim.Vel, 70, 6f); Rig.Crash(Session.Sim, e.Reason, transform); break;
                 }
                 Sound(e);
                 if (e.Type == RunEventType.Finished) Finish();
