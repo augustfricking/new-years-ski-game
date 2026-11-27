@@ -59,9 +59,11 @@ The game design lives in `docs/GAME_SPEC.md` (source of truth). The plan and mil
   in a fresh `RunSession` (`RunReplay`), kids included, exactly. Any change to `SkiSim`, `RunSession`,
   the kids or a course moves the runs: bump `RunInputs.SimVersion` (older recordings then fall back
   on their path) and re-pin `ReplayTests.Pinned`, which fails until you do.
-- **Crashes** are taken by the body (`CrashDoll`: a `Ragdoll` on a snow patch with the obstacles close
-  by, thrown by `CrashReason`), for the player, replays and live players on the same slope. Cosmetic
-  only: the simulation still decides the slide and the getting-up.
+- **Crashes** come from the real hit (`CrashDoll`): the body goes limp (`Ragdoll`, mass by body size)
+  with each limb's measured motion (`BoneMotion`), onto a snow patch with the obstacles and the piste's
+  forest close by (`TerrainBuilder.PisteTrees`) solid; a child who was hit goes limp too (`KidView`).
+  No scripted pushes. For the player, replays and live players on the same slope. Cosmetic only: the
+  body is tied loosely to the run's slide, and the simulation decides the slide and the getting-up.
 - **Direct lines.** `LiveLink` + `Plugins/WebGL/LastRunLink.jslib`: WebRTC data channels (PeerJS)
   between players in the room, 20 samples a second, played about 0.12 s behind (`LiveTimeline`);
   the room's packets stay as the fallback. Try it in a WebGL build with two tabs on a local

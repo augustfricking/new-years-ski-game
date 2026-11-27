@@ -24,11 +24,10 @@ namespace Ski.Game
         float _poleAnim = 1f, _shake, _shakeTime, _fov, _crashSpin, _lift, _third, _visualYaw, _hopSide = 1f;
         bool _tpInit;
         Pose _pose;
-        // A crash taken by the body (physics), and how it was moving just before.
+        // A crash taken by the body (physics), and how each of its parts was moving just before.
         CrashDoll _doll;
-        Vector3 _lastVel, _lastSpin;
-        Quaternion _lastFull = Quaternion.identity, _crashCam;
-        bool _fullInit;
+        BoneMotion _motion;
+        Quaternion _crashCam;
 
         /// <summary>Whether the body is down in a physical crash right now.</summary>
         public bool Limp => _doll != null;
@@ -37,10 +36,10 @@ namespace Ski.Game
         /// The run says the skier crashed: the body goes limp and takes the fall its own way, by what
         /// brought it down (see <see cref="CrashDoll"/>). <paramref name="world"/> holds what the fall needs.
         /// </summary>
-        public void Crash(SkiSim sim, CrashReason reason, Transform world)
+        public void Crash(SkiSim sim, Transform world)
         {
             if (_doll != null || Body == null) return;
-            _doll = CrashDoll.Begin(Body, world, sim.Course, _lastVel, _lastSpin, reason, sim.Pos);
+            _doll = CrashDoll.Begin(Body, world, sim.Course, _motion, sim.Vel, sim.Pos);
             _crashCam = Cam.transform.rotation;
         }
 
@@ -50,6 +49,7 @@ namespace Ski.Game
             if (_doll == null) return;
             _doll.End();
             _doll = null;
+            _motion?.Reset();      // back on its feet somewhere else: no motion from the fall
         }
 
         public static PlayerRig Create(CharacterId who, Transform parent)
@@ -224,18 +224,6 @@ namespace Ski.Game
             // A physical crash: the body falls on its own until the run stands the skier up again.
             if (_doll != null && !sim.Crashed) EndCrash();
             if (_doll != null) _doll.Follow(sim.Pos, dt);
-            else if (dt > 1e-4f)
-            {
-                // How the body is moving, for the moment a crash comes.
-                _lastVel = sim.Vel;
-                if (_fullInit)
-                {
-                    (full * Quaternion.Inverse(_lastFull)).ToAngleAxis(out float ang, out Vector3 axis);
-                    if (ang > 180f) ang -= 360f;
-                    _lastSpin = float.IsInfinity(axis.x) ? Vector3.zero : axis * (ang * Mathf.Deg2Rad / dt);
-                }
-                _lastFull = full; _fullInit = true;
-            }
 
             // --- body ------------------------------------------------------------------------
             _poleAnim = Mathf.Min(_poleAnim + dt / 0.42f, 1f);
@@ -264,6 +252,10 @@ namespace Ski.Game
 
             // Just back on your feet: you blink, and nothing can knock you down for a moment.
             Body.SetVisible(sim.Shield <= 0f || Mathf.Repeat(sim.Shield * 7f, 1f) < 0.6f);
+
+            // How every part of the body moves, for the moment a crash comes.
+            _motion ??= new BoneMotion(Body);
+            _motion.Sample(dt);
 
             CameraFollow(sim, dt, speed, tuck, plough, lean, air, c, full);
         }

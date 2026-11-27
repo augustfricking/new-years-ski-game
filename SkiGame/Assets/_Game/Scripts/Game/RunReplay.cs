@@ -105,7 +105,7 @@ namespace Ski.Game
                 if (_clockLabel != null) _clockLabel.text = Hud.FormatTime(Mathf.Min(t, _track.Duration));
             }
             Position = p;
-            _view.Show(p, heading, speed, air, tuck, plough, cam, dt, crashed, _run != null ? _run.Sim.LastCrash : CrashReason.Cliff);
+            _view.Show(p, heading, speed, air, tuck, plough, cam, dt, crashed);
 
             // Behind and above, following the line rather than every wiggle.
             Vector3 d = new Vector3(Mathf.Sin(heading), 0f, Mathf.Cos(heading));

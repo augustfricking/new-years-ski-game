@@ -194,9 +194,24 @@ namespace Ski.Game
 
         // ---- forest ----------------------------------------------------------------------
 
+        /// <summary>The piste's forest trees as built (x, z, size), for a crash to run into (they are scenery, not obstacles in the run).</summary>
+        public static readonly List<Vector3> PisteTrees = new List<Vector3>();
+
+        /// <summary>The piste forest's trees within <paramref name="reach"/> metres of a point.</summary>
+        public static void TreesNear(float x, float z, float reach, List<Vector3> into)
+        {
+            float rr = reach * reach;
+            foreach (var t in PisteTrees)
+            {
+                float dx = t.x - x, dz = t.y - z;
+                if (dx * dx + dz * dz <= rr) into.Add(t);
+            }
+        }
+
         static void BuildPisteForest(PisteCourse c, Transform parent)
         {
             var rng = new Rng(c.Seed * 31 + 7);
+            PisteTrees.Clear();
             const float chunkLen = 90f;
             MeshBuilder b = null;
             float chunkStart = c.MinZ;
@@ -222,6 +237,7 @@ namespace Ski.Game
                         if (Mathf.Abs(x - MountainBuilder.LiftX(c, zz)) < 4.6f) continue;   // the lift line is cut through the trees
                         if (MountainBuilder.InOtherRun(c, x, zz, 2.5f)) continue;               // and so are the other runs
                         b.Push(new Vector3(x, c.SnowHeight(x, zz) - 0.15f, zz), Quaternion.Euler(0, yaw, 0), Vector3.one * (scale * (1f + row * 0.05f)));
+                        PisteTrees.Add(new Vector3(x, zz, scale * (1f + row * 0.05f)));
                         Props.Pine(b, variant, rng);
                         b.Pop();
                     }

@@ -5,23 +5,23 @@ using UnityEngine;
 namespace Ski.Game
 {
     /// <summary>
-    /// A crash on the slope as a body would take it. The skier goes limp (a <see cref="Ragdoll"/>) from
-    /// the very pose they were in, mid-spin or mid-turn, onto the snow (a patch of the slope made solid
-    /// for the moment) and into the trees, rocks and boxes close by, thrown the way the crash happened:
-    /// tripped over a child (the legs stop, the body pitches over), into a tree (stopped hard and
-    /// thrown back while the legs sweep on), a landing from too high (slammed down) or a landing
-    /// askew (the spin carries on and rolls them). After the first moment the body is drawn to where
-    /// the run says the skier slid, so the camera and the getting-up stay with it; when the run
-    /// stands them up, the body goes back to its animation. Only for the eye: the run itself (the
-    /// time, the line, the replays) is the simulation's.
+    /// A crash on the slope as a body takes it, every one its own. The skier goes limp (a
+    /// <see cref="Ragdoll"/>) from the very pose they were in, each limb moving as it was moving the
+    /// moment before (<see cref="BoneMotion"/>): mid-turn, mid-push, mid-flip. What happens next is
+    /// the physics engine's: the snow (a patch of the slope made solid for the moment), the trees of
+    /// the forest and the rocks, fences and boxes close by, and a child who was run into (who goes
+    /// limp too), all solid. Nothing is scripted by the kind of crash: a shoulder into a trunk spins
+    /// you round, a glancing hit sends you sliding, a flip landed short puts you on your back.
+    ///
+    /// Only for the eye. The run (the time, where the skier gets up, the replays) is the simulation's,
+    /// so the body is kept loosely with the run's own slide: a light match of its speed from the start,
+    /// and a gentle pull toward its place only near the end, so getting up does not jump far.
     /// </summary>
     public sealed class CrashDoll
     {
         const int Grid = 33;            // the snow patch: Grid x Grid points a metre apart
         const float ObstacleReach = 14f;
-        // The body keeps pace with the run's slide (a damper on the pelvis from the first moment), and is
-        // drawn to its place only gently, later: a hard late pull would yank the hips and flip the legs over.
-        const float PullAfter = 0.3f, PullFull = 1.0f, Spring = 900f, Damper = 220f;
+        const float PullAfter = 0.8f, PullFull = 1.6f, Spring = 350f, Damper = 70f;
 
         readonly Person _p;
         readonly Ragdoll _doll;
@@ -38,23 +38,26 @@ namespace Ski.Game
         /// <summary>Where the pelvis is now (for a camera to follow).</summary>
         public Vector3 Centre => _doll.Pelvis != null ? _doll.Pelvis.position : _p.transform.position;
 
-        static PhysicsMaterial _snow;
+        static PhysicsMaterial _snow, _wood;
         static PhysicsMaterial Snow => _snow != null ? _snow : _snow = new PhysicsMaterial("Snow")
         {
-            // A jacket slides on snow: the body skids along it rather than catching and cartwheeling.
-            dynamicFriction = 0.32f, staticFriction = 0.4f, bounciness = 0.04f,
+            dynamicFriction = 0.3f, staticFriction = 0.4f, bounciness = 0.04f,
             frictionCombine = PhysicsMaterialCombine.Minimum, bounceCombine = PhysicsMaterialCombine.Minimum,
+        };
+        static PhysicsMaterial Wood => _wood != null ? _wood : _wood = new PhysicsMaterial("Wood")
+        {
+            dynamicFriction = 0.5f, staticFriction = 0.6f, bounciness = 0.12f,
         };
 
         /// <summary>
-        /// The body <paramref name="p"/> goes down. <paramref name="velocity"/> and <paramref name="spin"/>
-        /// are how it was moving just before (m/s, rad/s, in the world); <paramref name="slide"/> where the
-        /// run has the skier now. Everything made for it lives under <paramref name="worldParent"/>.
+        /// The body <paramref name="p"/> goes down. <paramref name="motion"/>: how its parts were moving (or
+        /// null: all of it at <paramref name="velocity"/>). <paramref name="slide"/>: where the run has the
+        /// skier now. Everything made for the fall lives under <paramref name="worldParent"/>.
         /// </summary>
-        public static CrashDoll Begin(Person p, Transform worldParent, Course course, Vector3 velocity, Vector3 spin, CrashReason reason, Vector3 slide)
-            => new CrashDoll(p, worldParent, course, velocity, spin, reason, slide);
+        public static CrashDoll Begin(Person p, Transform worldParent, Course course, BoneMotion motion, Vector3 velocity, Vector3 slide)
+            => new CrashDoll(p, worldParent, course, motion, velocity, slide);
 
-        CrashDoll(Person p, Transform worldParent, Course course, Vector3 velocity, Vector3 spin, CrashReason reason, Vector3 slide)
+        CrashDoll(Person p, Transform worldParent, Course course, BoneMotion motion, Vector3 velocity, Vector3 slide)
         {
             _p = p;
             _world = new GameObject("Crash");
@@ -64,12 +67,14 @@ namespace Ski.Game
             _homePos = p.transform.localPosition;
             _homeRot = p.transform.localRotation;
             p.transform.SetParent(_world.transform, true);
-            _patch = Ground(course, slide + Flat(velocity) * 0.35f);
-            Obstacles(course, slide);
+            Vector3 v = motion != null && motion.Ready ? motion.Velocity : velocity;
+            _patch = Ground(course, slide + Flat(v) * 0.4f);
+            Solids(course, slide + Flat(v) * 0.3f);
             _doll = Ragdoll.Make(p);
-            Throw(velocity, spin, reason);
+            if (motion != null && motion.Ready) motion.Apply(_doll);
+            else foreach (var b in _doll.Bodies) b.linearVelocity = velocity;
 
-            // The pull toward the run's own slide (it starts slack: the first flight is the crash's own).
+            // The loose tie to the run's own slide.
             var a = new GameObject("Slide");
             a.transform.SetParent(_world.transform, false);
             a.transform.position = _doll.Pelvis.position;
@@ -118,9 +123,10 @@ namespace Ski.Game
         }
 
         static readonly List<Obstacle> Near = new List<Obstacle>();
+        static readonly List<Vector3> NearTrees = new List<Vector3>();
 
-        /// <summary>Trees, rocks, fences and boxes close by, solid for the moment.</summary>
-        void Obstacles(Course c, Vector3 at)
+        /// <summary>The forest, rocks, fences and boxes close by, solid for the moment.</summary>
+        void Solids(Course c, Vector3 at)
         {
             Near.Clear();
             c.ObstaclesNear(at.x, at.z, ObstacleReach, Near);
@@ -129,87 +135,50 @@ namespace Ski.Game
                 if (!o.Solid) continue;
                 float ground = c.Height(o.X, o.Z);
                 float h = Mathf.Clamp(o.Height, 0.4f, 8f);
-                var go = new GameObject(o.Kind.ToString());
-                go.transform.SetParent(_world.transform, false);
-                if (o.IsBox)
-                {
-                    go.transform.position = new Vector3(o.X, ground + h * 0.5f, o.Z);
-                    var b = go.AddComponent<BoxCollider>();
-                    b.size = new Vector3(o.Hx * 2f, h, o.Hz * 2f);
-                    b.sharedMaterial = Snow;
-                }
-                else
-                {
-                    go.transform.position = new Vector3(o.X, ground + h * 0.5f, o.Z);
-                    var k = go.AddComponent<CapsuleCollider>();
-                    k.direction = 1;
-                    k.radius = Mathf.Max(0.12f, o.Radius * (o.Kind == ObstacleKind.Tree || o.Kind == ObstacleKind.DeadTree ? 0.45f : 0.9f));
-                    k.height = Mathf.Max(h, k.radius * 2f);
-                    k.sharedMaterial = Snow;
-                }
+                bool tree = o.Kind == ObstacleKind.Tree || o.Kind == ObstacleKind.DeadTree;
+                if (o.IsBox) Box(new Vector3(o.X, ground + h * 0.5f, o.Z), new Vector3(o.Hx * 2f, h, o.Hz * 2f), o.Kind.ToString());
+                else Pillar(new Vector3(o.X, ground, o.Z), Mathf.Max(0.12f, o.Radius * (tree ? 0.7f : 0.95f)), Mathf.Max(h, 1f), o.Kind.ToString());
             }
-        }
-
-        /// <summary>How the body sets off, by what brought it down.</summary>
-        void Throw(Vector3 v, Vector3 spin, CrashReason reason)
-        {
-            float speed = Flat(v).magnitude;
-            Vector3 fwd = speed > 0.5f ? Flat(v) / speed : _p.transform.forward;
-            Vector3 right = Vector3.Cross(Vector3.up, fwd);
-            float r = Random.value < 0.5f ? -1f : 1f;
-            // A spin carried into the crash counts in full only when the crash is a landing askew (the trick's own turn).
-            spin = Vector3.ClampMagnitude(spin, 10f) * (reason == CrashReason.BadLanding ? 1f : 0.3f);
-            foreach (var b in _doll.Bodies) { b.linearVelocity = v; b.angularVelocity = spin; }
-            switch (reason)
+            // The piste's own forest (scenery to the run, which ends at its edge; solid to a body thrown into it).
+            if (c is PisteCourse)
             {
-                case CrashReason.Person:
-                    // Tripped: the feet are caught at the child, the rest goes on, forward and down onto the front.
-                    for (int i = 0; i < _doll.Legs.Count; i++) _doll.Legs[i].linearVelocity = v * (i % 2 == 1 ? 0.55f : 0.68f) + Vector3.up * 0.4f;
-                    _doll.Pelvis.linearVelocity = v * 0.82f + Vector3.up * 0.9f;
-                    Upper(v * 0.95f + Vector3.up * 1.2f);
-                    _doll.Chest.angularVelocity = right * Mathf.Clamp(speed / 3f, 1.5f, 4f);
-                    break;
-                case CrashReason.Trees:
-                case CrashReason.Obstacle:
-                    // Into something solid: the top is stopped and thrown back, the legs sweep on underneath.
-                    Upper(-fwd * (1.2f + speed * 0.12f) + Vector3.up * 0.6f);
-                    _doll.Pelvis.linearVelocity = v * 0.3f + Vector3.up * 0.4f;
-                    foreach (var l in _doll.Legs) l.linearVelocity = v * 0.65f + Vector3.up * 1.1f;
-                    foreach (var b in _doll.Bodies) b.angularVelocity = Vector3.up * r * Random.Range(1.5f, 4f) + fwd * r * Random.Range(0.5f, 2f);
-                    break;
-                case CrashReason.HardLanding:
-                    // Down from too high: the legs fold under the impact and the body is slammed onto the snow.
-                    foreach (var l in _doll.Legs) l.linearVelocity = Flat(v) * 0.85f + Vector3.up * Mathf.Min(v.y * 0.3f, -1f);
-                    _doll.Pelvis.linearVelocity = Flat(v) * 0.9f + Vector3.up * Mathf.Min(v.y * 0.7f, -2f);
-                    Upper(Flat(v) * 0.95f + Vector3.up * (Mathf.Min(v.y, -3f) - 1.5f));
-                    _doll.Chest.angularVelocity = right * Random.Range(1f, 2.2f) + fwd * r * Random.Range(0.5f, 1.5f);
-                    break;
-                case CrashReason.BadLanding:
-                    // Landed askew: the spin carries on, and the body rolls over sideways.
-                    foreach (var b in _doll.Bodies) b.angularVelocity = spin * 0.8f + fwd * r * Random.Range(4f, 7f);
-                    foreach (var a in _doll.Arms) a.linearVelocity += right * r * Random.Range(1f, 2.5f) + Vector3.up * 1.2f;
-                    break;
-                default:
-                    foreach (var b in _doll.Bodies) b.angularVelocity += Random.insideUnitSphere * 3f;
-                    break;
+                NearTrees.Clear();
+                TerrainBuilder.TreesNear(at.x, at.z, ObstacleReach, NearTrees);
+                foreach (var t in NearTrees) Pillar(new Vector3(t.x, c.Height(t.x, t.y), t.y), 0.42f * t.z, 5.5f * t.z, "Pine");
             }
         }
 
-        void Upper(Vector3 velocity)
+        void Box(Vector3 centre, Vector3 size, string name)
         {
-            _doll.Chest.linearVelocity = velocity;
-            _doll.HeadBody.linearVelocity = velocity;
-            foreach (var a in _doll.Arms) a.linearVelocity = velocity + Random.insideUnitSphere * 1.5f;
+            var go = new GameObject(name);
+            go.transform.SetParent(_world.transform, false);
+            go.transform.position = centre;
+            var b = go.AddComponent<BoxCollider>();
+            b.size = size;
+            b.sharedMaterial = Wood;
+        }
+
+        /// <summary>An upright from the ground: a trunk in its lower branches, a rock, a post.</summary>
+        void Pillar(Vector3 foot, float radius, float height, string name)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(_world.transform, false);
+            go.transform.position = foot + Vector3.up * (height * 0.5f);
+            var k = go.AddComponent<CapsuleCollider>();
+            k.direction = 1;
+            k.radius = radius;
+            k.height = Mathf.Max(height, radius * 2f);
+            k.sharedMaterial = Wood;
         }
 
         void Drive(float k)
         {
-            var d = new JointDrive { positionSpring = Spring * k, positionDamper = Damper, maximumForce = 2500f };
+            var d = new JointDrive { positionSpring = Spring * k, positionDamper = Damper, maximumForce = 1500f };
             _pull.xDrive = d; _pull.zDrive = d;
-            _pull.yDrive = new JointDrive { positionSpring = Spring * 0.1f * k, positionDamper = Damper * 0.1f, maximumForce = 400f };
+            _pull.yDrive = new JointDrive { positionSpring = Spring * 0.1f * k, positionDamper = Damper * 0.1f, maximumForce = 300f };
         }
 
-        /// <summary>Call every frame with where the run has the skier: the body is drawn there once it has flown.</summary>
+        /// <summary>Call every frame with where the run has the skier: the body is kept loosely with it.</summary>
         public void Follow(Vector3 slide, float dt)
         {
             _age += dt;

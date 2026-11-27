@@ -12,6 +12,8 @@ namespace Ski.Game
         readonly List<Person> _people = new List<Person>();
         readonly List<LineRenderer> _leashes = new List<LineRenderer>();
         readonly List<float> _prevHeading = new List<float>(), _turn = new List<float>();
+        /// <summary>Children knocked over close by: limp (a ragdoll) until they get up.</summary>
+        readonly Dictionary<int, CrashDoll> _dolls = new Dictionary<int, CrashDoll>();
         Rng _rng;
         Material _leashMat;
 
@@ -27,6 +29,8 @@ namespace Ski.Game
         }
 
         public Person PersonFor(Kid k) => k.Id < _people.Count ? _people[k.Id] : null;
+
+        void OnDestroy() { foreach (var d in _dolls.Values) d.Drop(); _dolls.Clear(); }
 
         Person Spawn(Kid k)
         {
@@ -129,15 +133,27 @@ namespace Ski.Game
                 var p = _people[i];
                 float ahead = k.Z - ViewerZ;
                 bool visible = k.Active && ahead > -45f && ahead < 260f;
+                if (!visible && _dolls.TryGetValue(i, out var gone)) { gone.End(); _dolls.Remove(i); }
                 if (p.gameObject.activeSelf != visible) p.gameObject.SetActive(visible);
                 if (!visible)
                 {
                     if (k.Kind == KidKind.HarnessParent) { _leashes[leash].enabled = false; leash++; }
                     continue;
                 }
-                // Far away the pose no longer needs animating.
-                p.enabled = ahead < 110f;
                 float y = _course.Height(k.X, k.Z);
+                // Knocked over close by: the child goes limp, going on as they were moving, and whatever ran into
+                // them (a body, also limp) throws them; up again when the fall is over.
+                bool limp = _dolls.TryGetValue(i, out var doll);
+                if (limp && !k.Fallen) { doll.End(); _dolls.Remove(i); limp = false; }
+                else if (!limp && k.Fallen && ahead > -30f && ahead < 80f)
+                {
+                    Vector3 v = new Vector3(Mathf.Sin(k.Heading), 0f, Mathf.Cos(k.Heading)) * k.Speed;
+                    _dolls[i] = doll = CrashDoll.Begin(p, transform, _course, null, v, new Vector3(k.X, y, k.Z));
+                    limp = true;
+                }
+                if (limp) doll.Follow(new Vector3(k.X, y, k.Z), dt);
+                // Far away the pose no longer needs animating.
+                else p.enabled = ahead < 110f;
                 Vector3 n = _course.Normal(k.X, k.Z);
                 Vector3 fwd = new Vector3(Mathf.Sin(k.Heading), 0f, Mathf.Cos(k.Heading));
                 fwd = (fwd - Vector3.Dot(fwd, n) * n).normalized;
@@ -150,8 +166,11 @@ namespace Ski.Game
                 }
                 float bank = k.Fallen ? 0f : Mathf.Clamp(_turn[i] * 0.3f, -20f, 20f);
                 var rot = Quaternion.LookRotation(fwd, Vector3.Lerp(Vector3.up, n, 0.6f)) * Quaternion.Euler(0f, 0f, -bank);
-                p.transform.SetPositionAndRotation(new Vector3(k.X, y, k.Z), Quaternion.Slerp(p.transform.rotation, rot, dt <= 0f ? 1f : 1f - Mathf.Exp(-8f * dt)));
-                p.Target = Act(k, bank);
+                if (!limp)
+                {
+                    p.transform.SetPositionAndRotation(new Vector3(k.X, y, k.Z), Quaternion.Slerp(p.transform.rotation, rot, dt <= 0f ? 1f : 1f - Mathf.Exp(-8f * dt)));
+                    p.Target = Act(k, bank);
+                }
                 if (k.Kind == KidKind.HarnessParent)
                 {
                     var lr = _leashes[leash++];

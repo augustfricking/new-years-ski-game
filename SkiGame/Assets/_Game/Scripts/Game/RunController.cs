@@ -355,7 +355,7 @@ namespace Ski.Game
                     case RunEventType.PolePush: Rig.PolePush(); break;
                     case RunEventType.HeavyLanding: Rig.Kick(0.12f); _snow.Puff(Session.Sim.Pos, Session.Sim.Vel, 40, 4f); break;
                     case RunEventType.Landed: Rig.Kick(0.05f); _snow.Puff(Session.Sim.Pos, Session.Sim.Vel, 22, 3f); break;
-                    case RunEventType.Crash: Rig.Kick(0.3f); _snow.Puff(Session.Sim.Pos, Session.Sim.Vel, 70, 6f); Rig.Crash(Session.Sim, e.Reason, transform); break;
+                    case RunEventType.Crash: Rig.Kick(0.3f); _snow.Puff(Session.Sim.Pos, Session.Sim.Vel, 70, 6f); Rig.Crash(Session.Sim, transform); break;
                 }
                 Sound(e);
                 if (e.Type == RunEventType.Finished) Finish();

@@ -24,6 +24,8 @@ namespace Ski.Game
         /// <summary>The slope this skier is on: with it, a crash is taken by the body (physics); without, a tumble.</summary>
         public Course CrashCourse;
         CrashDoll _doll;
+        BoneMotion _motion;
+        Person _motionOf;
         Vector3 _lastPos, _vel;
         bool _hasLast;
         Transform _name;
@@ -90,14 +92,15 @@ namespace Ski.Game
             return p;
         }
 
-        /// <summary>Places a skier for this frame. <paramref name="reason"/>: what brought them down, when known.</summary>
-        public void Show(Vector3 pos, float heading, float speed, float air, float tuck, float plough, Camera cam, float dt, bool crashed = false, CrashReason reason = CrashReason.Cliff)
+        /// <summary>Places a skier for this frame.</summary>
+        public void Show(Vector3 pos, float heading, float speed, float air, float tuck, float plough, Camera cam, float dt, bool crashed = false)
         {
             if (!gameObject.activeSelf) gameObject.SetActive(true);
-            // A crash with the slope known: the body takes it (see CrashDoll) until they are up again.
-            if (_doll != null && !crashed) { _doll.End(); _doll = null; _hasLast = false; }
+            // A crash with the slope known: the body takes it (see CrashDoll), each part going on as it was
+            // moving, until they are up again.
+            if (_doll != null && !crashed) { _doll.End(); _doll = null; _hasLast = false; _motion?.Reset(); }
             if (_doll == null && crashed && CrashCourse != null && _placed)
-                _doll = CrashDoll.Begin(Body, transform.parent, CrashCourse, _hasLast ? _vel : Vector3.zero, Vector3.zero, reason, pos);
+                _doll = CrashDoll.Begin(Body, transform.parent, CrashCourse, _motionOf == Body ? _motion : null, _hasLast ? _vel : Vector3.zero, pos);
             if (_doll != null)
             {
                 transform.position = pos;
@@ -126,6 +129,12 @@ namespace Ski.Game
             p.TorsoRoll = -_lean * 0.4f;
             person.Target = p;
             PlaceName(cam);
+            if (CrashCourse != null)
+            {
+                // Each part's motion, for the moment a crash comes (only where a crash would be physical).
+                if (_motionOf != person) { _motion = new BoneMotion(person); _motionOf = person; }
+                _motion.Sample(dt);
+            }
         }
 
         /// <summary>Places a person on foot (the tavern): walking when they move, standing when not.</summary>

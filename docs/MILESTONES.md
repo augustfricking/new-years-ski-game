@@ -318,9 +318,10 @@ Ghosts and boards
 - [x] Replays are exact: a run records its keys every step and the replay re-runs them, so the line,
       the crashes and the children (who was hit, where everyone was) are as they were (tests replay
       every slope to the bit). Older recordings follow their path without running into anyone
-- [x] Crashes are physical: the body goes limp from its own pose and falls by what brought it down
-      (tripped over a child, into a tree, too hard a landing, a landing askew), onto the snow and into
-      the obstacles close by; the same in replays and for live players on the same slope
+- [x] Crashes come from the real hit: the body goes limp with every limb moving as it was, onto the
+      snow and into the trees (the forest at the edge included), rocks and boxes close by, and a child
+      who was run into goes limp too; no scripted pushes, so every crash is its own. The same in replays
+      and for live players on the same slope
 - [ ] Characters remade to match the round-3 concept art (separate session; owner approves first)
 
 ## Known gaps and ideas

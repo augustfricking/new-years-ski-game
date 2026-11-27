@@ -24,6 +24,7 @@ namespace Ski.Game
         /// <summary>Every part of the body.</summary>
         public IReadOnlyList<Rigidbody> Bodies => _bodies;
         public float Age;
+        float _massScale = 1f;
 
         Ragdoll(Person p) { _p = p; }
 
@@ -59,6 +60,7 @@ namespace Ski.Game
             p.enabled = false;   // the animation lets go
 
             float k = Mathf.Max(0.5f, p.Head.localPosition.magnitude / 0.5f);   // body size against a 0.5 m torso
+            _massScale = Mathf.Clamp(k * k * k, 0.2f, 1.6f);                       // a child weighs a fraction of a grown-up
             float shoulders = Mathf.Abs(p.ShoulderR.localPosition.x - p.ShoulderL.localPosition.x);
             float hips = Mathf.Abs(p.ThighR.localPosition.x - p.ThighL.localPosition.x);
 
@@ -109,7 +111,7 @@ namespace Ski.Game
         Rigidbody Body(Transform bone, Rigidbody parent, float mass)
         {
             var b = bone.gameObject.AddComponent<Rigidbody>();
-            b.mass = mass;
+            b.mass = mass * _massScale;
             b.linearDamping = 0.05f;
             b.angularDamping = 0.6f;
             b.interpolation = RigidbodyInterpolation.Interpolate;
