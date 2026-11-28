@@ -43,22 +43,15 @@
     // Settings > Graphics can turn this off (stored here, so it holds before the game has loaded).
     // An iPhone's Safari cannot do this for a page: there, Add to Home Screen opens the game without bars.
     (function () {
-      const coarse = !!(window.matchMedia && matchMedia("(pointer: coarse)").matches);
-      if (!coarse) return;
+      // Everything is asked at each tap, not only at load (a browser may tell a moment late).
+      const coarse = () => !!(window.matchMedia && matchMedia("(pointer: coarse)").matches);
       const root = document.documentElement;
       const request = root.requestFullscreen || root.webkitRequestFullscreen;
+      const able = () => !!request && !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
       const standalone = (window.matchMedia && (matchMedia("(display-mode: fullscreen)").matches || matchMedia("(display-mode: standalone)").matches)) || navigator.standalone === true;
-      if (!request || !(document.fullscreenEnabled || document.webkitFullscreenEnabled)) {
-        if (!standalone) {
-          const full = document.querySelector("#full");
-          full.textContent = "Full screen: Share, then Add to Home Screen";
-          full.style.display = "block";
-        }
-        return;
-      }
       const wanted = () => { try { return localStorage.getItem("lastrun-fullscreen") !== "0"; } catch (e) { return true; } };
       const goFull = () => {
-        if (!wanted() || document.fullscreenElement || document.webkitFullscreenElement) return;
+        if (!coarse() || !able() || !wanted() || document.fullscreenElement || document.webkitFullscreenElement) return;
         try {
           const p = request.call(root, { navigationUI: "hide" });
           const turn = () => { try { screen.orientation.lock("landscape").catch(() => {}); } catch (e) {} };
@@ -67,6 +60,15 @@
       };
       document.addEventListener("touchend", goFull, { capture: true, passive: true });
       document.addEventListener("click", goFull, true);
+      // Where a page cannot take the whole screen (an iPhone's Safari), say how to get it.
+      const note = () => {
+        if (!coarse() || able() || standalone) return;
+        const full = document.querySelector("#full");
+        full.textContent = "Full screen: Share, then Add to Home Screen";
+        full.style.display = "block";
+      };
+      note();
+      window.addEventListener("load", note);
     })();
   </script>
   <script>
