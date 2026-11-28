@@ -4,15 +4,28 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Last Run</title>
+  <!-- Added to a phone's home screen, the game opens on the whole screen, without the browser's bars. -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Last Run">
+  <meta name="theme-color" content="#1B1430">
   <style>
-    html, body { margin: 0; height: 100%; background: #1B1430; overflow: hidden; font-family: "Segoe UI", Arial, sans-serif; }
-    #unity-canvas { width: 100vw; height: 100vh; display: block; background: #1B1430; outline: none; }
+    html, body { margin: 0; height: 100%; background: #1B1430; overflow: hidden; overscroll-behavior: none; font-family: "Segoe UI", Arial, sans-serif; }
+    /* The visible height (dvh): a phone's address bar must not hide the bottom of the game. No browser gestures
+       (pull to refresh, zoom, the long-press menu) on the game itself. */
+    #unity-canvas { width: 100vw; height: 100vh; height: 100dvh; display: block; background: #1B1430; outline: none;
+      touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
     #loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #F5EBD8; }
     #title { font-size: min(13vw, 120px); font-weight: 800; letter-spacing: 0.06em; color: #FFC64A; transform: rotate(-3deg); text-shadow: 5px 5px 0 #000; }
     #sub { letter-spacing: 0.3em; font-size: min(3vw, 20px); margin-top: 6px; }
     #bar { width: min(420px, 70vw); height: 18px; border: 4px solid #F5EBD8; border-radius: 6px; margin-top: 34px; }
     #fill { height: 100%; width: 0; background: #FFC64A; transition: width 0.2s; }
     #hint { margin-top: 14px; font-size: 15px; opacity: 0.8; }
+    #full { margin-top: 10px; font-size: 14px; opacity: 0.7; display: none; }
   </style>
 </head>
 <body>
@@ -22,7 +35,42 @@
     <div id="sub">NEW YEAR'S EVE ON THE MOUNTAIN</div>
     <div id="bar"><div id="fill"></div></div>
     <div id="hint">Riding the lift up...</div>
+    <div id="full"></div>
   </div>
+  <script>
+    // Phones and tablets play on the whole screen: the first tap (browsers allow it only from a tap) takes it,
+    // turned sideways where the browser can lock that, and a tap takes it back after the player leaves it.
+    // Settings > Graphics can turn this off (stored here, so it holds before the game has loaded).
+    // An iPhone's Safari cannot do this for a page: there, Add to Home Screen opens the game without bars.
+    (function () {
+      // Everything is asked at each tap, not only at load (a browser may tell a moment late).
+      const coarse = () => !!(window.matchMedia && matchMedia("(pointer: coarse)").matches);
+      const root = document.documentElement;
+      const request = root.requestFullscreen || root.webkitRequestFullscreen;
+      const able = () => !!request && !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+      const standalone = (window.matchMedia && (matchMedia("(display-mode: fullscreen)").matches || matchMedia("(display-mode: standalone)").matches)) || navigator.standalone === true;
+      const wanted = () => { try { return localStorage.getItem("lastrun-fullscreen") !== "0"; } catch (e) { return true; } };
+      const goFull = () => {
+        if (!coarse() || !able() || !wanted() || document.fullscreenElement || document.webkitFullscreenElement) return;
+        try {
+          const p = request.call(root, { navigationUI: "hide" });
+          const turn = () => { try { screen.orientation.lock("landscape").catch(() => {}); } catch (e) {} };
+          if (p && p.then) p.then(turn).catch(() => {}); else turn();
+        } catch (e) {}
+      };
+      document.addEventListener("touchend", goFull, { capture: true, passive: true });
+      document.addEventListener("click", goFull, true);
+      // Where a page cannot take the whole screen (an iPhone's Safari), say how to get it.
+      const note = () => {
+        if (!coarse() || able() || standalone) return;
+        const full = document.querySelector("#full");
+        full.textContent = "Full screen: Share, then Add to Home Screen";
+        full.style.display = "block";
+      };
+      note();
+      window.addEventListener("load", note);
+    })();
+  </script>
   <script>
     const canvas = document.querySelector("#unity-canvas");
     const fill = document.querySelector("#fill");
