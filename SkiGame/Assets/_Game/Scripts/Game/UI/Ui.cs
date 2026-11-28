@@ -35,6 +35,10 @@ namespace Ski.Game
             var doc = gameObject.AddComponent<UIDocument>();
             doc.panelSettings = Resources.Load<PanelSettings>("UI/Panel");
             if (doc.panelSettings == null) Debug.LogError("Missing Resources/UI/Panel (run ProjectSetup).");
+#if !UNITY_EDITOR
+            // On a phone everything is drawn larger (the interface is laid out for a big screen).
+            if (doc.panelSettings != null && Device.Phone) doc.panelSettings.referenceResolution = new Vector2Int(1440, 810);
+#endif
             Root = doc.rootVisualElement;
             Root.styleSheets.Add(Resources.Load<StyleSheet>("UI/Game"));
             Root.AddToClassList("root");

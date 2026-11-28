@@ -297,7 +297,7 @@ namespace Ski.Game
             _ui = Ui.Div(ui.ScreenLayer, "layer");
             var title = Ui.Div(_ui, "map-title");
             Ui.Text(title, "PICK YOUR LAST RUN", "h1 outlined");
-            Ui.Text(title, "Click a run  -  or 1 to 5", "hint");
+            Ui.Text(title, Device.Touch ? "Tap a run" : "Click a run  -  or 1 to 5", "hint");
 
             _infoCard = Ui.Div(_ui, "card shadowed map-info");
             var head = Ui.Div(_infoCard, "row");
@@ -364,7 +364,7 @@ namespace Ski.Game
                     n++;
                 }
             }
-            _infoHint.text = "Click the run to start";
+            _infoHint.text = Device.Touch ? "Tap the run to start" : "Click the run to start";
         }
 
         // ---- frame -------------------------------------------------------------------------
@@ -388,7 +388,8 @@ namespace Ski.Game
             if (_picked || Dialogs.Open || (GameApp.Instance != null && GameApp.Instance.Shop != null)) return;
 
             int hover = -1;
-            var mouse = Mouse.current;
+            // The pointer: a mouse, or a finger on a phone or tablet (a tap points and picks at once).
+            var mouse = Pointer.current;
             if (mouse != null && _open > 0.9f)
             {
                 Vector2 sp = mouse.position.ReadValue();
@@ -428,7 +429,7 @@ namespace Ski.Game
                 if (hover >= 0) AudioDirector.Hover();
             }
             if (key >= 0) Pick(key);
-            else if (hover >= 0 && !_overCard && mouse != null && mouse.leftButton.wasPressedThisFrame) Pick(hover);
+            else if (hover >= 0 && !_overCard && mouse != null && mouse.press.wasPressedThisFrame) Pick(hover);
         }
 
         public void Pick(int run)

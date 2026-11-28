@@ -205,20 +205,35 @@ namespace Ski.Game
             if (Autopilot != null) { _botDrove = true; return Autopilot.Decide(); }
             var inp = new SkiInput();
             var kb = Keyboard.current;
-            if (kb == null || !InputEnabled) return inp;
-            if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) inp.Steer -= 1f;
-            if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) inp.Steer += 1f;
-            inp.Tuck = kb.wKey.isPressed || kb.upArrowKey.isPressed;
-            inp.Brake = kb.sKey.isPressed || kb.downArrowKey.isPressed;
+            var touch = TouchControls.Active ? TouchControls.I : null;     // a phone or tablet: the fingers too
+            if (!InputEnabled || (kb == null && touch == null)) return inp;
+            if (kb != null)
+            {
+                if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) inp.Steer -= 1f;
+                if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) inp.Steer += 1f;
+                inp.Tuck = kb.wKey.isPressed || kb.upArrowKey.isPressed;
+                inp.Brake = kb.sKey.isPressed || kb.downArrowKey.isPressed;
+            }
+            if (touch != null)
+            {
+                inp.Steer += touch.Steer;
+                inp.Tuck |= touch.Tuck;
+                inp.Brake |= touch.Brake;
+            }
+            inp.Steer = Mathf.Clamp(inp.Steer, -1f, 1f);
             inp.Jump = _jump; inp.Pole = _pole;
             if (Result.HasValue) return inp;
-            if (kb.qKey.isPressed) inp.Variant = 1;
-            else if (kb.eKey.isPressed) inp.Variant = 2;
-            if (kb.digit1Key.isPressed) inp.Trick = 1;
-            else if (kb.digit2Key.isPressed) inp.Trick = 2;
-            else if (kb.digit3Key.isPressed) inp.Trick = 3;
-            else if (kb.digit4Key.isPressed) inp.Trick = 4;
-            else if (kb.digit5Key.isPressed) inp.Trick = 5;
+            if (kb != null)
+            {
+                if (kb.qKey.isPressed) inp.Variant = 1;
+                else if (kb.eKey.isPressed) inp.Variant = 2;
+                if (kb.digit1Key.isPressed) inp.Trick = 1;
+                else if (kb.digit2Key.isPressed) inp.Trick = 2;
+                else if (kb.digit3Key.isPressed) inp.Trick = 3;
+                else if (kb.digit4Key.isPressed) inp.Trick = 4;
+                else if (kb.digit5Key.isPressed) inp.Trick = 5;
+            }
+            if (touch != null && touch.Grab && inp.Trick == 0) inp.Trick = 1;
             return inp;
         }
 
@@ -305,7 +320,8 @@ namespace Ski.Game
                 var mouse = Mouse.current;
                 // Pole push: left mouse button (Shift still works).
                 if (kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame) _pole = true;
-                if (mouse != null && mouse.leftButton.wasPressedThisFrame && !Paused && !Dialogs.Open && !_clickSwallowed) _pole = true;
+                // (On a touch screen a tap also comes as a click: there the push is its own button.)
+                if (mouse != null && mouse.leftButton.wasPressedThisFrame && !Paused && !Dialogs.Open && !_clickSwallowed && !Device.Touch) _pole = true;
                 _clickSwallowed = false;
                 if (kb.rKey.wasPressedThisFrame && !Paused) { Session.Respawn(); if (!Result.HasValue) _inputs.Respawn(); }
                 if (kb.cKey.wasPressedThisFrame && !Paused)
@@ -313,13 +329,29 @@ namespace Ski.Game
                     Rig.SetThirdPerson(!Rig.ThirdPerson);
                     if (Ui.Instance != null) Ui.Instance.ShowGoggles(!Rig.ThirdPerson);
                 }
-                // The mouse always looks around while skiing: no click needed.
-                if (mouse != null && !Paused && !Dialogs.Open)
+                // The mouse always looks around while skiing: no click needed (on a touch screen a finger drags instead).
+                if (mouse != null && !Paused && !Dialogs.Open && !Device.Touch)
                 {
                     Vector2 d = mouse.delta.ReadValue() * SaveData.MouseSensitivity;
                     Rig.Look.x = Mathf.Clamp(Rig.Look.x + d.x, -120f, 120f);
                     Rig.Look.y = Mathf.Clamp(Rig.Look.y + (SaveData.InvertLook ? -d.y : d.y), -78f, 55f);
                 }
+            }
+
+            var fingers = TouchControls.Active ? TouchControls.I : null;
+            if (fingers != null && InputEnabled && Autopilot == null && !Paused && !Dialogs.Open)
+            {
+                if (fingers.TakeJump()) _jump = true;
+                if (fingers.TakePush()) _pole = true;
+                if (fingers.TakeReset()) { Session.Respawn(); if (!Result.HasValue) _inputs.Respawn(); }
+                if (fingers.TakeCamera())
+                {
+                    Rig.SetThirdPerson(!Rig.ThirdPerson);
+                    if (Ui.Instance != null) Ui.Instance.ShowGoggles(!Rig.ThirdPerson);
+                }
+                Vector2 d = fingers.TakeLook() * 0.16f * (SaveData.MouseSensitivity / 0.12f);
+                Rig.Look.x = Mathf.Clamp(Rig.Look.x + d.x, -120f, 120f);
+                Rig.Look.y = Mathf.Clamp(Rig.Look.y + (SaveData.InvertLook ? d.y : -d.y), -78f, 55f);
             }
 
             float dt = Mathf.Min(Time.deltaTime, 0.1f);

@@ -213,7 +213,7 @@ namespace Ski.Game
                 if (SaveData.Voice && SaveData.Live) more.Add(("V", "talk"));
                 Ui.Controls(keys, "walk", "", "", "", "CLICK", "punch", "jump", more.ToArray());
             }
-            UnityEngine.Cursor.lockState = CursorLockMode.Locked;
+            if (!Device.Touch) UnityEngine.Cursor.lockState = CursorLockMode.Locked;
             PlaceCamera(0f);
         }
 
@@ -878,7 +878,7 @@ namespace Ski.Game
             _picker?.RemoveFromHierarchy();
             _picker = null;
             BusyEndFrame = Time.frameCount;
-            UnityEngine.Cursor.lockState = CursorLockMode.Locked;
+            if (!Device.Touch) UnityEngine.Cursor.lockState = CursorLockMode.Locked;
         }
 
         /// <summary>Behind the decks: nodding to the beat, a hand on the headphones, now and then a fist in the air.</summary>

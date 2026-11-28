@@ -81,7 +81,7 @@ namespace Ski.Game
             }
             // Push to talk.
             var kb = Keyboard.current;
-            bool talk = on && _me != null && kb != null && kb.vKey.isPressed && !Dialogs.Open;
+            bool talk = on && _me != null && ((kb != null && kb.vKey.isPressed) || (TouchControls.Active && TouchControls.I.Talk)) && !Dialogs.Open;
             if (talk != _talking)
             {
                 _talking = talk;

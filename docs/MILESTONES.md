@@ -324,6 +324,19 @@ Ghosts and boards
       and for live players on the same slope
 - [ ] Characters remade to match the round-3 concept art (separate session; owner approves first)
 
+## M18 Phones and tablets (first version)
+- [x] Touch controls on a run: a steering pad for the left thumb, push (in time with the ring), jump,
+      tuck and brake for the right, grab in the park, talk when others are about; drag to look; reset,
+      camera and pause buttons; the same controls do the tricks in the air
+- [x] Phone or tablet detected by the browser (a finger, not a mouse); phones start on LOW at 0.7
+      resolution with a larger interface, tablets on MEDIUM; no mouse capture, no key hints, "Tap a
+      run", a tap skips the cutscene and the ride, a turn-sideways note when held upright, the
+      phone's keyboard for names and accounts
+- [ ] Walking in the tavern and the beer game on touch
+- [ ] Tilt to steer (an option), swipes for tricks, vibration on crashes
+- [ ] Mobile texture format (ASTC) and memory checked on an iPhone; Add to Home Screen for fullscreen
+- [ ] A test on a real phone and tablet
+
 ## Known gaps and ideas
 - Voice chat needs a free public signalling server (PeerJS) and peer-to-peer connections,
   which some strict networks block. It was not tested with two real microphones.

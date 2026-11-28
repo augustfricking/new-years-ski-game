@@ -56,6 +56,11 @@ namespace Ski.Game
             OnlineBoards.Connect();
             Songs.LoadList(this, () => AudioDirector.I?.RefreshMusic());
             FpsMeter.Create(transform);
+            TouchControls.Create(transform);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // Names and account fields on a phone or tablet: its own keyboard comes up.
+            if (Device.Touch) WebGLInput.mobileKeyboardSupport = true;
+#endif
             VoiceChat.Create(transform);   // anonymous device profile for the world boards; local play does not wait for it
             Character = SaveData.LastCharacter;
             if (DebugSlope.HasValue) StartRun(DebugSlope.Value, Character);
@@ -127,7 +132,7 @@ namespace Ski.Game
             if (AudioDirector.I != null) { AudioDirector.I.Music("music_ski", 0.6f); AudioDirector.I.Ambience(null); }
             _lastSlope = slope;
             Run = RunController.Create(transform, slope, who);
-            Cursor.lockState = CursorLockMode.Locked;   // mouse look from the first moment (browsers engage it on the first key or click)
+            Lock();   // mouse look from the first moment (browsers engage it on the first key or click)
             Run.OnLiftReached = () => Transition(ShowRide);
             Run.OnTavernReached = () => Transition(ShowTavern);
             Run.OnShopReached = () =>
@@ -141,7 +146,7 @@ namespace Ski.Game
                     if (Run == null) return;
                     Run.Rig.RebuildBody();
                     Run.Paused = false;
-                    Cursor.lockState = CursorLockMode.Locked;
+                    Lock();
                 });
             };
         }
@@ -232,19 +237,23 @@ namespace Ski.Game
             if (Screen == GameScreen.Ride && !_busy)
             {
                 _rideTimer -= Time.deltaTime;
-                bool skip = kb != null && (kb.spaceKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame);
+                bool skip = (kb != null && (kb.spaceKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame))
+                            || (Device.Touch && UnityEngine.InputSystem.Touchscreen.current != null && UnityEngine.InputSystem.Touchscreen.current.primaryTouch.press.wasPressedThisFrame);
                 if (_rideTimer <= 0f || skip) Transition(ShowMap);
             }
+            // Escape, or the pause button of the touch controls.
+            bool esc = (kb != null && kb.escapeKey.wasPressedThisFrame) | (TouchControls.I != null && TouchControls.I.TakePause());
             if (Screen == GameScreen.Run && Run != null)
             {
                 // Clicking the game captures the mouse for looking around.
-                // (Not a click on the interface: the shop, the results board, a card. That click is for the button under it.)
-                if (!Dialogs.Open && (Shop == null || !Shop.IsOpen) && mouse != null && mouse.leftButton.wasPressedThisFrame
+                // (Not a click on the interface: the shop, the results board, a card. That click is for the button under it.
+                // Not on a touch screen either: there is no mouse to capture, a finger drags to look.)
+                if (!Device.Touch && !Dialogs.Open && (Shop == null || !Shop.IsOpen) && mouse != null && mouse.leftButton.wasPressedThisFrame
                     && Cursor.lockState != CursorLockMode.Locked && !Ui.Instance.PointerOverUi())
                     Cursor.lockState = CursorLockMode.Locked;
-                if (kb != null && kb.escapeKey.wasPressedThisFrame && !_busy && Shop != null && Shop.IsOpen) Shop.Close();
-                else if (kb != null && kb.escapeKey.wasPressedThisFrame && !_busy && Run.Watching) Run.StopWatching();
-                else if (kb != null && kb.escapeKey.wasPressedThisFrame && !_busy)
+                if (esc && !_busy && Shop != null && Shop.IsOpen) Shop.Close();
+                else if (esc && !_busy && Run.Watching) Run.StopWatching();
+                else if (esc && !_busy)
                 {
                     if (Dialogs.Open) { Dialogs.Close(); Resume(); }
                     else
@@ -258,18 +267,18 @@ namespace Ski.Game
             }
             else if (Screen == GameScreen.Tavern && Tavern != null && !Tavern.Busy && Tavern.GameEndFrame < Time.frameCount - 1 && Tavern.BusyEndFrame < Time.frameCount - 1)
             {
-                if (!Dialogs.Open && mouse != null && mouse.leftButton.wasPressedThisFrame && !Ui.Instance.PointerOverUi()) Cursor.lockState = CursorLockMode.Locked;
-                if (kb != null && kb.escapeKey.wasPressedThisFrame && !_busy)
+                if (!Device.Touch && !Dialogs.Open && mouse != null && mouse.leftButton.wasPressedThisFrame && !Ui.Instance.PointerOverUi()) Cursor.lockState = CursorLockMode.Locked;
+                if (esc && !_busy)
                 {
-                    if (Dialogs.Open) { Dialogs.Close(); Cursor.lockState = CursorLockMode.Locked; }
+                    if (Dialogs.Open) { Dialogs.Close(); Lock(); }
                     else
                     {
                         Cursor.lockState = CursorLockMode.None;
-                        Dialogs.Pause(() => Cursor.lockState = CursorLockMode.Locked, null, () => Transition(ShowRide), () => Transition(ShowMenu));
+                        Dialogs.Pause(Lock, null, () => Transition(ShowRide), () => Transition(ShowMenu));
                     }
                 }
             }
-            else if ((Screen == GameScreen.Map || Screen == GameScreen.Menu) && kb != null && kb.escapeKey.wasPressedThisFrame)
+            else if ((Screen == GameScreen.Map || Screen == GameScreen.Menu) && esc)
             {
                 if (Dialogs.Open) Dialogs.Close(); else Dialogs.Settings();
             }
@@ -278,7 +287,10 @@ namespace Ski.Game
         void Resume()
         {
             if (Run != null) Run.Paused = false;
-            Cursor.lockState = CursorLockMode.Locked;
+            Lock();
         }
+
+        /// <summary>Captures the mouse for looking around (not on a touch screen: nothing to capture).</summary>
+        static void Lock() { if (!Device.Touch) Cursor.lockState = CursorLockMode.Locked; }
     }
 }

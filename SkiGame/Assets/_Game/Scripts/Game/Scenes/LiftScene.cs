@@ -492,7 +492,7 @@ namespace Ski.Game
                 _subBox.style.opacity = 0f;
                 // On the top layer, so it shows on the letterbox bar instead of under it.
                 _skip = Ui.Div(ui.TopLayer, "skip");
-                Ui.Keys(_skip, "SPACE", "skip");
+                Ui.Keys(_skip, Device.Touch ? "TAP" : "SPACE", "skip");
                 ui.Letterbox(true);
             }
             CutsceneTime = 0f;
@@ -721,6 +721,8 @@ namespace Ski.Game
             CutsceneTime += dt;
             var kb = Keyboard.current;
             if (kb != null && !_finishing && (kb.spaceKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame || kb.escapeKey.wasPressedThisFrame)) Skip();
+            // On a phone or tablet a tap skips.
+            else if (Device.Touch && !_finishing && Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasPressedThisFrame) Skip();
 
             if (_finishing)
             {

@@ -173,7 +173,13 @@ namespace Ski.Game
             Lines = PlayerPrefs.GetInt("gfx_lines", preset);
             Effects = PlayerPrefs.GetInt("gfx_effects", preset);
             ShowFps = PlayerPrefs.GetInt("show_fps", 0) == 1;
-            RenderScale = PlayerPrefs.GetFloat("render_scale", 1f);
+            // A phone or tablet starts light (until the player chooses): the lightest graphics and a smaller picture
+            // on a phone, the middle ones on a tablet.
+            if (Device.Touch && !PlayerPrefs.HasKey("gfx_shadows") && !PlayerPrefs.HasKey("quality"))
+            {
+                Shadows = People = View = Lines = Effects = Device.Phone ? 0 : 1;
+            }
+            RenderScale = PlayerPrefs.GetFloat("render_scale", Device.Phone ? 0.7f : Device.Touch ? 0.85f : 1f);
             // The walkman rests when the game opens (the theme greets you); N or the settings start it, and from then
             // on it plays everywhere until it is switched off.
             if (!_loadedOnce) WalkmanOn = false;     // (a cloud save arriving later leaves it as the player set it)

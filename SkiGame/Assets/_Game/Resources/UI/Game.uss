@@ -1500,3 +1500,160 @@
     padding: 1px 6px;
     border-radius: 4px;
 }
+
+/* Touch controls (phones and tablets): sizes in interface units, scaled with the screen. */
+.touch-look {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.touch-pad {
+    position: absolute;
+    left: 30px;
+    bottom: 30px;
+    width: 600px;
+    height: 330px;
+    border-radius: 40px;
+    background-color: rgba(27, 20, 48, 0.18);
+    border-width: 3px;
+    border-color: rgba(245, 235, 216, 0.35);
+}
+
+.touch-pad-label {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 14px;
+    -unity-text-align: middle-center;
+    font-size: 26px;
+    color: rgba(245, 235, 216, 0.6);
+    -unity-font-definition: resource("Fonts/Bangers-Regular");
+}
+
+.touch-knob {
+    position: absolute;
+    left: 240px;
+    top: 105px;
+    width: 120px;
+    height: 120px;
+    border-radius: 60px;
+    background-color: rgba(255, 198, 74, 0.9);
+    border-width: 4px;
+    border-color: rgb(27, 20, 48);
+}
+
+.touch-btn {
+    position: absolute;
+    width: 160px;
+    height: 160px;
+    border-radius: 80px;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(27, 20, 48, 0.45);
+    border-width: 4px;
+    border-color: rgba(245, 235, 216, 0.75);
+}
+
+.touch-label {
+    font-size: 32px;
+    color: rgb(245, 235, 216);
+    -unity-font-definition: resource("Fonts/Bangers-Regular");
+}
+
+.touch-push {
+    right: 50px;
+    bottom: 60px;
+    width: 220px;
+    height: 220px;
+    border-radius: 110px;
+    background-color: rgba(255, 198, 74, 0.55);
+}
+
+.touch-jump {
+    right: 300px;
+    bottom: 40px;
+}
+
+.touch-tuck {
+    right: 70px;
+    bottom: 310px;
+}
+
+.touch-brake {
+    right: 280px;
+    bottom: 230px;
+}
+
+.touch-grab {
+    right: 480px;
+    bottom: 170px;
+    width: 140px;
+    height: 140px;
+    border-radius: 70px;
+}
+
+.touch-talk {
+    left: 660px;
+    bottom: 50px;
+    width: 130px;
+    height: 130px;
+    border-radius: 65px;
+}
+
+.touch-down {
+    background-color: rgba(255, 198, 74, 0.9);
+    border-color: rgb(27, 20, 48);
+}
+
+.touch-top {
+    position: absolute;
+    top: 170px;
+    right: 40px;
+}
+
+.touch-small {
+    width: 110px;
+    height: 76px;
+    border-radius: 14px;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(27, 20, 48, 0.55);
+    border-width: 3px;
+    border-color: rgba(245, 235, 216, 0.75);
+}
+
+.touch-cam {
+    position: absolute;
+    top: 170px;
+    right: 170px;
+}
+
+.touch-reset {
+    position: absolute;
+    top: 170px;
+    right: 300px;
+}
+
+.touch-turn {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    -unity-text-align: middle-center;
+    font-size: 64px;
+    color: rgb(255, 198, 74);
+    background-color: rgba(27, 20, 48, 0.92);
+    -unity-font-definition: resource("Fonts/Bangers-Regular");
+}
+
+.hud-tricks-touch {
+    position: absolute;
+    left: 30px;
+    top: 240px;
+    right: auto;
+    bottom: auto;
+}

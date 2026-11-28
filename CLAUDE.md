@@ -64,6 +64,14 @@ The game design lives in `docs/GAME_SPEC.md` (source of truth). The plan and mil
   forest close by (`TerrainBuilder.PisteTrees`) solid; a child who was hit goes limp too (`KidView`).
   No scripted pushes. For the player, replays and live players on the same slope. Cosmetic only: the
   body is tied loosely to the run's slide, and the simulation decides the slide and the getting-up.
+- **Phones and tablets.** `Device` tells a finger from a mouse (coarse pointer; short screen side =
+  phone; `?touch=1` / `?touch=0` decides by hand, `Device.ForceTouch` in the Editor). `TouchControls`
+  (a UI Toolkit layer under the dialogs) has the steering pad, push / jump / tuck / brake (+ grab in
+  the park, talk when others are about), reset / camera / pause, and drag-to-look; `RunController`
+  reads it beside the keyboard. On touch there is no mouse capture, key hints are hidden, a tap skips
+  cutscene and ride, phones start on LOW at 0.7 resolution with a larger interface. Not yet on touch:
+  walking in the tavern and the beer game. Test in the browser pane at 740x360 (it emulates a phone;
+  clicks arrive as mouse clicks, so UI Toolkit buttons work but `Touchscreen` taps do not).
 - **Direct lines.** `LiveLink` + `Plugins/WebGL/LastRunLink.jslib`: WebRTC data channels (PeerJS)
   between players in the room, 20 samples a second, played about 0.12 s behind (`LiveTimeline`);
   the room's packets stay as the fallback. Try it in a WebGL build with two tabs on a local

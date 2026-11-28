@@ -58,7 +58,7 @@ namespace Ski.Game
             _ringBox = Ui.Div(bottom, "center");
             _ring = new PoleRing();
             _ringBox.Add(_ring);
-            Ui.Keys(_ringBox, "CLICK", "at the top");
+            Ui.Keys(_ringBox, Device.Touch ? "PUSH" : "CLICK", "at the top");
             _carveBox = Ui.Div(bottom, "center");
             _carve = new CarveMeter { CarveMin = s.Sim.P.CarveMin, CarveMax = s.Sim.P.CarveMax };
             _carveBox.Add(_carve);
@@ -68,10 +68,20 @@ namespace Ski.Game
             if (SaveData.Voice && SaveData.Live) more.Add(("V", "talk"));
             if (SaveData.HasWalkman) more.Add(("M", "next song"));
             Ui.Controls(_hints, "tuck", "turn", "brake", "turn", "CLICK", "push", "jump", more.ToArray());
+            if (Device.Touch) _hints.style.display = DisplayStyle.None;     // the touch controls carry their own names
 
             // The trick list stays up for the whole park run.
             _tricks = Ui.Div(_root, "hud-corner hud-br");
-            if (s.ScoreBased)
+            if (s.ScoreBased && Device.Touch)
+            {
+                // On a touch screen the right corner is the buttons': the tricks go under the score.
+                _tricks.AddToClassList("hud-tricks-touch");
+                Ui.Text(_tricks, "IN THE AIR", "hint");
+                Ui.Keys(_tricks, "STEER", "spin");
+                Ui.Keys(_tricks, "TUCK BRAKE", "flip");
+                Ui.Keys(_tricks, "GRAB", "grab");
+            }
+            else if (s.ScoreBased)
             {
                 Ui.Text(_tricks, "IN THE AIR", "hint");
                 Ui.Keys(_tricks, "W S", "flip");
@@ -190,7 +200,7 @@ namespace Ski.Game
 
             // Key hints fade once the run is properly under way.
             _hintTime += dt;
-            bool hints = s.Phase == RunPhase.Ready || s.Time < 7f && s.Phase == RunPhase.Running;
+            bool hints = !Device.Touch && (s.Phase == RunPhase.Ready || s.Time < 7f && s.Phase == RunPhase.Running);
             _hints.style.display = hints ? DisplayStyle.Flex : DisplayStyle.None;
 
             // Pop-ups.
