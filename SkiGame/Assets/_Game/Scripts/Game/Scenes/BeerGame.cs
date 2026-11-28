@@ -39,16 +39,31 @@ namespace Ski.Game
             if (ui != null)
             {
                 _ui = Ui.Div(ui.ScreenLayer, "layer");
+                if (Device.Touch)
+                {
+                    // On a phone or tablet the whole screen is the gulp button, while the beer is going down.
+                    var tap = Ui.Div(_ui, "touch-look");
+                    tap.pickingMode = PickingMode.Position;
+                    tap.RegisterCallback<PointerDownEvent>(_ => { if (_result == null) _tapped = true; });
+                }
                 var panel = Ui.Div(_ui, "mini-panel");
                 _status = Ui.Text(panel, "GET READY...", "h1 outlined");
                 _timer = Ui.Text(panel, "", "h2 outlined");
                 _bar = new ZoneBar();
                 panel.Add(_bar);
                 var gulp = Ui.Div(panel, "beer-gulp");
-                Ui.Keys(gulp, "SPACE", "gulp in green");
+                Ui.Keys(gulp, Device.Touch ? "TAP" : "SPACE", "gulp in green");
                 var keys = Ui.Div(panel, "row beer-keys");
-                Ui.Keys(keys, "R", "restart");
-                Ui.Keys(keys, "ESC", "leave");
+                if (Device.Touch)
+                {
+                    Ui.Btn(keys, "RESTART", () => _restartTapped = true, "btn-plain btn-small");
+                    Ui.Btn(keys, "LEAVE", () => _leaveTapped = true, "btn-plain btn-small");
+                }
+                else
+                {
+                    Ui.Keys(keys, "R", "restart");
+                    Ui.Keys(keys, "ESC", "leave");
+                }
             }
             Begin();
         }
@@ -118,13 +133,32 @@ namespace Ski.Game
             _foam.gameObject.SetActive(level > 0.02f);
         }
 
+        // Taps on a phone or tablet, taken on the next tick: a gulp, leaving, starting over.
+        bool _tapped, _leaveTapped, _restartTapped;
+
+        /// <summary>Under a result: again or done (keys, or buttons on a touch screen).</summary>
+        void AgainOrDone(VisualElement row)
+        {
+            if (Device.Touch)
+            {
+                Ui.Btn(row, "AGAIN", () => _tapped = true, "btn-plain btn-small");
+                Ui.Btn(row, "DONE", () => _leaveTapped = true, "btn-plain btn-small");
+            }
+            else
+            {
+                Ui.Keys(row, "SPACE", "again");
+                Ui.Keys(row, "ESC", "done");
+            }
+        }
+
         public void Tick(float dt)
         {
             var kb = Keyboard.current;
-            bool press = kb != null && kb.spaceKey.wasPressedThisFrame;
+            bool press = (kb != null && kb.spaceKey.wasPressedThisFrame) || _tapped;
             // E is for using things, so it never leaves the game by accident: Esc (or Q) leaves, R starts over.
-            bool leave = kb != null && (kb.escapeKey.wasPressedThisFrame || kb.qKey.wasPressedThisFrame);
-            bool restart = kb != null && kb.rKey.wasPressedThisFrame;
+            bool leave = (kb != null && (kb.escapeKey.wasPressedThisFrame || kb.qKey.wasPressedThisFrame)) || _leaveTapped;
+            bool restart = (kb != null && kb.rKey.wasPressedThisFrame) || _restartTapped;
+            _tapped = _leaveTapped = _restartTapped = false;
 
             if (restart) { Begin(); return; }
             if (_result != null)
@@ -206,8 +240,7 @@ namespace Ski.Game
             Ui.Text(card, "TOO SLOW!", "h1");
             Ui.Text(card, "A minute is all you get.", "small");
             var row = Ui.Div(card);
-            Ui.Keys(row, "SPACE", "again");
-            Ui.Keys(row, "ESC", "done");
+            AgainOrDone(row);
         }
 
         void Finish()
@@ -284,8 +317,7 @@ namespace Ski.Game
             System.Action<float> tick = null;
             tick = ui.AddTicker(dt => { waited += dt; if (shownWorld || board.parent == null) { ui.RemoveTicker(tick); return; } if (waited > 8f) { ui.RemoveTicker(tick); Local(); } });
             var row = Ui.Div(card);
-            Ui.Keys(row, "SPACE", "again");
-            Ui.Keys(row, "ESC", "done");
+            AgainOrDone(row);
         }
 
         public void Dispose()

@@ -180,6 +180,12 @@ namespace Ski.Game
             refresh();
             SliderRow(card, "Resolution", SaveData.RenderScale, 0.5f, 1f, v => { SaveData.RenderScale = v; GraphicsQuality.Apply(); });
             ToggleRow(card, "Show FPS", SaveData.ShowFps, v => SaveData.ShowFps = v);
+            // A phone or tablet: the whole screen from the first tap (an iPhone's Safari cannot; the home screen can).
+            if (Device.Touch)
+            {
+                if (Device.CanFullscreen) ToggleRow(card, "Full screen", Device.Fullscreen, v => Device.Fullscreen = v);
+                else if (!Device.FromHomeScreen) Ui.Text(card, "Full screen: Share, then Add to Home Screen.", "small");
+            }
             Ui.Text(card, "Lower these if it stutters.", "small");
         }
 

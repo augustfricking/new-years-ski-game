@@ -13,10 +13,29 @@ namespace Ski.Game
 #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")] static extern int LRCoarsePointer();
         [DllImport("__Internal")] static extern int LRShortSide();
+        [DllImport("__Internal")] static extern int LRFullscreenKind();
+        [DllImport("__Internal")] static extern int LRFullscreenWanted();
+        [DllImport("__Internal")] static extern void LRSetFullscreenWanted(int on);
 #else
         static int LRCoarsePointer() => 0;
         static int LRShortSide() => 1000;
+        static int LRFullscreenKind() => 2;
+        static int _editorFull = 1;
+        static int LRFullscreenWanted() => _editorFull;
+        static void LRSetFullscreenWanted(int on) => _editorFull = on;
 #endif
+
+        /// <summary>The page can take the whole screen by itself (not in an iPhone's Safari).</summary>
+        public static bool CanFullscreen => LRFullscreenKind() == 2;
+        /// <summary>Running from the home screen already, without the browser's bars.</summary>
+        public static bool FromHomeScreen => LRFullscreenKind() == 1;
+
+        /// <summary>On a finger device the game takes the whole screen at the first tap (see index.html), unless turned off.</summary>
+        public static bool Fullscreen
+        {
+            get => LRFullscreenWanted() == 1;
+            set => LRSetFullscreenWanted(value ? 1 : 0);
+        }
 
         /// <summary>For trying the touch controls in the Editor.</summary>
         public static bool ForceTouch;

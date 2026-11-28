@@ -332,9 +332,11 @@ Ghosts and boards
       resolution with a larger interface, tablets on MEDIUM; no mouse capture, no key hints, "Tap a
       run", a tap skips the cutscene and the ride, a turn-sideways note when held upright, the
       phone's keyboard for names and accounts
-- [ ] Walking in the tavern and the beer game on touch
+- [x] Walking in the tavern and the beer game on touch (walk pad, USE/PUNCH/JUMP, tap to gulp, RESTART/LEAVE, AGAIN/DONE)
+- [x] Steering box with nine zones (columns turn, top row tucks, bottom row brakes); its outline shows at a run's start and after 10 s untouched (TouchZones, TouchTests)
+- [x] Full screen from the first tap on Android/iPad (index.html, Settings > Graphics toggle); manifest + icons for Add to Home Screen (iPhone)
 - [ ] Tilt to steer (an option), swipes for tricks, vibration on crashes
-- [ ] Mobile texture format (ASTC) and memory checked on an iPhone; Add to Home Screen for fullscreen
+- [ ] Mobile texture format (ASTC) and memory checked on an iPhone
 - [ ] A test on a real phone and tablet
 
 ## Known gaps and ideas

@@ -1545,6 +1545,80 @@
     border-color: rgb(27, 20, 48);
 }
 
+/* The steering box: nine zones (turn by column, tuck on the top row, brake on the bottom one). */
+.touch-steer {
+    position: absolute;
+    left: 30px;
+    bottom: 30px;
+    width: 630px;
+    height: 430px;
+}
+
+.touch-steer-frame {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 40px;
+    background-color: rgba(27, 20, 48, 0.2);
+    border-width: 3px;
+    border-color: rgba(245, 235, 216, 0.55);
+}
+
+.touch-steer-line {
+    position: absolute;
+    background-color: rgba(245, 235, 216, 0.28);
+}
+
+.touch-steer-col {
+    top: 12px;
+    bottom: 12px;
+    width: 2px;
+}
+
+.touch-steer-row {
+    left: 12px;
+    right: 12px;
+    height: 2px;
+}
+
+.touch-steer-label {
+    position: absolute;
+    -unity-text-align: middle-center;
+    font-size: 28px;
+    color: rgba(245, 235, 216, 0.75);
+    -unity-font-definition: resource("Fonts/Bangers-Regular");
+}
+
+.touch-steer-top {
+    left: 33.3%;
+    width: 33.4%;
+    top: 0;
+    height: 33.3%;
+}
+
+.touch-steer-bottom {
+    left: 33.3%;
+    width: 33.4%;
+    bottom: 0;
+    height: 33.3%;
+}
+
+.touch-steer-left {
+    left: 0;
+    width: 33.3%;
+    top: 33.3%;
+    height: 33.4%;
+}
+
+.touch-steer-right {
+    right: 0;
+    width: 33.3%;
+    top: 33.3%;
+    height: 33.4%;
+}
+
 .touch-btn {
     position: absolute;
     width: 160px;
@@ -1577,26 +1651,21 @@
     bottom: 40px;
 }
 
-.touch-tuck {
+.touch-punch {
     right: 70px;
     bottom: 310px;
 }
 
-.touch-brake {
-    right: 280px;
-    bottom: 230px;
-}
-
 .touch-grab {
-    right: 480px;
-    bottom: 170px;
+    right: 290px;
+    bottom: 230px;
     width: 140px;
     height: 140px;
     border-radius: 70px;
 }
 
 .touch-talk {
-    left: 660px;
+    left: 690px;
     bottom: 50px;
     width: 130px;
     height: 130px;

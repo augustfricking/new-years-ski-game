@@ -87,6 +87,8 @@ namespace Ski.Game
         float _djFlourish;
         /// <summary>True while something on screen has the keys (the beer game, the song list).</summary>
         public bool Busy => Game != null || _picker != null;
+        /// <summary>Something is in reach to use (to sit at, a beer, a song, the door...).</summary>
+        public bool CanUse { get; private set; }
         /// <summary>The frame something on screen let go of the keys.</summary>
         public int BusyEndFrame = -1;
 
@@ -212,6 +214,7 @@ namespace Ski.Game
                 var more = new System.Collections.Generic.List<(string, string)> { ("E", "use") };
                 if (SaveData.Voice && SaveData.Live) more.Add(("V", "talk"));
                 Ui.Controls(keys, "walk", "", "", "", "CLICK", "punch", "jump", more.ToArray());
+                if (Device.Touch) keys.style.display = DisplayStyle.None;     // the touch controls carry their own names
             }
             if (!Device.Touch) UnityEngine.Cursor.lockState = CursorLockMode.Locked;
             PlaceCamera(0f);
@@ -869,7 +872,8 @@ namespace Ski.Game
                     SaveData.Record(_who, p => p.songsRequested++);
                 }, "btn-plain song-row" + (s.id == now ? " btn-selected" : ""));
             }
-            Ui.Keys(card, "ESC", "close");
+            if (Device.Touch) Ui.Btn(card, "CLOSE", ClosePicker, "btn-plain");
+            else Ui.Keys(card, "ESC", "close");
             UnityEngine.Cursor.lockState = CursorLockMode.None;
         }
 
@@ -1490,14 +1494,22 @@ namespace Ski.Game
             }
             if (AnimateMyKnock(dt)) return;
             if (Dialogs.Open) return;
-            if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame && _punch >= 1f && _time > 0.6f) Punch();
+            // On a phone or tablet the fingers (TouchControls) do what the keys and the mouse do.
+            var fingers = TouchControls.OnFoot ? TouchControls.I : null;
+            bool punch = (!Device.Touch && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) || (fingers != null && fingers.TakePunch());
+            if (punch && _punch >= 1f && _time > 0.6f) Punch();
 
             // Walk.
             var kb = Keyboard.current; var mouse = Mouse.current;
-            if (mouse != null)
+            if (mouse != null && !Device.Touch)
             {
                 Vector2 d = mouse.delta.ReadValue() * SaveData.MouseSensitivity;
                 _yaw += d.x; _pitch = Mathf.Clamp(_pitch + (SaveData.InvertLook ? -d.y : d.y), -70f, 70f);
+            }
+            if (fingers != null)
+            {
+                Vector2 d = fingers.TakeLook() * 0.16f * (SaveData.MouseSensitivity / 0.12f);
+                _yaw += d.x; _pitch = Mathf.Clamp(_pitch + (SaveData.InvertLook ? d.y : -d.y), -70f, 70f);
             }
             Vector3 move = Vector3.zero;
             if (kb != null)
@@ -1507,15 +1519,18 @@ namespace Ski.Game
                 if (kb.dKey.isPressed) move.x += 1f;
                 if (kb.aKey.isPressed) move.x -= 1f;
             }
+            // A thumb walks as far as it is pushed (a small push: a slow step); keys walk at full pace.
+            if (fingers != null && fingers.Move.sqrMagnitude > 0.04f) { move.x += fingers.Move.x; move.z += fingers.Move.y; }
             if (move.sqrMagnitude > 0f && _seatTable >= 0) { StandUp(); move = Vector3.zero; }
             if (move.sqrMagnitude > 0f)
             {
-                move = Quaternion.Euler(0f, _yaw, 0f) * move.normalized * 2.6f * dt;
+                Vector3 dir = fingers != null ? Vector3.ClampMagnitude(move, 1f) : move.normalized;
+                move = Quaternion.Euler(0f, _yaw, 0f) * dir * 2.6f * dt;
                 TryMove(move);
                 if (_grounded) _bob += dt * 9f;
                 _lastMove = Time.time;
             }
-            if (_seatTable < 0) Climb(kb != null && kb.spaceKey.wasPressedThisFrame, dt);
+            if (_seatTable < 0) Climb((kb != null && kb.spaceKey.wasPressedThisFrame) || (fingers != null && fingers.TakeJump()), dt);
             PlaceCamera(dt);
 
             // What can we do here?
@@ -1527,8 +1542,11 @@ namespace Ski.Game
             bool atToilet = new Vector2(_pos.x - ToiletSpot.x, _pos.z - ToiletSpot.z).magnitude < 1.1f;
             Vector3 seatPos = default; float seatSide = 0f; int seat = -1;
             if (_seatTable < 0 && !atBar && !atDj && !atWalkman && !atDoor && !atToilet && _grounded && _pos.y < 0.05f) seat = FreeSeat(out seatPos, out seatSide);
-            if (_prompt != null) _prompt.text = _seatTable >= 0 ? "[E]  STAND UP" : atBar ? "[E]  BEER CHALLENGE" : atDj ? "[E]  REQUEST A SONG" : atWalkman ? "[E]  TAKE THE WALKMAN" : atDoor ? "[E]  OUTSIDE" : atToilet ? "[E]  FLUSH" : seat >= 0 ? "[E]  SIT DOWN" : "";
-            if (kb != null && kb.eKey.wasPressedThisFrame)
+            string action = _seatTable >= 0 ? "STAND UP" : atBar ? "BEER CHALLENGE" : atDj ? "REQUEST A SONG" : atWalkman ? "TAKE THE WALKMAN" : atDoor ? "OUTSIDE" : atToilet ? "FLUSH" : seat >= 0 ? "SIT DOWN" : "";
+            CanUse = action.Length > 0;
+            // The key to press goes in front, on a keyboard; on a touch screen the USE button shows up instead.
+            if (_prompt != null) _prompt.text = !CanUse ? "" : Device.Touch ? action : "[E]  " + action;
+            if ((kb != null && kb.eKey.wasPressedThisFrame) || (fingers != null && fingers.TakeUse()))
             {
                 if (_seatTable >= 0) StandUp();
                 else if (seat >= 0) { _seatTable = seat; _seatPos = seatPos; _seatSide = seatSide; _pos = new Vector3(seatPos.x, 0f, seatPos.z); _vy = 0f; _grounded = true; _yaw = seatSide > 0f ? 180f : 0f; AudioDirector.Sfx("land", 0.3f, 1.3f); }
