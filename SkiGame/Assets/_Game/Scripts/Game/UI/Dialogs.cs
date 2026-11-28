@@ -191,6 +191,7 @@ namespace Ski.Game
 
         static void ControlsSection(VisualElement card)
         {
+            if (Device.Touch) { FingerControls(card); return; }
             SliderRow(card, "Mouse sensitivity", SaveData.MouseSensitivity, 0.03f, 0.35f, v => SaveData.MouseSensitivity = v);
             ToggleRow(card, "Invert look up/down", SaveData.InvertLook, v => SaveData.InvertLook = v);
             var cols = Ui.Div(card, "row keys-columns");
@@ -218,6 +219,67 @@ namespace Ski.Game
             Ui.Keys(other, "M", "next song");
             Ui.Keys(other, "N", "walkman on / off");
             Ui.Keys(other, "ESC", "pause");
+        }
+
+        /// <summary>
+        /// On a phone or tablet: the screen turned sideways with the controls where they are on a run
+        /// (<see cref="TouchControls"/>, the same places at half size), then what each one does.
+        /// </summary>
+        static void FingerControls(VisualElement card)
+        {
+            // The look speed is the mouse's setting: a dragged finger goes by it too.
+            SliderRow(card, "Look speed", SaveData.MouseSensitivity, 0.03f, 0.35f, v => SaveData.MouseSensitivity = v);
+            ToggleRow(card, "Invert look up/down", SaveData.InvertLook, v => SaveData.InvertLook = v);
+
+            var phone = Ui.Div(card, "phone");
+            Ui.Div(phone, "phone-cam");
+            var screen = Ui.Div(phone, "phone-screen");
+            Ui.Text(screen, "DRAG TO LOOK", "phone-look");
+            var stick = Ui.Div(screen, "phone-stick");
+            Ui.Div(stick, "phone-split");
+            Ui.Div(stick, "phone-knob");
+            Ui.Text(screen, "STEER", "phone-stick-label");
+            foreach (var (label, place) in new[] { ("PUSH", "phone-push"), ("JUMP", "phone-jump"), ("TUCK", "phone-tuck"),
+                                                   ("BRAKE", "phone-brake"), ("GRAB", "phone-grab"), ("TALK", "phone-talk") })
+                Ui.Text(Ui.Div(screen, "phone-btn " + place), label, "phone-label");
+            var top = Ui.Div(screen, "phone-top");
+            foreach (var label in new[] { "RESET", "CAM", "SETTINGS" }) Ui.Text(top, label, "phone-small");
+
+            var cols = Ui.Div(card, "row keys-columns");
+            var ski = Ui.Div(cols, "keys-column");
+            Ui.Text(ski, "SKIING", "keys-heading");
+            Finger(ski, "STEER", "turn");
+            Finger(ski, "LET GO", "straight");
+            Finger(ski, "PUSH", "pole push");
+            Finger(ski, "JUMP", "jump");
+            Finger(ski, "TUCK", "hold to tuck");
+            Finger(ski, "BRAKE", "hold to brake");
+            Finger(ski, "TUCK BRAKE", "flip in the air");
+            Finger(ski, "STEER", "spin in the air");
+            Finger(ski, "GRAB", "grab (park)");
+            Finger(ski, "RESET", "back on the line");
+            Finger(ski, "CAM", "camera");
+            var other = Ui.Div(cols, "keys-column");
+            Ui.Text(other, "TAVERN", "keys-heading");
+            Finger(other, "WALK", "walk");
+            Finger(other, "USE", "use, sit, request");
+            Finger(other, "PUNCH", "punch");
+            Finger(other, "JUMP", "jump");
+            Finger(other, "TAP", "gulp (bar game)");
+            Ui.Text(other, "ANYWHERE", "keys-heading");
+            Finger(other, "DRAG", "look around");
+            Finger(other, "TALK", "hold to talk");
+            Finger(other, "SETTINGS", "pause");
+        }
+
+        /// <summary>A row of the finger controls: the buttons as they look on the screen, then what they do.</summary>
+        static void Finger(VisualElement parent, string buttons, string what)
+        {
+            var row = Ui.Div(parent, "keys-row");
+            // "LET GO" is one thing, not two buttons.
+            var names = buttons == "LET GO" ? new[] { buttons } : buttons.Split(' ');
+            foreach (var b in names) Ui.Text(row, b, "finger-key");
+            Ui.Text(row, what, "hint");
         }
 
         static void OnlineSection(VisualElement card)
@@ -438,9 +500,8 @@ namespace Ski.Game
         {
             var card = Begin("PAUSED");
             AddSettings(card);
-            var row = Ui.Div(card, "row");
-            row.style.justifyContent = Justify.Center;
-            row.style.flexWrap = Wrap.Wrap;
+            // One row (the dialog widens for it): a button pushed onto a line of its own looked broken.
+            var row = Ui.Div(card, "row pause-buttons");
             Ui.Btn(row, "RESUME", () => { Close(); resume?.Invoke(); });
             if (restart != null) Ui.Btn(row, "RESTART RUN", () => { Close(); restart(); }, "btn-plain");
             if (toMap != null) Ui.Btn(row, "SKI MAP", () => { Close(); toMap(); }, "btn-plain");

@@ -1,11 +1,12 @@
 using Ski.Core;
 using Ski.Game;
 using UnityEngine;
-// Opens one screen for a screenshot (pose.txt: "shop", "settings 0..3", "beer", "mapinfo 0..4").
-SaveData.NameAsked = true; Dialogs.Close();
+// Opens one screen for a screenshot (pose.txt: "shop", "settings 0..3", "pause 0..3", "beer", "mapinfo 0..4").
+// scroll_dialog.cs then scrolls a dialog down.
 string[] a = System.IO.File.ReadAllText(System.IO.Path.Combine(Application.dataPath, "../Screenshots/pose.txt")).Trim().Split(' ');
 var app = GameApp.Instance;
 var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static;
+SaveData.NameAsked = true; Dialogs.Close();
 switch (a[0])
 {
     case "shop":
@@ -15,6 +16,10 @@ switch (a[0])
         typeof(Dialogs).GetField("_section", flags).SetValue(null, int.Parse(a[1]));
         Dialogs.Settings();
         return "settings";
+    case "pause":
+        typeof(Dialogs).GetField("_section", flags).SetValue(null, int.Parse(a[1]));
+        Dialogs.Pause(() => { }, () => { }, () => { }, () => { });
+        return "pause";
     case "beer":
         if (app.Tavern == null) app.ShowTavern();
         app.Tavern.StartGame();

@@ -337,6 +337,7 @@ Ghosts and boards
 - [x] Round stick instead of the box: much smaller, a visible knob dragged from the middle, eight ways the same distance out (also walks in the tavern); TALK with the right-hand buttons; RESET / CAM / SETTINGS / pause along the top edge, clear of the time, the speed and the push ring
 - [x] Owner's round 3: TUCK / BRAKE buttons again, the stick steers by halves only (letting go goes straight); SETTINGS opens the pause menu (no separate pause; BACK out of a replay); a tap's pretend mouse copy dropped (the camera switched back, a gulp spilled); phones and tablets start on HIGH at full resolution (once also for those on the old light defaults)
 - [x] Full screen from the first tap on Android/iPad (index.html, Settings > Graphics toggle); manifest + icons for Add to Home Screen (iPhone)
+- [x] Owner's round 4: one touch is one press (Unity re-reports a finger's press each time its touch phase changes, so CAM switched back; TouchControls.Press, also the beer game's gulp); sharp on phones (index.html draws at up to 2.5 device pixels per page pixel on touch screens, was 1.5) and the ski map held closer on a phone; Settings > Controls on touch shows the screen turned sideways with the controls in place, then what each does; the pause menu's buttons on one row
 - [ ] Tilt to steer (an option), swipes for tricks, vibration on crashes
 - [ ] Mobile texture format (ASTC) and memory checked on an iPhone
 - [ ] A test on a real phone and tablet

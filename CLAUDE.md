@@ -71,7 +71,10 @@ The game design lives in `docs/GAME_SPEC.md` (source of truth). The plan and mil
   (+ grab in the park, talk when others are about) bottom right, reset / camera / settings (the pause menu) along
   the top edge, and drag-to-look; a mouse event right after a finger is the browser's copy of the tap and is
   dropped (`TouchControls.DropCopy`), or every tap acted twice; `RunController`
-  reads it beside the keyboard. On touch there is no mouse capture, key hints are hidden, a tap skips
+  reads it beside the keyboard. One touch is one press (`TouchControls.Press`): Unity's UI input re-sends a finger's
+  press each time its touch phase changes (began, moved, still), with the same pointer, so act on a button's first
+  press only. Settings > Controls draws the phone's controls on touch (`Dialogs.FingerControls`). index.html draws
+  at up to 2.5 device pixels per page pixel on touch screens (1.5 on computers). On touch there is no mouse capture, key hints are hidden, a tap skips
   cutscene and ride, phones and tablets start on HIGH at full resolution, phones with a larger interface. Full screen: `index.html` takes it at the first
   tap (not possible in iPhone Safari: Add to Home Screen, `manifest.webmanifest`, icons by `tools/art/make_icons.py`).
   Test in the browser pane at 740x360 (it emulates a phone; clicks arrive as mouse clicks, so UI Toolkit buttons work but `Touchscreen` taps do not).

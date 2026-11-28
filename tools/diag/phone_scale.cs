@@ -4,5 +4,6 @@ string arg = System.IO.File.ReadAllText(System.IO.Path.Combine(UnityEngine.Appli
 var ps = UnityEngine.Resources.Load<UnityEngine.UIElements.PanelSettings>("UI/Panel");
 bool on = arg == "on";
 Ski.Game.Device.ForceTouch = on;
+Ski.Game.Device.EditorShortSide = on ? 412 : 1000;     // a phone's short side
 ps.referenceResolution = on ? new UnityEngine.Vector2Int(1440, 810) : new UnityEngine.Vector2Int(1920, 1080);
 return "phone scale " + (on ? "on" : "off") + ", panel " + ps.referenceResolution;

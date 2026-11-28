@@ -18,7 +18,7 @@ namespace Ski.Game
         [DllImport("__Internal")] static extern void LRSetFullscreenWanted(int on);
 #else
         static int LRCoarsePointer() => 0;
-        static int LRShortSide() => 1000;
+        static int LRShortSide() => EditorShortSide;
         static int LRFullscreenKind() => 2;
         static int _editorFull = 1;
         static int LRFullscreenWanted() => _editorFull;
@@ -39,6 +39,8 @@ namespace Ski.Game
 
         /// <summary>For trying the touch controls in the Editor.</summary>
         public static bool ForceTouch;
+        /// <summary>The Editor's pretend screen, its short side in page pixels (under 700: a phone, with <see cref="ForceTouch"/>).</summary>
+        public static int EditorShortSide = 1000;
 
         static int _touch = -1;
 
@@ -60,7 +62,7 @@ namespace Ski.Game
         /// <summary>A touch device with a big screen (a tablet): it gets more of the graphics, and the interface at its usual size.</summary>
         public static bool Tablet => Touch && LRShortSide() >= 700;
 
-        /// <summary>A phone: the lightest graphics and a larger interface.</summary>
+        /// <summary>A phone: a larger interface, and the ski map held closer.</summary>
         public static bool Phone => Touch && !Tablet;
     }
 }

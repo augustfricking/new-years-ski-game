@@ -373,7 +373,9 @@ namespace Ski.Game
         void Pose(float open)
         {
             float e = 1f - Mathf.Pow(1f - Mathf.Clamp01(open), 3f);
-            _map.localPosition = new Vector3(0f, Mathf.Lerp(-0.75f, -0.045f, e), Mathf.Lerp(0.5f, 0.6f, e));
+            // On a phone's small screen the map is held a little closer: bigger print, still clear of the title.
+            bool phone = Device.Phone;
+            _map.localPosition = new Vector3(0f, Mathf.Lerp(-0.75f, phone ? -0.038f : -0.045f, e), Mathf.Lerp(0.5f, phone ? 0.53f : 0.6f, e));
             _map.localRotation = Quaternion.Euler(Mathf.Lerp(70f, 12f, e), 0f, Mathf.Sin(_time * 0.9f) * 0.6f);
         }
 

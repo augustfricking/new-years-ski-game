@@ -76,6 +76,16 @@
     const fill = document.querySelector("#fill");
     const hint = document.querySelector("#hint");
     const loading = document.querySelector("#loading");
+    // How sharp the picture is drawn. A phone packs about three pixels into each of the page's (small text
+    // such as the ski map is soft at less); a computer's big screen stays at 1.5, where more costs a lot for
+    // little. Asked again at the first touches, as a browser may tell a moment late that it is a phone.
+    const pixels = () => {
+      const touch = !!(window.matchMedia && matchMedia("(pointer: coarse)").matches);
+      return Math.min(window.devicePixelRatio || 1, touch ? 2.5 : 1.5);
+    };
+    let game = null;
+    const sharpen = () => { if (game && game.Module) game.Module.devicePixelRatio = pixels(); };
+    document.addEventListener("touchstart", sharpen, { capture: true, passive: true });
     const buildUrl = "Build";
     const loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}";
     const config = {
@@ -96,14 +106,13 @@
       productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
       matchWebGLToCanvasSize: true,
       autoSyncPersistentDataPath: true,
-      // Very dense screens would render four times the pixels for little gain.
-      devicePixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
+      devicePixelRatio: pixels(),
     };
     const script = document.createElement("script");
     script.src = loaderUrl;
     script.onload = () => {
       createUnityInstance(canvas, config, (progress) => { fill.style.width = (100 * progress) + "%"; })
-        .then(() => { loading.style.display = "none"; canvas.focus(); })
+        .then((instance) => { game = instance; sharpen(); loading.style.display = "none"; canvas.focus(); })
         .catch((message) => { hint.textContent = "Could not start: " + message; });
     };
     script.onerror = () => { hint.textContent = "Could not load the game files."; };

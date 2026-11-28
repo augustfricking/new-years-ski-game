@@ -44,7 +44,7 @@ namespace Ski.Game
                     // On a phone or tablet the whole screen is the gulp button, while the beer is going down.
                     var tap = Ui.Div(_ui, "touch-look");
                     tap.pickingMode = PickingMode.Position;
-                    tap.RegisterCallback<PointerDownEvent>(_ => { if (_result == null) _tapped = true; });
+                    TouchControls.OnPress(tap, () => { if (_result == null) _tapped = true; });     // one gulp per tap
                 }
                 var panel = Ui.Div(_ui, "mini-panel");
                 _status = Ui.Text(panel, "GET READY...", "h1 outlined");

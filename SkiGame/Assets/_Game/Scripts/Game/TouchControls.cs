@@ -13,11 +13,12 @@ namespace Ski.Game
     /// at the start of a run and after a while untouched; the knob always. The right thumb pushes off with
     /// the poles (in time with the ring, as the click), jumps, and holds tuck or brake, with grab (in the
     /// park) and talk (when others are about) beside them. A row of small buttons along the top edge: back
-    /// on course, the camera, settings and pause. In the air the same controls do the tricks, as the keys do.
+    /// on course, the camera, and settings (the pause menu). In the air the same controls do the tricks, as the keys do.
     ///
-    /// A phone's browser follows every tap with a pretend mouse click (for pages made for a mouse). The
-    /// game hears the finger already, so that copy is dropped everywhere in the interface; otherwise every
-    /// tap acted twice (the camera switched and switched back, a gulp spilled).
+    /// One touch is one press. Unity tells the interface a finger pressed again each time the finger shifts
+    /// on the glass (the touch goes from began to moved or still), so a finger already on a button counts
+    /// again only after it lifts (<see cref="Press"/>); otherwise the camera switched and switched back. A
+    /// phone's browser may also follow a tap with a pretend mouse click: that copy is dropped everywhere.
     ///
     /// On foot (the tavern), the same stick walks (any way, slower for a small push); the right thumb uses
     /// what is in reach (sit, a beer, a song, the door...), punches and jumps.
@@ -234,17 +235,7 @@ namespace Ski.Game
             var b = Ui.Div(parent, classes);
             b.pickingMode = PickingMode.Position;
             Ui.Text(b, label, "touch-label").pickingMode = PickingMode.Ignore;
-            int lastPointer = -1; float lastAt = -10f;
-            b.RegisterCallback<PointerDownEvent>(e =>
-            {
-                e.StopPropagation();
-                // One tap heard twice (by two of the browser's devices) acts once.
-                if (e.pointerId != lastPointer && Time.unscaledTime - lastAt < 0.3f) return;
-                lastPointer = e.pointerId; lastAt = Time.unscaledTime;
-                act(); b.AddToClassList("touch-down");
-            });
-            b.RegisterCallback<PointerUpEvent>(_ => b.RemoveFromClassList("touch-down"));
-            b.RegisterCallback<PointerLeaveEvent>(_ => b.RemoveFromClassList("touch-down"));
+            new Press(b, () => { act(); b.AddToClassList("touch-down"); }, () => b.RemoveFromClassList("touch-down"), true);
             return b;
         }
 
@@ -254,18 +245,77 @@ namespace Ski.Game
             var b = Ui.Div(parent, classes);
             b.pickingMode = PickingMode.Position;
             Ui.Text(b, label, "touch-label").pickingMode = PickingMode.Ignore;
-            int pointer = -1;
-            void Release() { pointer = -1; set(false); b.RemoveFromClassList("touch-down"); }
-            b.RegisterCallback<PointerDownEvent>(e =>
-            {
-                if (pointer >= 0) return;
-                pointer = e.pointerId; b.CapturePointer(e.pointerId);
-                set(true); b.AddToClassList("touch-down");
-                e.StopPropagation();
-            });
-            b.RegisterCallback<PointerUpEvent>(e => { if (e.pointerId != pointer) return; b.ReleasePointer(e.pointerId); Release(); });
-            b.RegisterCallback<PointerCaptureOutEvent>(e => { if (e.pointerId == pointer) Release(); });
+            new Press(b, () => { set(true); b.AddToClassList("touch-down"); }, () => { set(false); b.RemoveFromClassList("touch-down"); }, false);
             return b;
+        }
+
+        /// <summary>Calls <paramref name="act"/> once for each new touch of <paramref name="el"/> (see <see cref="Press"/>).</summary>
+        public static void OnPress(VisualElement el, System.Action act) => new Press(el, act, null, true);
+
+        /// <summary>
+        /// One press per touch. Unity's interface input hears a finger's press again every time the finger's
+        /// touch changes phase (began, then moved or still: any shift of the thumb), with the same pointer, so
+        /// a pointer already down here is not a new press; the next one counts after it lifts. A press right
+        /// after a lift is the browser's copy of the tap. A tap whose lift was never heard (the button was
+        /// hidden under the finger) is let go once no finger or mouse button is down any more (not a hold:
+        /// a held tuck must never drop by itself).
+        /// </summary>
+        sealed class Press
+        {
+            static readonly System.Collections.Generic.List<Press> Live = new System.Collections.Generic.List<Press>();
+            readonly System.Action _down, _up;
+            int _held = -1;
+            float _downAt, _upAt = -10f;
+
+            public Press(VisualElement el, System.Action down, System.Action up, bool settles)
+            {
+                _down = down; _up = up;
+                if (settles)
+                {
+                    if (el.panel != null) Live.Add(this);
+                    el.RegisterCallback<AttachToPanelEvent>(_ => { if (!Live.Contains(this)) Live.Add(this); });
+                }
+                el.RegisterCallback<DetachFromPanelEvent>(_ => { Live.Remove(this); Lift(); });
+                el.RegisterCallback<PointerDownEvent>(e =>
+                {
+                    e.StopPropagation();
+                    if (_held >= 0) return;                              // this finger again (or another one on it already)
+                    if (Time.unscaledTime - _upAt < 0.1f) return;        // the copy of the tap that just lifted
+                    _held = e.pointerId; _downAt = Time.unscaledTime;
+                    el.CapturePointer(e.pointerId);
+                    _down();
+                });
+                el.RegisterCallback<PointerUpEvent>(e =>
+                {
+                    if (e.pointerId != _held) return;
+                    if (el.HasPointerCapture(e.pointerId)) el.ReleasePointer(e.pointerId);
+                    Lift();
+                });
+                el.RegisterCallback<PointerCaptureOutEvent>(e => { if (e.pointerId == _held) Lift(); });
+            }
+
+            void Lift()
+            {
+                if (_held < 0) return;
+                _held = -1; _upAt = Time.unscaledTime;
+                _up?.Invoke();
+            }
+
+            /// <summary>Lets go of presses whose lift went unheard. Run once a frame.</summary>
+            public static void Settle()
+            {
+                if (Live.Count == 0 || AnyDown()) return;
+                for (int i = Live.Count - 1; i >= 0; i--)
+                    if (Live[i]._held >= 0 && Time.unscaledTime - Live[i]._downAt > 0.25f) Live[i].Lift();
+            }
+
+            static bool AnyDown()
+            {
+                var ts = UnityEngine.InputSystem.Touchscreen.current;
+                if (ts != null) foreach (var t in ts.touches) if (t.press.isPressed) return true;
+                var m = UnityEngine.InputSystem.Mouse.current;
+                return m != null && m.leftButton.isPressed;
+            }
         }
 
         static void Show(VisualElement e, bool on) => e.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
@@ -296,6 +346,7 @@ namespace Ski.Game
         void Update()
         {
             if (!Device.Touch) { if (_layer != null) SetMode(Mode.Hidden); return; }
+            Press.Settle();
             if (_layer == null) { if (Ui.Instance == null || Ui.Instance.Root == null) return; Build(); }
             var app = GameApp.Instance;
             Mode want = Mode.Hidden;
