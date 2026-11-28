@@ -66,11 +66,13 @@ The game design lives in `docs/GAME_SPEC.md` (source of truth). The plan and mil
   body is tied loosely to the run's slide, and the simulation decides the slide and the getting-up.
 - **Phones and tablets.** `Device` tells a finger from a mouse (coarse pointer; short screen side =
   phone; `?touch=1` / `?touch=0` decides by hand, `Device.ForceTouch` in the Editor). `TouchControls`
-  (a UI Toolkit layer under the dialogs) has a small round stick (a visible knob dragged out from the middle:
-  eight ways, `Ski.Core.TouchZones`; it walks in the tavern), push / jump (+ grab in the park, talk when others
-  are about) bottom right, reset / camera / settings / pause along the top edge, and drag-to-look; `RunController`
+  (a UI Toolkit layer under the dialogs) has a small round stick (a visible knob: left half turns left, right
+  half right, letting go goes straight, `Ski.Core.TouchZones`; it walks in the tavern), push / jump / tuck / brake
+  (+ grab in the park, talk when others are about) bottom right, reset / camera / settings (the pause menu) along
+  the top edge, and drag-to-look; a mouse event right after a finger is the browser's copy of the tap and is
+  dropped (`TouchControls.DropCopy`), or every tap acted twice; `RunController`
   reads it beside the keyboard. On touch there is no mouse capture, key hints are hidden, a tap skips
-  cutscene and ride, phones start on LOW at 0.7 resolution with a larger interface. Full screen: `index.html` takes it at the first
+  cutscene and ride, phones and tablets start on HIGH at full resolution, phones with a larger interface. Full screen: `index.html` takes it at the first
   tap (not possible in iPhone Safari: Add to Home Screen, `manifest.webmanifest`, icons by `tools/art/make_icons.py`).
   Test in the browser pane at 740x360 (it emulates a phone; clicks arrive as mouse clicks, so UI Toolkit buttons work but `Touchscreen` taps do not).
 - **Direct lines.** `LiveLink` + `Plugins/WebGL/LastRunLink.jslib`: WebRTC data channels (PeerJS)

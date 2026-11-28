@@ -8,13 +8,16 @@ namespace Ski.Game
     /// Playing with fingers (phones and tablets, see <see cref="Device"/>). Dragging anywhere that is not
     /// a control looks around; several fingers at once, each on its own control.
     ///
-    /// On a run, the left thumb drags the knob of a small round stick out from its middle: eight ways the
-    /// same distance out, as the keys around S (sideways turns, up tucks, down brakes, the diagonals do
-    /// both), the middle nothing (<see cref="TouchZones"/>). Its ring shows at the start of a run and after a
-    /// while untouched; the knob always. The right thumb pushes off with the poles (in time with the ring,
-    /// as the click) and jumps, with grab (in the park) and talk (when others are about) beside them. A
-    /// row of small buttons along the top edge: back on course, the camera, settings and pause. In the air
-    /// the same controls do the tricks, as the keys do.
+    /// On a run, the left thumb steers with the knob of a small round stick: left of the middle turns left,
+    /// right of it turns right, and only letting go goes straight (<see cref="TouchZones"/>). Its ring shows
+    /// at the start of a run and after a while untouched; the knob always. The right thumb pushes off with
+    /// the poles (in time with the ring, as the click), jumps, and holds tuck or brake, with grab (in the
+    /// park) and talk (when others are about) beside them. A row of small buttons along the top edge: back
+    /// on course, the camera, settings and pause. In the air the same controls do the tricks, as the keys do.
+    ///
+    /// A phone's browser follows every tap with a pretend mouse click (for pages made for a mouse). The
+    /// game hears the finger already, so that copy is dropped everywhere in the interface; otherwise every
+    /// tap acted twice (the camera switched and switched back, a gulp spilled).
     ///
     /// On foot (the tavern), the same stick walks (any way, slower for a small push); the right thumb uses
     /// what is in reach (sit, a beer, a song, the door...), punches and jumps.
@@ -36,26 +39,29 @@ namespace Ski.Game
         public float Steer => _steer != null ? _steer.Steer : 0f;
         /// <summary>Walking: x sideways, y forward, each -1..1 (shorter for a small push).</summary>
         public Vector2 Move => _walk != null ? _walk.Analog : Vector2.zero;
-        public bool Tuck => _steer != null && _steer.Tuck;
-        public bool Brake => _steer != null && _steer.Brake;
+        public bool Tuck { get; private set; }
+        public bool Brake { get; private set; }
         public bool Grab { get; private set; }
         public bool Talk { get; private set; }
 
-        bool _push, _jump, _reset, _camera, _pause, _settings, _use, _punch;
+        bool _push, _jump, _reset, _camera, _pause, _use, _punch;
         Vector2 _look;
         Mode _mode = Mode.Hidden;
         bool _modeSet;
         Stick _steer, _walk;
         object _run;      // the run the stick last saw (a new one shows its ring again)
-        VisualElement _layer, _lookArea, _skiing, _walking, _right, _top, _turn, _grab, _talk, _useBtn, _resetBtn, _camBtn, _settingsBtn;
+        VisualElement _layer, _lookArea, _skiing, _walking, _right, _top, _turn, _grab, _talk, _useBtn, _resetBtn, _camBtn, _settingsBtn,
+            _backBtn, _tuckBtn, _brakeBtn;
+        /// <summary>When a finger last touched the interface (a mouse right after it is the browser's copy).</summary>
+        static float _lastFinger = -10f;
 
         /// <summary>A tap since the last time it was asked for (each is taken once).</summary>
         public bool TakePush() { bool b = _push; _push = false; return b; }
         public bool TakeJump() { bool b = _jump; _jump = false; return b; }
         public bool TakeReset() { bool b = _reset; _reset = false; return b; }
         public bool TakeCamera() { bool b = _camera; _camera = false; return b; }
+        /// <summary>Settings (the pause menu, with the settings in it), or back out of a replay: as Esc.</summary>
         public bool TakePause() { bool b = _pause; _pause = false; return b; }
-        public bool TakeSettings() { bool b = _settings; _settings = false; return b; }
         public bool TakeUse() { bool b = _use; _use = false; return b; }
         public bool TakePunch() { bool b = _punch; _punch = false; return b; }
         /// <summary>How far the looking finger has moved since the last time (in interface units).</summary>
@@ -70,42 +76,31 @@ namespace Ski.Game
 
         /// <summary>
         /// A small round stick: the knob follows the thumb out from the middle of the ring (as far as the
-        /// ring), and springs back when it lets go. Steering reads eight ways and a middle; walking reads
-        /// how far and which way. The ring (and its marks) shows only while the stick rests.
+        /// ring), and springs back when it lets go. Steering reads which half the knob is in; walking reads
+        /// how far and which way. The ring (and its line) shows only while the stick rests.
         /// </summary>
         sealed class Stick
         {
             public float Steer;
-            public bool Tuck, Brake;
             public Vector2 Analog;
-            readonly bool _zones;
+            readonly bool _halves;
             readonly VisualElement _area, _guide, _knob;
-            int _pointer = -1, _zone = -1;
+            int _pointer = -1, _side;
             float _idle = Rest, _shown = 1f;
             /// <summary>Seconds untouched before the ring comes back.</summary>
             const float Rest = 10f;
             /// <summary>How far the knob goes from the middle, in interface units (the ring's radius less a little).</summary>
             const float Reach = 100f;
 
-            public Stick(VisualElement parent, bool zones, string up, string down)
+            public Stick(VisualElement parent, bool halves, string label)
             {
-                _zones = zones;
+                _halves = halves;
                 _area = Ui.Div(parent, "touch-stick");     // takes the thumb a little outside the ring too
                 _area.pickingMode = PickingMode.Position;
                 _guide = Ui.Div(_area, "touch-stick-guide");
                 var ring = Ui.Div(_guide, "touch-stick-ring");
-                if (zones)
-                {
-                    // A mark between each two of the eight ways.
-                    for (int i = 0; i < 8; i++)
-                    {
-                        var arm = Ui.Div(ring, "touch-stick-arm");
-                        arm.style.rotate = new Rotate(22.5f + 45f * i);
-                        Ui.Div(arm, "touch-stick-tick");
-                    }
-                }
-                if (up != null) Ui.Text(_guide, up, "touch-stick-label touch-stick-up");
-                if (down != null) Ui.Text(_guide, down, "touch-stick-label touch-stick-down");
+                if (halves) Ui.Div(ring, "touch-stick-split");     // the line between left and right
+                if (label != null) Ui.Text(_guide, label, "touch-stick-label touch-stick-up");
                 _knob = Ui.Div(_area, "touch-stick-knob");
                 Ignore(_guide); Ignore(_knob);
 
@@ -113,7 +108,7 @@ namespace Ski.Game
                 {
                     if (_pointer >= 0) return;
                     _pointer = e.pointerId; _area.CapturePointer(e.pointerId);
-                    _zone = -1;
+                    _side = 0;
                     At(e.localPosition, true);
                     e.StopPropagation();
                 });
@@ -134,18 +129,14 @@ namespace Ski.Game
                 Vector2 k = Vector2.ClampMagnitude(d, Reach);
                 _knob.style.translate = new Translate(k.x, k.y);
                 Vector2 v = new Vector2(d.x, -d.y) / Reach;         // up the screen is forward
-                if (_zones)
-                {
-                    _zone = TouchZones.Stick(v, _zone, !first);
-                    TouchZones.Read(_zone, out Steer, out Tuck, out Brake);
-                }
+                if (_halves) Steer = _side = TouchZones.Side(v.x, _side, !first);
                 else Analog = v.magnitude < TouchZones.WalkDead ? Vector2.zero : Vector2.ClampMagnitude(v, 1f);
             }
 
             void Lift()
             {
-                _pointer = -1; _idle = 0f; _zone = -1;
-                Steer = 0f; Tuck = Brake = false; Analog = Vector2.zero;
+                _pointer = -1; _idle = 0f; _side = 0;
+                Steer = 0f; Analog = Vector2.zero;
                 _knob.style.translate = new Translate(0, 0);
             }
 
@@ -178,6 +169,12 @@ namespace Ski.Game
             // Under the dialogs (a dialog takes the fingers), over the HUD.
             ui.Root.Insert(ui.Root.IndexOf(ui.DialogLayer), _layer);
 
+            // The browser's pretend mouse after a tap: dropped before it reaches anything (see the class notes).
+            ui.Root.RegisterCallback<PointerDownEvent>(e => DropCopy(e, e.pointerType), TrickleDown.TrickleDown);
+            ui.Root.RegisterCallback<PointerUpEvent>(e => DropCopy(e, e.pointerType), TrickleDown.TrickleDown);
+            ui.Root.RegisterCallback<PointerMoveEvent>(e => DropCopy(e, e.pointerType), TrickleDown.TrickleDown);
+            ui.Root.RegisterCallback<ClickEvent>(e => DropCopy(e, e.pointerType), TrickleDown.TrickleDown);
+
             // Looking around: anywhere that is not a control.
             _lookArea = Ui.Div(_layer, "touch-look");
             _lookArea.pickingMode = PickingMode.Position;
@@ -190,10 +187,10 @@ namespace Ski.Game
             // Left thumb: on a run the steering stick, on foot the walking one.
             _skiing = Ui.Div(_layer, "layer");
             _skiing.pickingMode = PickingMode.Ignore;
-            _steer = new Stick(_skiing, true, "TUCK", "BRAKE");
+            _steer = new Stick(_skiing, true, "STEER");
             _walking = Ui.Div(_layer, "layer");
             _walking.pickingMode = PickingMode.Ignore;
-            _walk = new Stick(_walking, false, "WALK", null);
+            _walk = new Stick(_walking, false, "WALK");
 
             // Right thumb: the same corner on a run and on foot, the buttons that do not apply hidden.
             _right = Ui.Div(_layer, "layer");
@@ -201,7 +198,9 @@ namespace Ski.Game
             _pushBtn = Tap(_right, "PUSH", "touch-btn touch-main", () => _push = true);
             _useBtn = Tap(_right, "USE", "touch-btn touch-main", () => _use = true);
             Tap(_right, "JUMP", "touch-btn touch-jump", () => _jump = true);
-            _grab = Hold(_right, "GRAB", "touch-btn touch-side", v => Grab = v);
+            _tuckBtn = Hold(_right, "TUCK", "touch-btn touch-side", v => Tuck = v);
+            _brakeBtn = Hold(_right, "BRAKE", "touch-btn touch-brake", v => Brake = v);
+            _grab = Hold(_right, "GRAB", "touch-btn touch-grab", v => Grab = v);
             _punchBtn = Tap(_right, "PUNCH", "touch-btn touch-side", () => _punch = true);
             _talk = Hold(_right, "TALK", "touch-btn touch-talk", v => Talk = v);
 
@@ -210,8 +209,9 @@ namespace Ski.Game
             _top.pickingMode = PickingMode.Ignore;
             _resetBtn = Tap(_top, "RESET", "touch-small", () => _reset = true);
             _camBtn = Tap(_top, "CAM", "touch-small", () => _camera = true);
-            _settingsBtn = Tap(_top, "SETTINGS", "touch-small", () => _settings = true);
-            Tap(_top, "II", "touch-small", () => _pause = true);
+            // The settings are in the pause menu (with restart and leave), so one button opens both.
+            _settingsBtn = Tap(_top, "SETTINGS", "touch-small", () => _pause = true);
+            _backBtn = Tap(_top, "BACK", "touch-small", () => _pause = true);     // out of a replay
 
             _turn = Ui.Text(ui.TopLayer, "TURN SIDEWAYS", "touch-turn");
             _turn.pickingMode = PickingMode.Ignore;
@@ -221,13 +221,28 @@ namespace Ski.Game
 
         VisualElement _pushBtn, _punchBtn;
 
+        /// <summary>A finger was here: remember when. A mouse within a second of it is the browser's copy of the tap: stopped.</summary>
+        static void DropCopy(EventBase e, string pointerType)
+        {
+            if (pointerType == UnityEngine.UIElements.PointerType.touch) { _lastFinger = Time.unscaledTime; return; }
+            if (pointerType == UnityEngine.UIElements.PointerType.mouse && Device.Touch && Time.unscaledTime - _lastFinger < 1f) e.StopImmediatePropagation();
+        }
+
         /// <summary>A button that acts the moment it is touched.</summary>
         static VisualElement Tap(VisualElement parent, string label, string classes, System.Action act)
         {
             var b = Ui.Div(parent, classes);
             b.pickingMode = PickingMode.Position;
             Ui.Text(b, label, "touch-label").pickingMode = PickingMode.Ignore;
-            b.RegisterCallback<PointerDownEvent>(e => { act(); b.AddToClassList("touch-down"); e.StopPropagation(); });
+            int lastPointer = -1; float lastAt = -10f;
+            b.RegisterCallback<PointerDownEvent>(e =>
+            {
+                e.StopPropagation();
+                // One tap heard twice (by two of the browser's devices) acts once.
+                if (e.pointerId != lastPointer && Time.unscaledTime - lastAt < 0.3f) return;
+                lastPointer = e.pointerId; lastAt = Time.unscaledTime;
+                act(); b.AddToClassList("touch-down");
+            });
             b.RegisterCallback<PointerUpEvent>(_ => b.RemoveFromClassList("touch-down"));
             b.RegisterCallback<PointerLeaveEvent>(_ => b.RemoveFromClassList("touch-down"));
             return b;
@@ -266,14 +281,16 @@ namespace Ski.Game
             Show(_walking, foot);
             Show(_right, ski || foot);
             Show(_pushBtn, ski);
+            Show(_tuckBtn, ski);
+            Show(_brakeBtn, ski);
             Show(_punchBtn, foot);
             Show(_resetBtn, ski);
             Show(_camBtn, ski);
-            Show(_settingsBtn, ski || foot);     // not over a dialog (the pause button closes that)
+            Show(_settingsBtn, ski || foot);     // not over a dialog (it has its own buttons)
             // Whatever was held or tapped belongs to the controls that went away.
             _steer?.Drop(); _walk?.Drop();
-            Grab = Talk = false;
-            _push = _jump = _reset = _camera = _settings = _use = _punch = false; _look = Vector2.zero;
+            Tuck = Brake = Grab = Talk = false;
+            _push = _jump = _reset = _camera = _use = _punch = false; _look = Vector2.zero;
         }
 
         void Update()
@@ -290,6 +307,7 @@ namespace Ski.Game
             }
             if (Dialogs.Open && (want == Mode.Skiing || want == Mode.Walking)) want = Mode.PauseOnly;
             SetMode(want);
+            Show(_backBtn, _mode == Mode.PauseOnly && app != null && app.Run != null && app.Run.Watching && !Dialogs.Open);
             bool voice = SaveData.Voice && SaveData.Live && LiveRooms.Others.Count > 0;
             float dt = Time.unscaledDeltaTime;
             if (_mode == Mode.Skiing)

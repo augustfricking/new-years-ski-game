@@ -335,6 +335,7 @@ Ghosts and boards
 - [x] Walking in the tavern and the beer game on touch (walk pad, USE/PUNCH/JUMP, tap to gulp, RESTART/LEAVE, AGAIN/DONE)
 - [x] Steering box with nine zones (columns turn, top row tucks, bottom row brakes); its outline shows at a run's start and after 10 s untouched (TouchZones, TouchTests)
 - [x] Round stick instead of the box: much smaller, a visible knob dragged from the middle, eight ways the same distance out (also walks in the tavern); TALK with the right-hand buttons; RESET / CAM / SETTINGS / pause along the top edge, clear of the time, the speed and the push ring
+- [x] Owner's round 3: TUCK / BRAKE buttons again, the stick steers by halves only (letting go goes straight); SETTINGS opens the pause menu (no separate pause; BACK out of a replay); a tap's pretend mouse copy dropped (the camera switched back, a gulp spilled); phones and tablets start on HIGH at full resolution (once also for those on the old light defaults)
 - [x] Full screen from the first tap on Android/iPad (index.html, Settings > Graphics toggle); manifest + icons for Add to Home Screen (iPhone)
 - [ ] Tilt to steer (an option), swipes for tricks, vibration on crashes
 - [ ] Mobile texture format (ASTC) and memory checked on an iPhone
