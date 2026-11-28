@@ -243,6 +243,8 @@ namespace Ski.Game
             }
             // Escape, or the pause button of the touch controls.
             bool esc = (kb != null && kb.escapeKey.wasPressedThisFrame) | (TouchControls.I != null && TouchControls.I.TakePause());
+            // The settings button of the touch controls (a run waits while they are open).
+            bool settings = TouchControls.I != null && TouchControls.I.TakeSettings() && !_busy && !Dialogs.Open;
             if (Screen == GameScreen.Run && Run != null)
             {
                 // Clicking the game captures the mouse for looking around.
@@ -251,7 +253,8 @@ namespace Ski.Game
                 if (!Device.Touch && !Dialogs.Open && (Shop == null || !Shop.IsOpen) && mouse != null && mouse.leftButton.wasPressedThisFrame
                     && Cursor.lockState != CursorLockMode.Locked && !Ui.Instance.PointerOverUi())
                     Cursor.lockState = CursorLockMode.Locked;
-                if (esc && !_busy && Shop != null && Shop.IsOpen) Shop.Close();
+                if (settings && !esc && !Run.Watching) { Run.Paused = true; Dialogs.Settings(Resume); }
+                else if (esc && !_busy && Shop != null && Shop.IsOpen) Shop.Close();
                 else if (esc && !_busy && Run.Watching) Run.StopWatching();
                 else if (esc && !_busy)
                 {
@@ -268,7 +271,8 @@ namespace Ski.Game
             else if (Screen == GameScreen.Tavern && Tavern != null && !Tavern.Busy && Tavern.GameEndFrame < Time.frameCount - 1 && Tavern.BusyEndFrame < Time.frameCount - 1)
             {
                 if (!Device.Touch && !Dialogs.Open && mouse != null && mouse.leftButton.wasPressedThisFrame && !Ui.Instance.PointerOverUi()) Cursor.lockState = CursorLockMode.Locked;
-                if (esc && !_busy)
+                if (settings && !esc) Dialogs.Settings(Lock);
+                else if (esc && !_busy)
                 {
                     if (Dialogs.Open) { Dialogs.Close(); Lock(); }
                     else

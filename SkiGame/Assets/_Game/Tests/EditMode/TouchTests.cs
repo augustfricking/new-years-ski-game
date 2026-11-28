@@ -1,54 +1,70 @@
 using NUnit.Framework;
 using Ski.Core;
+using UnityEngine;
 
 namespace Ski.Tests
 {
-    /// <summary>The touch steering box: nine zones, and no flicker on the lines between them.</summary>
+    /// <summary>The touch steering stick: eight ways the same distance out, a still middle, no flicker on the lines.</summary>
     public class TouchTests
     {
-        [Test]
-        public void EveryZoneAsksForItsOwnThing()
+        static string Ask(int way)
         {
-            // Across (left to right) and down (top to bottom), the middle of each third.
-            float[] at = { 0.15f, 0.5f, 0.85f };
-            string[,] want =
+            TouchZones.Read(way, out float steer, out bool tuck, out bool brake);
+            return ((brake ? "brake " : "") + (tuck ? "tuck " : "") + (steer < 0 ? "left" : steer > 0 ? "right" : "")).Trim();
+        }
+
+        static Vector2 At(float degrees, float r) => new Vector2(Mathf.Cos(degrees * Mathf.Deg2Rad), Mathf.Sin(degrees * Mathf.Deg2Rad)) * r;
+
+        [Test]
+        public void EveryWayAsksForItsOwnThing()
+        {
+            string[] want = { "right", "tuck right", "tuck", "tuck left", "left", "brake left", "brake", "brake right" };
+            for (int i = 0; i < 8; i++)
             {
-                { "tuck left", "tuck", "tuck right" },
-                { "left", "", "right" },
-                { "brake left", "brake", "brake right" },
-            };
-            for (int r = 0; r < 3; r++)
-                for (int c = 0; c < 3; c++)
-                {
-                    int col = TouchZones.Zone(at[c], 0, 0f), row = TouchZones.Zone(at[r], 0, 0f);
-                    TouchZones.Read(col, row, out float steer, out bool tuck, out bool brake);
-                    string got = ((brake ? "brake " : "") + (tuck ? "tuck " : "") + (steer < 0 ? "left" : steer > 0 ? "right" : "")).Trim();
-                    Assert.AreEqual(want[r, c], got, "zone at column " + c + ", row " + r);
-                }
+                int way = TouchZones.Stick(At(i * 45f, 0.8f), -1, false);
+                Assert.AreEqual(i, way, "way at " + (i * 45) + " degrees");
+                Assert.AreEqual(want[i], Ask(way), "way " + i);
+            }
+            Assert.AreEqual("", Ask(-1), "the middle");
         }
 
         [Test]
-        public void BeyondTheBoxCountsAsItsEdge()
+        public void EveryWayIsTheSameDistanceOut()
         {
-            Assert.AreEqual(-1, TouchZones.Zone(-0.4f, 0, TouchZones.Stick));
-            Assert.AreEqual(1, TouchZones.Zone(1.7f, 0, TouchZones.Stick));
+            // Just inside the middle nothing, just outside it each way, whichever way the thumb goes.
+            for (float a = 0f; a < 360f; a += 7.5f)
+            {
+                Assert.AreEqual(-1, TouchZones.Stick(At(a, TouchZones.Dead - 0.01f), -1, false), "inside at " + a);
+                Assert.AreNotEqual(-1, TouchZones.Stick(At(a, TouchZones.Dead + 0.01f), -1, false), "outside at " + a);
+            }
+            // Further out than the knob goes still counts by its direction.
+            Assert.AreEqual(4, TouchZones.Stick(new Vector2(-3f, 0.1f), -1, false));
         }
 
         [Test]
-        public void AThumbOnALineKeepsItsZone()
+        public void EveryWayIsTheSameWidth()
         {
-            float s = TouchZones.Stick, line = 1f / 3f;
-            // Just past the line from either side: the zone the thumb came from holds...
-            Assert.AreEqual(-1, TouchZones.Zone(line + s * 0.5f, -1, s));
-            Assert.AreEqual(0, TouchZones.Zone(line - s * 0.5f, 0, s));
-            Assert.AreEqual(1, TouchZones.Zone(2f / 3f - s * 0.5f, 1, s));
+            int[] count = new int[8];
+            for (float a = 0.25f; a < 360f; a += 0.5f) count[TouchZones.Stick(At(a, 0.8f), -1, false)]++;
+            for (int i = 0; i < 8; i++) Assert.AreEqual(90, count[i], "half-degrees in way " + i);
+        }
+
+        [Test]
+        public void AThumbOnALineKeepsItsWay()
+        {
+            float line = 22.5f, s = TouchZones.AngleStick;
+            // Just past the line between right (0) and up-right (1): the way the thumb came from holds...
+            Assert.AreEqual(0, TouchZones.Stick(At(line + s * 0.5f, 0.8f), 0, true));
+            Assert.AreEqual(1, TouchZones.Stick(At(line - s * 0.5f, 0.8f), 1, true));
             // ...until it is clearly over.
-            Assert.AreEqual(0, TouchZones.Zone(line + s * 1.5f, -1, s));
-            Assert.AreEqual(-1, TouchZones.Zone(line - s * 1.5f, 0, s));
-            Assert.AreEqual(0, TouchZones.Zone(2f / 3f - s * 1.5f, 1, s));
-            // A first touch goes by the lines themselves.
-            Assert.AreEqual(-1, TouchZones.Zone(line - 0.001f, 0, 0f));
-            Assert.AreEqual(0, TouchZones.Zone(line + 0.001f, 0, 0f));
+            Assert.AreEqual(1, TouchZones.Stick(At(line + s * 1.5f, 0.8f), 0, true));
+            Assert.AreEqual(0, TouchZones.Stick(At(line - s * 1.5f, 0.8f), 1, true));
+            // The same across the line round from left (4) to down-left (5), past the half turn.
+            Assert.AreEqual(4, TouchZones.Stick(At(180f + line + s * 0.5f, 0.8f), 4, true));
+            // The middle's edge holds too: in and out a little does not switch.
+            Assert.AreEqual(2, TouchZones.Stick(At(90f, TouchZones.Dead - TouchZones.DeadStick * 0.5f), 2, true));
+            Assert.AreEqual(-1, TouchZones.Stick(At(90f, TouchZones.Dead + TouchZones.DeadStick * 0.5f), -1, true));
+            Assert.AreEqual(-1, TouchZones.Stick(At(90f, TouchZones.Dead - TouchZones.DeadStick * 1.5f), 2, true));
         }
     }
 }

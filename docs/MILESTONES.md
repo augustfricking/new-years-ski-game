@@ -334,6 +334,7 @@ Ghosts and boards
       phone's keyboard for names and accounts
 - [x] Walking in the tavern and the beer game on touch (walk pad, USE/PUNCH/JUMP, tap to gulp, RESTART/LEAVE, AGAIN/DONE)
 - [x] Steering box with nine zones (columns turn, top row tucks, bottom row brakes); its outline shows at a run's start and after 10 s untouched (TouchZones, TouchTests)
+- [x] Round stick instead of the box: much smaller, a visible knob dragged from the middle, eight ways the same distance out (also walks in the tavern); TALK with the right-hand buttons; RESET / CAM / SETTINGS / pause along the top edge, clear of the time, the speed and the push ring
 - [x] Full screen from the first tap on Android/iPad (index.html, Settings > Graphics toggle); manifest + icons for Add to Home Screen (iPhone)
 - [ ] Tilt to steer (an option), swipes for tricks, vibration on crashes
 - [ ] Mobile texture format (ASTC) and memory checked on an iPhone

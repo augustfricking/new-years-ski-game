@@ -24,6 +24,7 @@ namespace Ski.Game
             if (ui == null || song == null) return;
             if (_card != null) { _card.RemoveFromHierarchy(); if (_tick != null) ui.RemoveTicker(_tick); }
             var card = Ui.Div(ui.TopLayer, "now-playing now-playing-hidden");
+            if (Device.Touch) card.AddToClassList("now-playing-touch");     // the touch buttons have the bottom right
             card.pickingMode = PickingMode.Ignore;
             // The song's cover, or a note where a song has none.
             var cover = Resources.Load<Texture2D>("Covers/" + id);

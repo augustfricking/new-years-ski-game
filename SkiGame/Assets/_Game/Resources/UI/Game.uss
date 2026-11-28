@@ -1501,7 +1501,8 @@
     border-radius: 4px;
 }
 
-/* Touch controls (phones and tablets): sizes in interface units, scaled with the screen. */
+/* Touch controls (phones and tablets): sizes in interface units, scaled with the screen. They keep to the
+   corners and the top edge, off the middle of the screen, the time, the speed and the push ring. */
 .touch-look {
     position: absolute;
     left: 0;
@@ -1510,120 +1511,91 @@
     bottom: 0;
 }
 
-.touch-pad {
+/* The round stick, bottom left: the area takes the thumb a little outside the ring. */
+.touch-stick {
     position: absolute;
     left: 30px;
     bottom: 30px;
-    width: 600px;
-    height: 330px;
-    border-radius: 40px;
-    background-color: rgba(27, 20, 48, 0.18);
-    border-width: 3px;
-    border-color: rgba(245, 235, 216, 0.35);
+    width: 340px;
+    height: 340px;
 }
 
-.touch-pad-label {
+.touch-stick-guide {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.touch-stick-ring {
+    position: absolute;
+    left: 50px;
+    top: 50px;
+    width: 240px;
+    height: 240px;
+    border-radius: 120px;
+    background-color: rgba(27, 20, 48, 0.25);
+    border-width: 3px;
+    border-color: rgba(245, 235, 216, 0.6);
+}
+
+.touch-stick-arm {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.touch-stick-tick {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 3px;
+    height: 24px;
+    margin-left: -1.5px;
+    background-color: rgba(245, 235, 216, 0.5);
+}
+
+.touch-stick-label {
     position: absolute;
     left: 0;
     right: 0;
-    bottom: 14px;
     -unity-text-align: middle-center;
-    font-size: 26px;
-    color: rgba(245, 235, 216, 0.6);
+    font-size: 24px;
+    color: rgba(245, 235, 216, 0.85);
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: rgb(27, 20, 48);
     -unity-font-definition: resource("Fonts/Bangers-Regular");
 }
 
-.touch-knob {
+.touch-stick-up {
+    top: 14px;
+}
+
+.touch-stick-down {
+    bottom: 14px;
+}
+
+.touch-stick-knob {
     position: absolute;
-    left: 240px;
-    top: 105px;
-    width: 120px;
-    height: 120px;
-    border-radius: 60px;
-    background-color: rgba(255, 198, 74, 0.9);
+    left: 122px;
+    top: 122px;
+    width: 96px;
+    height: 96px;
+    border-radius: 48px;
+    background-color: rgba(255, 198, 74, 0.85);
     border-width: 4px;
     border-color: rgb(27, 20, 48);
 }
 
-/* The steering box: nine zones (turn by column, tuck on the top row, brake on the bottom one). */
-.touch-steer {
-    position: absolute;
-    left: 30px;
-    bottom: 30px;
-    width: 630px;
-    height: 430px;
-}
-
-.touch-steer-frame {
-    position: absolute;
-    left: 0;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    border-radius: 40px;
-    background-color: rgba(27, 20, 48, 0.2);
-    border-width: 3px;
-    border-color: rgba(245, 235, 216, 0.55);
-}
-
-.touch-steer-line {
-    position: absolute;
-    background-color: rgba(245, 235, 216, 0.28);
-}
-
-.touch-steer-col {
-    top: 12px;
-    bottom: 12px;
-    width: 2px;
-}
-
-.touch-steer-row {
-    left: 12px;
-    right: 12px;
-    height: 2px;
-}
-
-.touch-steer-label {
-    position: absolute;
-    -unity-text-align: middle-center;
-    font-size: 28px;
-    color: rgba(245, 235, 216, 0.75);
-    -unity-font-definition: resource("Fonts/Bangers-Regular");
-}
-
-.touch-steer-top {
-    left: 33.3%;
-    width: 33.4%;
-    top: 0;
-    height: 33.3%;
-}
-
-.touch-steer-bottom {
-    left: 33.3%;
-    width: 33.4%;
-    bottom: 0;
-    height: 33.3%;
-}
-
-.touch-steer-left {
-    left: 0;
-    width: 33.3%;
-    top: 33.3%;
-    height: 33.4%;
-}
-
-.touch-steer-right {
-    right: 0;
-    width: 33.3%;
-    top: 33.3%;
-    height: 33.4%;
-}
-
+/* The right thumb's buttons, bottom right. */
 .touch-btn {
     position: absolute;
-    width: 160px;
-    height: 160px;
-    border-radius: 80px;
+    width: 140px;
+    height: 140px;
+    border-radius: 70px;
     align-items: center;
     justify-content: center;
     background-color: rgba(27, 20, 48, 0.45);
@@ -1632,44 +1604,39 @@
 }
 
 .touch-label {
-    font-size: 32px;
+    font-size: 30px;
     color: rgb(245, 235, 216);
     -unity-font-definition: resource("Fonts/Bangers-Regular");
 }
 
-.touch-push {
-    right: 50px;
-    bottom: 60px;
-    width: 220px;
-    height: 220px;
-    border-radius: 110px;
+.touch-main {
+    right: 40px;
+    bottom: 40px;
+    width: 190px;
+    height: 190px;
+    border-radius: 95px;
     background-color: rgba(255, 198, 74, 0.55);
 }
 
 .touch-jump {
-    right: 300px;
-    bottom: 40px;
+    right: 250px;
+    bottom: 36px;
 }
 
-.touch-punch {
-    right: 70px;
-    bottom: 310px;
-}
-
-.touch-grab {
-    right: 290px;
-    bottom: 230px;
-    width: 140px;
-    height: 140px;
-    border-radius: 70px;
+.touch-side {
+    right: 60px;
+    bottom: 250px;
+    width: 120px;
+    height: 120px;
+    border-radius: 60px;
 }
 
 .touch-talk {
-    left: 690px;
-    bottom: 50px;
-    width: 130px;
-    height: 130px;
-    border-radius: 65px;
+    right: 220px;
+    bottom: 200px;
+    width: 110px;
+    height: 110px;
+    border-radius: 55px;
 }
 
 .touch-down {
@@ -1677,16 +1644,22 @@
     border-color: rgb(27, 20, 48);
 }
 
+/* Small buttons in a row along the top edge, between the time and the speed. */
 .touch-top {
     position: absolute;
-    top: 170px;
-    right: 40px;
+    top: 12px;
+    left: 0;
+    right: 0;
+    flex-direction: row;
+    justify-content: center;
 }
 
 .touch-small {
-    width: 110px;
-    height: 76px;
-    border-radius: 14px;
+    height: 58px;
+    min-width: 70px;
+    padding: 0 18px;
+    margin: 0 6px;
+    border-radius: 12px;
     align-items: center;
     justify-content: center;
     background-color: rgba(27, 20, 48, 0.55);
@@ -1694,16 +1667,14 @@
     border-color: rgba(245, 235, 216, 0.75);
 }
 
-.touch-cam {
-    position: absolute;
-    top: 170px;
-    right: 170px;
+.touch-small .touch-label {
+    font-size: 24px;
 }
 
-.touch-reset {
-    position: absolute;
-    top: 170px;
-    right: 300px;
+/* The song card, on touch below the speed (the buttons have the bottom right). */
+.now-playing-touch {
+    top: 190px;
+    bottom: auto;
 }
 
 .touch-turn {
